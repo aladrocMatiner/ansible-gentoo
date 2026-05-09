@@ -1,0 +1,193 @@
+# Gentoo Portage Basics Skill
+
+## 1. Purpose
+This skill describes the minimum Portage configuration required for the v1 `gentoo-ai-installer` Gentoo installation.
+
+The goal is a simple working Gentoo system, not a heavily optimized one. Prefer clarity, reliability, and repeatability over maximum performance.
+
+This skill defines setup rules and expectations. It does not implement scripts.
+
+## 2. When to Use This Skill
+Use this skill:
+
+- After amd64 OpenRC stage3 extraction.
+- After chroot preparation is complete.
+- Before installing `gentoo-kernel-bin`, GRUB, NetworkManager, users, and services.
+- When designing future Ansible `portage` and package-installation roles.
+- When reviewing `make.conf`, profile, repos, or package list changes.
+
+## 3. Required Context
+- Target root path, normally `/mnt/gentoo`.
+- Confirmed chroot readiness.
+- v1 architecture: amd64.
+- v1 init system: OpenRC.
+- v1 boot mode: UEFI.
+- v1 filesystem: ext4.
+- Required packages for `gentoo-kernel-bin`, GRUB, EFI boot support, NetworkManager, editor, privilege escalation, syslog, and cron.
+- Network and DNS status.
+- Mirror selection.
+- Whether Codex was bootstrapped in the live ISO only.
+
+## 4. `make.conf` Principles
+`make.conf` should stay minimal for v1:
+
+- Use conservative compiler flags.
+- Avoid CPU-specific tuning at first.
+- Keep `USE` flags small and intentional.
+- Prefer readable settings that are easy to reproduce in Ansible later.
+- Do not copy host-specific tuning from another machine.
+- Do not add settings just because they may improve performance.
+- Keep comments short and useful.
+- Avoid storing secrets or tokens.
+
+## 5. `COMMON_FLAGS` Guidance
+Recommended initial policy:
+
+- Use safe amd64-compatible flags.
+- Avoid aggressive CPU-specific optimization at first.
+- Do not start with unstable or exotic compiler flags.
+- Prefer a baseline such as generic `-O2 -pipe` style guidance over host-specific tuning.
+- Defer `-march=native` or CPU-specific flags until after the system boots reliably and a later OpenSpec change approves optimization.
+
+The initial install should optimize for successful bootstrap, not maximum compile performance.
+
+## 6. `MAKEOPTS` Guidance
+`MAKEOPTS` should be conservative:
+
+- Use CPU count and memory availability from live environment checks.
+- Avoid setting job counts so high that the live environment or target system runs out of memory.
+- Prefer a modest value for first install.
+- Record the chosen value so Ansible can reproduce it later.
+- Revisit after the installed system is stable.
+
+If memory is low, reduce parallelism before package installation.
+
+## 7. `ACCEPT_LICENSE` Guidance
+Keep license policy explicit:
+
+- Start with the Gentoo default license behavior unless a required package needs a specific license.
+- Do not set broad license acceptance without operator approval.
+- Document any non-default license acceptance and why it is required.
+- Do not accept licenses for Codex in the installed system unless Codex is explicitly being installed there, which is out of scope for v1.
+
+## 8. USE Flags Policy
+Policy:
+
+- Keep v1 minimal.
+- Do not over-customize global `USE` flags.
+- Add only flags needed for the defined v1 system.
+- Avoid broad desktop, server, or hardware assumptions unless explicitly required.
+- Prefer package-specific flags later if needed instead of global flags.
+- Record every non-default global flag and its reason.
+
+The v1 target is a simple working OpenRC system with GRUB, NetworkManager, and `gentoo-kernel-bin`.
+
+## 9. Profile Selection
+Profile selection must:
+
+- Use an amd64 OpenRC profile.
+- Avoid systemd profiles in v1.
+- Avoid experimental profile changes during initial install.
+- Be visible in logs and output artifacts.
+- Be applied through `make select-profile` when available.
+
+If the selected profile is not clearly amd64 and OpenRC-compatible, stop and reselect.
+
+## 10. Mirrors and Repos
+Mirrors and repository setup should:
+
+- Use official Gentoo repository configuration.
+- Select reliable mirrors suitable for the operator's network.
+- Confirm DNS and HTTPS work before syncing.
+- Avoid custom repositories in the installed system unless explicitly required.
+- Record selected mirrors for reproducibility.
+
+Repository sync should be exposed through `make sync-portage`.
+
+## 11. GURU Overlay Policy
+GURU overlay may be used for Codex in the live environment, but should not be blindly enabled in the installed Gentoo system.
+
+Policy:
+
+- Codex does not need to be installed into the final Gentoo system in v1.
+- Do not enable GURU in the installed system unless an approved change explicitly requires it.
+- If GURU is used for live Codex bootstrap, keep that separate from target Portage configuration.
+- Any installed-system overlay must have a clear purpose, affected packages, and safety review.
+
+## 12. Package Installation Policy
+Install only the base packages needed for v1:
+
+- `gentoo-kernel-bin`
+- `grub`
+- `efibootmgr`
+- `networkmanager`
+- `sudo` or `doas`
+- `vim` or `nano`
+- Syslog package
+- Cron package
+
+Policy:
+
+- Prefer `gentoo-kernel-bin` to avoid kernel compilation complexity in v1.
+- Keep package set small.
+- Do not install Codex into the final Gentoo system in v1.
+- Do not add desktop environments, broad toolchains, or convenience packages unless approved.
+- Record package names and reasons.
+- Package installation mutates the target system and should be run only after chroot and target-root checks pass.
+
+## 13. Makefile Targets
+Expected targets:
+
+- `make configure-portage`
+- `make select-profile`
+- `make sync-portage`
+- `make install-base-packages`
+
+Target expectations:
+
+- `make configure-portage`: write minimal `make.conf` and repo settings into the target.
+- `make select-profile`: select and show the amd64 OpenRC profile.
+- `make sync-portage`: sync official Gentoo repository metadata.
+- `make install-base-packages`: install the v1 base package set.
+
+The operator should not be asked to run raw `emerge`, `eselect profile`, or repository commands when Makefile targets exist.
+
+## 14. Failure Modes
+- Wrong profile selected, especially a systemd profile.
+- Network or DNS fails during repository sync.
+- Mirrors are unreachable or stale.
+- `make.conf` contains overly aggressive CPU-specific flags.
+- `MAKEOPTS` is too high for available memory.
+- Broad `USE` flags pull in unwanted dependencies.
+- License settings block required packages.
+- GURU overlay is accidentally enabled in the installed system.
+- Codex is accidentally installed into the target system.
+- Package conflicts or keyword issues appear.
+- Disk space is insufficient for package installation.
+
+## 15. Recovery Advice
+- Re-check the selected profile and confirm it is amd64 OpenRC.
+- Re-run network, DNS, and time checks before syncing.
+- Switch mirrors through documented targets if sync fails.
+- Reduce `MAKEOPTS` if builds fail due to memory pressure.
+- Remove unnecessary global `USE` flags before troubleshooting package conflicts.
+- Keep license changes narrow and documented.
+- Remove accidental installed-system GURU configuration unless an approved change requires it.
+- Keep Codex in the live environment for v1.
+- Record package conflicts for OpenSpec follow-up instead of improvising broad changes.
+
+## 16. Output Artifacts
+This skill should produce or request:
+
+- `make.conf` summary.
+- Selected `COMMON_FLAGS`.
+- Selected `MAKEOPTS`.
+- `ACCEPT_LICENSE` policy.
+- Global `USE` flag list and reasons.
+- Selected amd64 OpenRC profile.
+- Mirror and repository summary.
+- Confirmation that GURU is not blindly enabled in the installed system.
+- Base package list with reasons.
+- Repository sync result.
+- Package installation result.
+- Notes for future Ansible variables.
