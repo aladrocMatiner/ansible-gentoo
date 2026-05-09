@@ -1,5 +1,6 @@
 # Downloaded Gentoo release artifacts are fetched inputs, not source.
 gentoo.iso/
+gentoo.iso
 
 # Local secret files must never be committed.
 .env
@@ -9,3 +10,7 @@ gentoo.iso/
 # Runtime logs and temporary files.
 logs/
 tmp/
+
+# Local QEMU test VM artifacts.
+var/qemu/*.qcow2
+var/qemu/*.fd

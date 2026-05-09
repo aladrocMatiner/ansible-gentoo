@@ -334,6 +334,16 @@ Validation: final checklist is complete and recovery path with live ISO is under
 
 Do not store secrets, passwords, API tokens, or private keys in logs.
 
+## Documentation maintenance responsibilities
+When this agent changes the manual installation behavior, it must update documentation in the same change.
+
+- If the manual install flow changes, update the relevant manual installation documentation under `docs/` and the matching reusable procedures under `skills/`, especially `skills/gentoo-live-environment.md`, `skills/gentoo-disk-planning.md`, `skills/gentoo-stage3-and-chroot.md`, `skills/gentoo-portage-basics.md`, and `skills/gentoo-kernel-and-boot.md`.
+- If destructive step handling changes, update safety documentation in `agents/safety-review-agent.md`, relevant safety sections in `skills/`, and any active OpenSpec `tasks.md` for the change.
+- If operator commands, variables, or target names change, update `README.md` or the relevant file under `docs/`, and update `skills/makefile-control-plane.md`.
+- If the agent changes project-wide behavior, update `AGENTS.md`.
+- Before finishing, check `README.md`, `docs/`, `skills/`, and the active OpenSpec `tasks.md` for stale manual install instructions, stale safety confirmations, or examples that no longer match the Makefile.
+- The final response must report documentation files updated, documentation files checked but not changed, stale documentation fixed, and any documentation intentionally deferred with the reason.
+
 ## 13. Recovery Guidance
 - If disk identity is uncertain, stop and re-run inventory. Do not partition or format.
 - If booted in BIOS mode, reboot the live ISO using the UEFI boot entry.

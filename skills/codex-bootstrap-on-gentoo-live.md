@@ -117,6 +117,8 @@ Warn the operator before reboot that Codex may need to be bootstrapped again.
 ## 10. Makefile Targets
 Expected make targets:
 
+These targets define the expected control-plane contract for Codex bootstrap. If a target is not present in the current `Makefile`, treat it as planned and do not document it as runnable in user-facing docs.
+
 - `make bootstrap-codex`
 - `make check-codex`
 - `make clean-live-secrets`
@@ -183,3 +185,13 @@ This skill should produce or request:
 - Project directory writability result.
 - Secret hygiene check result.
 - Cleanup instructions through `make clean-live-secrets`.
+
+## Documentation maintenance
+When Codex bootstrap behavior changes, documentation must change in the same implementation step.
+
+- If supported install methods, method selection, package requirements, install paths, validation checks, or cleanup behavior change, update this skill and the relevant Codex bootstrap documentation under `docs/`.
+- If authentication or token handling changes, update this skill, `agents/codex-bootstrap-agent.md`, and any safety documentation without recording real tokens or login secrets.
+- If environment variables change, update `.env.example` with placeholder names only, confirm `.env` remains ignored, and document the variables in `README.md` or `docs/`.
+- If Makefile targets such as `make bootstrap-codex`, `make check-codex`, or `make clean-live-secrets` change, update this skill and `skills/makefile-control-plane.md`.
+- If failure modes or recovery actions change, update those sections here so operators do not retry with stale install-method or cleanup guidance.
+- Before finishing, confirm the documentation still states that Codex is temporary in the official live ISO and does not survive reboot.

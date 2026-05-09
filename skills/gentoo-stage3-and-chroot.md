@@ -158,6 +158,8 @@ Future automation should minimize ad-hoc shell execution in chroot and prefer ex
 ## 11. Makefile Targets
 Expected targets:
 
+These targets define the expected control-plane contract for stage3 and chroot work. If a target is not present in the current `Makefile`, treat it as planned and do not document it as runnable in user-facing docs.
+
 - `make download-stage3`
 - `make verify-stage3`
 - `make extract-stage3`
@@ -215,3 +217,13 @@ This skill should produce or request:
 - Chroot mount preparation log.
 - DNS preparation summary.
 - Chroot readiness decision.
+
+## Documentation maintenance
+When stage3, extraction, mount preparation, DNS, or chroot behavior changes, documentation must change in the same implementation step.
+
+- If stage3 selection changes, update this skill and manual install documentation to state the supported architecture, init system, source, checksum, and signature expectations.
+- If verification behavior changes, update failure modes and recovery guidance so checksum or signature failures still fail closed.
+- If extraction target, mount points, pseudo-filesystem mounts, resolver handling, or chroot entry expectations change, update this skill, `agents/gentoo-install-agent.md`, and relevant `docs/` workflows.
+- If Makefile targets such as `make download-stage3`, `make verify-stage3`, `make extract-stage3`, `make prepare-chroot`, or `make enter-chroot` change, update this skill and `skills/makefile-control-plane.md`.
+- If automation later implements these steps, ensure the active OpenSpec `tasks.md` includes documentation updates for target-root checks, overwrite behavior, logs, and recovery.
+- Before finishing, confirm failure modes and recovery advice still match the implemented stage3 and chroot flow.

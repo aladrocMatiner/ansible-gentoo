@@ -176,6 +176,17 @@ After `make bootstrap-codex`, the agent should ask the operator to run `make che
 - If reboot occurs, assume Codex and authentication state are gone and repeat bootstrap.
 - Never recover by copying live-session secrets into the repository.
 
+## Documentation maintenance responsibilities
+When this agent changes Codex bootstrap behavior, it must update documentation in the same change.
+
+- If install methods, method selection, package requirements, validation commands, or cleanup behavior change, update `skills/codex-bootstrap-on-gentoo-live.md` and the relevant Codex bootstrap documentation under `docs/`.
+- If authentication, login, token handling, or secret cleanup changes, update the security guidance in this file, `skills/codex-bootstrap-on-gentoo-live.md`, and any relevant safety documentation without recording real tokens.
+- If environment variables change, update `.env.example` documentation rules with variable names only, confirm `.env` remains ignored, and update `README.md` or `docs/` where the operator needs to know the variable.
+- If Makefile targets such as `make bootstrap-codex`, `make check-codex`, or `make clean-live-secrets` change, update `README.md` or `docs/` and `skills/makefile-control-plane.md`.
+- If an OpenSpec implementation change is active, ensure its `tasks.md` includes Codex bootstrap documentation work before marking implementation complete.
+- Before finishing, check `README.md`, `docs/`, `skills/`, and active OpenSpec tasks for stale bootstrap commands, install method names, token guidance, and cleanup examples.
+- The final response must report documentation files updated, documentation files checked but not changed, stale documentation fixed, and any documentation intentionally deferred with the reason.
+
 ## 14. Example Tasks
 - Choose a Codex install method based on live ISO preflight output.
 - Draft Makefile target behavior for `make bootstrap-codex`.

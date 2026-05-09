@@ -5,10 +5,11 @@ The Ansible Installer Agent is responsible for phase 2 of `gentoo-ai-installer`:
 
 Phase 1 remains a manual installation assisted by Codex. Phase 2 translates validated phase-1 procedures into local Ansible playbooks that run from the official Gentoo live ISO environment. The Makefile remains the only operator-facing control plane.
 
-The first Ansible version targets:
+The reuse-first Ansible architecture supports basic console installation variants for:
 
 - amd64
 - OpenRC
+- systemd
 - UEFI
 - ext4
 - `gentoo-kernel-bin`
@@ -22,6 +23,9 @@ The first Ansible version targets:
 - Generate future playbooks, roles, variables, inventories, and documentation from approved OpenSpec changes.
 - Ensure all operator-facing Ansible actions are exposed through Makefile targets.
 - Convert only validated phase-1 manual steps into automation.
+- Maximize reuse across OpenRC and systemd flows.
+- Evaluate new roles, tasks, handlers, templates, variables, and validation logic for common reuse before adding init-specific files.
+- Keep init-specific logic isolated and explicit.
 - Enforce destructive-operation safety gates.
 - Ensure playbooks fail closed when the target disk, mount state, boot mode, or confirmation state is uncertain.
 - Maintain idempotency requirements and dry-run behavior.
@@ -30,13 +34,14 @@ The first Ansible version targets:
 ## 3. Non-goals
 - Do not implement the Ansible playbooks during this documentation-only scaffold.
 - Do not run `ansible-playbook` directly in operator instructions.
-- Do not automate unsupported v1 scope such as systemd, LUKS, Btrfs, custom ISO, remote hosts, or non-amd64 installs.
+- Do not implement OpenRC or systemd installer automation without an approved implementation change.
+- Do not automate unsupported scope such as LUKS, Btrfs, custom ISO, remote hosts, graphical desktop installs, or non-amd64 installs.
 - Do not hide destructive behavior behind generic playbook or role names.
 - Do not proceed when disk identity, boot mode, mount paths, or confirmations are ambiguous.
 - Do not store secrets, passwords, API tokens, or private keys in inventory, variables, logs, or generated docs.
 
 ## 4. Ansible Project Layout
-The agent must generate and maintain this layout when implementation is requested later:
+The agent must generate and maintain a reuse-first layout when implementation is requested later. Proposed layout:
 
 ```text
 ansible/
@@ -44,71 +49,92 @@ ansible/
     local.yml
   group_vars/
     all.yml
+    openrc.yml
+    systemd.yml
   playbooks/
-    prepare-live-env.yml
-    install-gentoo.yml
-    partition-disk.yml
-    install-stage3.yml
-    configure-system.yml
-    install-bootloader.yml
+    install-openrc.yml
+    install-systemd.yml
+    install-basic-console.yml
   roles/
-    preflight/
-    disk_detection/
-    disk_partitioning/
-    filesystem/
-    mount_target/
-    stage3/
-    portage/
-    chroot/
-    kernel/
-    bootloader/
-    networking/
-    users/
-    final_checks/
+    common/
+      preflight/
+      disk_detection/
+      disk_safety/
+      partitioning/
+      filesystem/
+      mount_target/
+      stage3/
+      chroot/
+      portage/
+      package_install/
+      fstab/
+      kernel/
+      bootloader/
+      users/
+      ssh/
+      final_checks/
+    init/
+      openrc/
+      systemd/
 ```
 
 Layout intent:
 
 - `inventory/local.yml`: local live-ISO execution inventory only.
-- `group_vars/all.yml`: defaults and required variables for v1.
-- `playbooks/prepare-live-env.yml`: read-only or low-risk live environment preparation.
-- `playbooks/install-gentoo.yml`: orchestration playbook that imports reviewed phases.
-- `playbooks/partition-disk.yml`: disk planning and partitioning entry point with strict safety gates.
-- `playbooks/install-stage3.yml`: mount, verify, and extract stage3 after disk preparation.
-- `playbooks/configure-system.yml`: Portage, chroot, kernel, networking, users, and system config.
-- `playbooks/install-bootloader.yml`: GRUB and UEFI bootloader work with explicit confirmation.
+- `group_vars/all.yml`: shared variables and safe defaults that do not select disks.
+- `group_vars/openrc.yml`: OpenRC variant values such as stage3 variant, profile, services, syslog, and cron package choices.
+- `group_vars/systemd.yml`: systemd variant values such as stage3 variant, profile, units, and journald assumptions.
+- `playbooks/install-openrc.yml`: thin OpenRC entrypoint that sets or loads OpenRC variables and calls the shared flow.
+- `playbooks/install-systemd.yml`: thin systemd entrypoint that sets or loads systemd variables and calls the shared flow.
+- `playbooks/install-basic-console.yml`: shared console install flow used by both variants where practical.
+- `roles/common/*`: shared implementation for behavior that does not genuinely differ by init system.
+- `roles/init/openrc`: OpenRC-only behavior.
+- `roles/init/systemd`: systemd-only behavior.
 - Roles isolate focused responsibilities and must not combine unrelated risk classes.
 
-## 5. Role Design
-Roles should have narrow scope and explicit risk classification:
+Alternative layouts are acceptable only when an OpenSpec design explains how they preserve common implementation and init-specific isolation.
 
-- `preflight`: verify live ISO, amd64, UEFI, network, time, tools, and mount state.
-- `disk_detection`: collect disk model, size, serial, stable paths, and current partition table without modifying disks.
-- `disk_partitioning`: perform partition changes only after disk and confirmation gates pass.
-- `filesystem`: create filesystems only after partition confirmation gates pass.
-- `mount_target`: mount target root and EFI partitions with path assertions.
-- `stage3`: download or use provided amd64 OpenRC stage3, verify it, and extract to confirmed target root.
-- `portage`: configure conservative v1 Portage settings.
-- `chroot`: prepare chroot bind mounts and run target-mutating commands only through explicit task blocks.
-- `kernel`: install `gentoo-kernel-bin` in the target.
-- `bootloader`: install and configure GRUB for UEFI with confirmation gates.
-- `networking`: install and enable NetworkManager for OpenRC.
-- `users`: create configured users and passwords only through explicit confirmation and secret-safe input.
-- `final_checks`: validate fstab, bootloader, kernel, users, services, mounts, and recovery notes.
+## 5. Role Design
+Roles should have narrow scope, explicit risk classification, and a reuse-first boundary.
+
+Shared roles:
+
+- `common/preflight`: verify live ISO, amd64, UEFI, network, time, tools, and mount state.
+- `common/disk_detection`: collect disk model, size, serial, stable paths, and current partition table without modifying disks.
+- `common/disk_safety`: validate required disk variables, confirmations, QEMU mode assumptions, and fail-closed behavior.
+- `common/partitioning`: perform partition changes only after shared disk and confirmation gates pass.
+- `common/filesystem`: create filesystems only after partition confirmation gates pass.
+- `common/mount_target`: mount target root and EFI partitions with path assertions.
+- `common/stage3`: provide shared download, checksum, signature, architecture, and variant validation framework.
+- `common/chroot`: prepare chroot bind mounts and guard target-mutating operations.
+- `common/portage`: configure conservative Portage baseline shared by both variants.
+- `common/package_install`: install packages from shared or variant package lists.
+- `common/fstab`: generate UUID-based fstab entries.
+- `common/kernel`: install `gentoo-kernel-bin` in the target.
+- `common/bootloader`: install and configure GRUB for UEFI with shared confirmation gates.
+- `common/users`: create configured users and credentials through explicit confirmation and secret-safe input.
+- `common/ssh`: install and enable SSH through init-specific service dispatch.
+- `common/final_checks`: validate fstab, bootloader, kernel, users, services, mounts, and recovery notes.
+
+Init-specific roles:
+
+- `init/openrc`: OpenRC stage3 variant, profile, `rc-update` service enablement, OpenRC-compatible syslog and cron packages, and OpenRC validation.
+- `init/systemd`: systemd stage3 variant, profile, `systemctl` service enablement, systemd-journald assumptions, and systemd validation.
 
 Roles must use clear tags such as `preflight`, `plan`, `destructive`, `partition`, `filesystem`, `mount`, `stage3`, `chroot`, `bootloader`, `users`, and `final_checks`.
+OpenRC roles must not call `systemctl`. systemd roles must not call `rc-update` or `rc-service`.
 
 ## 6. Variable Model
 The variable model must make risk explicit. Required or expected variables include:
 
 - `gentoo_arch`: expected `amd64`.
-- `gentoo_init`: expected `openrc`.
+- `init_system`: must be `openrc` or `systemd`.
 - `boot_mode`: expected `uefi`.
-- `root_filesystem`: expected `ext4`.
+- `filesystem`: expected `ext4`.
 - `kernel_package`: expected `gentoo-kernel-bin`.
 - `bootloader`: expected `grub`.
-- `network_manager`: expected `NetworkManager`.
-- `target_root`: target mount path, for example `/mnt/gentoo`, but still validated before use.
+- `target_mount`: target mount path, for example `/mnt/gentoo`, but still validated before use.
+- `efi_mount`: EFI mount path, for example `/mnt/gentoo/boot/efi`, but still validated before use.
 - `install_disk`: required for destructive disk tasks and must be operator-provided. It is normally populated from the Makefile `INSTALL_DISK` variable.
 - `install_disk_model`: collected and shown before partitioning.
 - `install_disk_size`: collected and shown before partitioning.
@@ -116,21 +142,26 @@ The variable model must make risk explicit. Required or expected variables inclu
 - `install_disk_partition_table_before`: collected and shown before partitioning.
 - `efi_partition`: operator-approved EFI partition after planning.
 - `root_partition`: operator-approved root partition after planning.
-- `stage3_source`: selected amd64 OpenRC stage3 source or local path.
+- `stage3_variant`: must match `init_system`.
+- `stage3_source`: selected official stage3 source or local path.
 - `hostname`: target hostname.
 - `timezone`: target timezone.
 - `locale`: target locale.
+- `enable_ssh`: whether to install and enable SSH.
+- `qemu_mode`: true only when running inside the QEMU test VM.
 - `admin_users`: target user definitions without plaintext passwords.
-- `I_UNDERSTAND_THIS_WIPES_DISK`: required value is `yes` for destructive disk tasks. It is normally populated from the Makefile variable with the same name.
+- `confirm_wipe_disk`: required value is `yes` for destructive disk tasks. It may be populated from the Makefile `I_UNDERSTAND_THIS_WIPES_DISK` variable.
 - `bootloader_confirmation`: required for GRUB and EFI changes.
 - `user_confirmation`: required for privileged user and password changes.
 
 Rules:
 
 - No destructive task may run unless `install_disk` is explicitly provided.
-- No destructive disk task may run unless `I_UNDERSTAND_THIS_WIPES_DISK=yes`.
+- No destructive disk task may run unless `confirm_wipe_disk=yes`.
 - Defaults must not choose a disk.
 - The Makefile variable `INSTALL_DISK` must never have a default value, and Ansible must not introduce one in inventory or `group_vars`.
+- `stage3_variant` must match `init_system`.
+- QEMU `/dev/vda` is allowed only when explicitly passed as `install_disk=/dev/vda` inside the guest VM.
 - Passwords and tokens must not be stored in `group_vars/all.yml`.
 - Values discovered at runtime must be logged as evidence before tasks mutate state.
 
@@ -157,14 +188,18 @@ Inventory rules:
 The Makefile is the only operator-facing control plane. The agent must expose Ansible through these expected targets:
 
 - `make ansible-check`: validate Ansible availability, inventory syntax, variables, and role/playbook structure.
-- `make ansible-dry-run`: run supported playbooks in `--check` mode where practical and produce a plan.
-- `make install-plan`: collect facts and produce a full installation plan without destructive changes.
-- `make install`: run the approved full install flow with required confirmations.
+- `make ansible-dry-run PROFILE=openrc`: run supported OpenRC check-mode workflow and produce a plan.
+- `make ansible-dry-run PROFILE=systemd`: run supported systemd check-mode workflow and produce a plan.
+- `make install-plan PROFILE=openrc`: collect facts and produce an OpenRC installation plan without destructive changes.
+- `make install-plan PROFILE=systemd`: collect facts and produce a systemd installation plan without destructive changes.
+- `make install-openrc`: run the approved OpenRC install flow with required confirmations.
+- `make install-systemd`: run the approved systemd install flow with required confirmations.
 - `make partition-plan`: show disk model, size, serial, current partition table, and proposed changes.
 - `make partition`: perform partitioning only when Makefile `INSTALL_DISK` is provided and `I_UNDERSTAND_THIS_WIPES_DISK=yes`.
 - `make final-checks`: validate target system state before reboot.
 
 Operator instructions must use Makefile targets. Raw `ansible-playbook` commands may appear only as implementation notes inside Makefile or maintainer docs.
+Makefile targets should pass `PROFILE=openrc` or `PROFILE=systemd` into shared Ansible flows where practical instead of maintaining duplicated command chains.
 
 ## 9. Safety Gates
 The installer must fail closed if uncertainty exists. Required safety gates:
@@ -172,17 +207,19 @@ The installer must fail closed if uncertainty exists. Required safety gates:
 - Confirm the live environment is the official Gentoo live ISO.
 - Confirm architecture is amd64.
 - Confirm boot mode is UEFI.
-- Confirm v1 scope: OpenRC, ext4, `gentoo-kernel-bin`, GRUB, NetworkManager, no LUKS, no Btrfs.
+- Confirm selected init system is `openrc` or `systemd`.
+- Confirm scope: ext4, `gentoo-kernel-bin`, GRUB, basic console install, no LUKS, no Btrfs.
 - Confirm `install_disk` is explicitly provided before destructive tasks.
 - Show disk model, size, serial, stable path, and current partition table before partitioning.
-- Require `I_UNDERSTAND_THIS_WIPES_DISK=yes` before partitioning, wiping signatures, formatting, or any install flow that includes destructive disk work.
+- Require shared `confirm_wipe_disk=yes` before partitioning, wiping signatures, formatting, or any install flow that includes destructive disk work.
 - Require `bootloader_confirmation` before GRUB install, GRUB config generation, or EFI boot entry changes.
 - Require `user_confirmation` before privileged user creation or password changes.
-- Assert `target_root` is not `/`.
+- Assert `target_mount` is not `/`.
 - Assert target mount paths are expected and not covering unrelated live system paths.
 - Stop if any selected disk or partition is mounted unexpectedly.
-- Stop if stage3 is not amd64 OpenRC.
+- Stop if stage3 is not amd64 or its variant does not match `init_system`.
 - Stop if a task would write into the live root when it should write into the target root.
+Shared safety gates must be implemented once and reused by OpenRC and systemd flows. Init-specific roles may consume safety facts, but must not redefine, duplicate, or weaken disk safety checks.
 
 ## 10. Dry-run Strategy
 Generated playbooks must support `--check` where practical:
@@ -210,6 +247,29 @@ Future roles and playbooks must be safe to re-run when possible:
 
 If idempotency is not possible for a task, the task must be isolated, tagged, documented, and guarded by confirmation.
 
+## Reuse-first Responsibilities
+Before adding or reviewing Ansible implementation, the agent must classify each task as shared or init-specific.
+
+Shared behavior must live in common roles, common task files, common handlers, common templates, common validation tasks, or shared variables. Init-specific files are allowed only for genuine differences such as stage3 variant, profile selection, service manager commands, syslog/cron package choices, journald assumptions, and init-specific validation.
+
+If duplicate OpenRC/systemd logic is introduced, the agent must include a report section named `Duplicated Ansible logic` that lists:
+
+- The duplicated files or tasks.
+- Why variables, shared includes, or common roles cannot express the behavior.
+- What safety review or follow-up is required to prevent drift.
+
+Anti-duplication review checklist:
+
+- Is common behavior implemented once?
+- Are shared safety gates implemented once and reused?
+- Are OpenRC and systemd differences isolated under explicit init-specific roles or task files?
+- Do OpenRC tasks avoid `systemctl`?
+- Do systemd tasks avoid `rc-update` and `rc-service`?
+- Are handlers, templates, validation tasks, package-install framework, and logging reused where practical?
+- Does any init-specific role partition, format, wipe, or select disks directly?
+- Does any inventory or group vars file define a default `install_disk`?
+- Does documentation describe shared behavior once and init-specific differences separately?
+
 ## 12. Logging Requirements
 Logs must support audit and recovery without leaking secrets:
 
@@ -234,11 +294,22 @@ Logs must support audit and recovery without leaking secrets:
 - If final checks fail, do not reboot until failures are resolved or documented with a recovery plan.
 - If secrets are accidentally logged or written, stop, remove the secret material, and keep the contaminated files out of git history.
 
+## Documentation maintenance responsibilities
+When this agent changes phase 2 Ansible behavior, it must update documentation in the same change.
+
+- If playbooks, roles, inventories, variables, role defaults, safety gates, dry-run behavior, or log locations change, update the Ansible documentation under `docs/` and the reusable procedure in `skills/ansible-gentoo-installer.md`.
+- If local execution assumptions change, document whether Ansible runs locally from the official Gentoo live ISO or against a remote host; v1 documentation must keep local live ISO execution explicit.
+- If Makefile targets such as `make ansible-check`, `make ansible-dry-run`, `make install-plan`, `make install`, or `make final-checks` change, update `README.md` or `docs/` and `skills/makefile-control-plane.md`.
+- If destructive or high-risk Ansible behavior changes, update `agents/safety-review-agent.md`, relevant `skills/` safety sections, and the active OpenSpec `tasks.md`.
+- If the Ansible layout changes, update this file, `skills/ansible-gentoo-installer.md`, and `docs/ansible-architecture.md` together so future role generation uses the same structure.
+- Before finishing, check `README.md`, `docs/`, `skills/`, and active OpenSpec tasks for stale playbook names, variable names, safety confirmation names, inventory examples, and execution-target wording.
+- The final response must report documentation files updated, documentation files checked but not changed, stale documentation fixed, and any documentation intentionally deferred with the reason.
+
 ## 14. Example Tasks
 - Design `ansible/group_vars/all.yml` defaults for v1 without selecting a disk.
 - Generate a skeleton `preflight` role that gathers facts and fails closed on non-UEFI boot.
 - Define `make partition-plan` behavior that displays disk model, size, serial, and current partition table.
-- Review a `disk_partitioning` task to ensure it requires both `install_disk` and `I_UNDERSTAND_THIS_WIPES_DISK=yes`.
+- Review a `common/partitioning` task to ensure it requires both `install_disk` and `confirm_wipe_disk=yes`.
 - Convert the validated phase-1 NetworkManager setup into an idempotent `networking` role.
 - Add `--check` support to configuration templates in the `portage` role.
 - Define final checks for fstab, kernel files, GRUB configuration, OpenRC services, and target mounts.

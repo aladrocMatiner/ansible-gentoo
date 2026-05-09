@@ -102,12 +102,14 @@ Task lists must:
 - Use small implementation steps.
 - Include affected files where practical.
 - Include validation steps.
+- Include documentation update steps for implementation changes that modify operator behavior.
 - Include safety review steps for high-risk or destructive behavior.
 - Include documentation updates.
 - Include final verification.
 - Avoid vague tasks such as `build installer` or `make it work`.
 
 Tasks must not be marked complete until implementation evidence and validation results exist.
+Documentation tasks must not be marked complete until the relevant `README.md`, `docs/`, `skills/`, `agents/`, or `AGENTS.md` updates have been made and reviewed.
 
 ## 8. Spec Delta Rules
 Spec deltas must:
@@ -145,6 +147,8 @@ Validation rules:
 
 ## 10. Makefile Targets
 Expected OpenSpec make targets:
+
+These targets define the expected control-plane contract for OpenSpec workflow operations. If a target is not present in the current `Makefile`, treat it as planned and do not document it as runnable in user-facing docs.
 
 - `make openspec-list`
 - `make openspec-validate`
@@ -216,3 +220,13 @@ This skill should produce or request:
 - OpenSpec validation output.
 - Review notes.
 - Archive status when complete.
+
+## Documentation maintenance
+When OpenSpec workflow behavior changes, documentation must change in the same implementation step.
+
+- If proposal, design, task, spec delta, validation, review, archive, or sync workflow changes, update this skill, `agents/openspec-agent.md`, and `README.md` or the relevant file under `docs/`.
+- If validation commands change, update every documented command example here and prefer Makefile targets such as `make openspec-validate` for operator-facing use.
+- If implementation changes operator behavior, ensure `openspec/changes/<change>/tasks.md` includes concrete documentation tasks naming the affected `README.md`, `docs/`, `skills/`, `agents/`, or `AGENTS.md` files.
+- If archive workflow changes, document when tasks must be complete, when specs are synced, and what validation must pass before archive.
+- If safety-sensitive behavior is proposed, require the proposal, design, spec delta, and task list to include safety documentation work.
+- Before finishing, confirm failure modes and recovery advice still match the current OpenSpec CLI behavior, including strict validation commands.

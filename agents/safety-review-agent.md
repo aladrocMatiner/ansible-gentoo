@@ -13,6 +13,8 @@ The project can destroy data if disk operations are wrong. Safety review is mand
 - Reject workflows that use default disk values for destructive actions.
 - Ensure disk model, serial, size, and current partitions are printed before destructive disk work.
 - Ensure Ansible tasks fail closed when target identity or confirmation state is uncertain.
+- Ensure Ansible safety gates are shared and reused across OpenRC and systemd flows.
+- Reject duplicated or inconsistent destructive safety logic.
 - Produce a structured review decision: `APPROVED`, `APPROVED WITH CHANGES`, or `REJECTED`.
 
 ## 3. Non-goals
@@ -130,6 +132,18 @@ Before handling secrets:
 - Cleanup targets must remove only known secret paths.
 - If a secret is leaked into a tracked file, the final decision must be `REJECTED` until the leak is removed.
 
+## Documentation maintenance responsibilities
+When this agent changes or reviews safety-sensitive behavior, it must enforce documentation updates in the same change.
+
+- If the safety policy, risk classification, high-risk command list, required confirmations, destructive target rules, or secret handling rules change, update `AGENTS.md`, this file, relevant safety sections in `skills/`, and the applicable documentation under `docs/`.
+- If Makefile safety behavior changes, verify `README.md` or `docs/` and `skills/makefile-control-plane.md` document required variables, confirmation variables, disk identity output, and forbidden defaults.
+- If Ansible safety behavior changes, verify Ansible documentation describes required variables, confirmation gates, local execution target, dry-run limits, and fail-closed behavior.
+- If QEMU safety behavior changes, verify QEMU documentation states that VM disks are files under `./var/qemu/` or the configured `QEMU_DIR`, that host block devices are forbidden, and that cleanup requires explicit confirmation.
+- A safety review must check that safety-sensitive implementation changes include documentation updates and OpenSpec documentation tasks when behavior changes.
+- The agent must reject or require changes for any dangerous behavior change that lacks matching documentation.
+- Before finishing, check `README.md`, `docs/`, `skills/`, `agents/`, and active OpenSpec tasks for stale safety rules, stale command examples, or missing recovery guidance.
+- The final response must report documentation files updated, documentation files checked but not changed, stale documentation fixed, and any documentation intentionally deferred with the reason.
+
 ## 12. Makefile Safety Requirements
 The Makefile is the public control plane. Safety review must verify:
 
@@ -149,6 +163,8 @@ For Ansible playbooks, roles, and tasks:
 
 - Destructive tasks must require `install_disk`.
 - Destructive tasks must require an explicit confirmation variable.
+- OpenRC and systemd flows must use the same shared destructive safety gates.
+- Safety checks must be implemented once and reused rather than copied into init-specific roles.
 - Disk model, size, serial, and current partition table must be gathered and displayed before partitioning.
 - Playbooks must support `--check` where practical.
 - Tasks that cannot honestly support check mode must provide plan output and skip mutation in dry-run.
@@ -158,6 +174,9 @@ For Ansible playbooks, roles, and tasks:
 - User, password, service, and bootloader tasks must be separated from disk tasks.
 - The installer must fail closed if uncertainty exists.
 - No inventory or group vars file may provide a default install disk.
+- No role may assume a default install disk.
+- Init-specific roles must not partition, format, wipe, select disks, or bypass common disk safety.
+- The safety review must reject duplicated safety checks that can drift between OpenRC and systemd flows.
 - Secret variables must use prompt, environment, vault, or other non-committed mechanisms.
 
 ## 14. Review Output Format

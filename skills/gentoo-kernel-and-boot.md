@@ -137,6 +137,8 @@ Do not recommend reboot until final boot checks pass or the operator has accepte
 ## 11. Makefile Targets
 Expected targets:
 
+These targets define the expected control-plane contract for kernel and bootloader setup. If a target is not present in the current `Makefile`, treat it as planned and do not document it as runnable in user-facing docs.
+
 - `make install-kernel`
 - `make install-bootloader`
 - `make configure-grub`
@@ -190,3 +192,13 @@ This skill should produce or request:
 - NetworkManager enablement status.
 - Final boot validation report.
 - Recovery notes before reboot.
+
+## Documentation maintenance
+When kernel, initramfs, GRUB, UEFI, EFI mount, or boot validation behavior changes, documentation must change in the same implementation step.
+
+- If the kernel package, initramfs policy, GRUB package, UEFI assumptions, EFI mount point, or boot validation checks change, update this skill and the relevant manual install documentation under `docs/`.
+- If bootloader installation behavior changes, update `agents/safety-review-agent.md` and safety documentation because GRUB and EFI changes are high risk.
+- If Makefile targets such as `make install-kernel`, `make install-bootloader`, `make configure-grub`, or `make final-boot-checks` change, update this skill and `skills/makefile-control-plane.md`.
+- If validation now checks different kernel files, GRUB config paths, EFI files, fstab entries, UUIDs, or NetworkManager enablement, update output artifacts, failure modes, and recovery advice here.
+- If Ansible later automates bootloader work, update `skills/ansible-gentoo-installer.md` and the active OpenSpec `tasks.md` with the same safety gates.
+- Before finishing, confirm documentation still requires UEFI mode, EFI mounted at `/boot/efi`, target root mounted at `/mnt/gentoo`, and no unspecified disk for `grub-install`.

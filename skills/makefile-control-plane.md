@@ -40,7 +40,11 @@ Use this skill when:
 - Route Ansible through make targets.
 - Route scripts through make targets.
 - Do not require the operator to run scripts directly.
+- For OpenRC and systemd Ansible flows, prefer parameterized shared Makefile targets or thin variant targets that pass variables into a shared Ansible flow.
+- Avoid separate duplicated command chains when `PROFILE=openrc` or `PROFILE=systemd` can select the variant safely.
 - Do not hide destructive behavior inside vague targets.
+- Update `README.md` or `docs/` whenever operator-facing targets are added, changed, or removed.
+- Update this skill when a reusable Makefile target convention changes.
 
 ## 5. Variable Conventions
 Required project variables:
@@ -70,10 +74,14 @@ Rules:
 - Disk variables must not use wildcard matching.
 - Disk selection must not use a fallback such as the first disk from `lsblk`.
 - Variable names should be uppercase for operator-provided inputs.
+- `PROFILE=openrc` should map to Ansible `init_system=openrc`.
+- `PROFILE=systemd` should map to Ansible `init_system=systemd`.
 - Variables containing secrets must not be printed or committed.
 
 ## 6. Safe Targets
 Safe targets are read-only or validation-only. They must not modify disks, target root, boot entries, users, passwords, or services.
+
+The target lists below define the project control-plane contract. A target is available only when it exists in the current `Makefile`; otherwise treat it as planned and do not present it in `README.md` as runnable.
 
 Required safe targets:
 
@@ -84,6 +92,8 @@ Required safe targets:
 - `make openspec-validate`
 - `make ansible-check`
 - `make install-plan`
+- `make install-plan PROFILE=openrc`
+- `make install-plan PROFILE=systemd`
 
 Expected behavior:
 
@@ -94,6 +104,8 @@ Expected behavior:
 - `make openspec-validate`: validate OpenSpec changes.
 - `make ansible-check`: validate Ansible availability and project structure.
 - `make install-plan`: summarize intended install flow without making changes.
+- `make install-plan PROFILE=openrc`: summarize the planned OpenRC flow through the shared Ansible install path.
+- `make install-plan PROFILE=systemd`: summarize the planned systemd flow through the shared Ansible install path.
 
 ## 7. Semi-dangerous Targets
 Semi-dangerous targets may modify the live ISO environment or prepare target paths, but they should not partition, format, wipe, overwrite disks, install bootloaders, change passwords, or create privileged users.
@@ -123,6 +135,8 @@ Destructive targets:
 - `make format`
 - `make install`
 - `make install-bootloader`
+- `make install-openrc`
+- `make install-systemd`
 
 Required behavior:
 
@@ -135,6 +149,7 @@ Required behavior:
 - Stop if disk identity is ambiguous.
 - Stop if the disk differs from the plan output.
 - Stop if required confirmations are missing.
+- OpenRC and systemd install targets must call shared safety gates before variant-specific roles run.
 
 `make install-bootloader` may not wipe disks, but it changes persistent boot state and must use the same seriousness as destructive targets.
 
@@ -180,6 +195,8 @@ Rules:
 - `make bootstrap-codex CODEX_INSTALL_METHOD=npm`
 - `make openspec-validate`
 - `make ansible-check`
+- `make ansible-dry-run PROFILE=openrc`
+- `make ansible-dry-run PROFILE=systemd`
 - `make final-checks`
 
 ## 12. Examples of Bad Targets
@@ -193,6 +210,7 @@ Rules:
 - `make clean` that runs broad recursive deletion without path validation.
 - `make bootstrap-codex` that writes secrets into the repository.
 - `make ansible-run` that hides which playbook and tags will run.
+- Separate long `make install-openrc` and `make install-systemd` recipes that duplicate the same Ansible command chain instead of passing variant variables into a shared flow.
 
 ## 13. Failure Modes
 - The operator bypasses the Makefile and runs raw commands from documentation.
@@ -217,3 +235,14 @@ Rules:
 - Stop and rerun safe inventory targets if disk identity changes.
 - Review dangerous targets with `agents/safety-review-agent.md` before use.
 - If secrets are written to project files, remove them immediately and keep them out of commits.
+
+## Documentation maintenance
+When Makefile behavior changes, documentation must change in the same commit or OpenSpec implementation step.
+
+- Every new, changed, or removed operator-facing target must be reflected in the Makefile `help` output and in `README.md` or a relevant file under `docs/`.
+- Every target documented in `README.md`, `docs/`, `skills/`, or OpenSpec specs must match an actual Makefile target or be clearly labeled as planned.
+- Required variables must be documented with their defaults. If no default is allowed, such as `INSTALL_DISK`, the documentation must explicitly say so.
+- Destructive targets must document required confirmation variables, the safety confirmation script, disk summary output, forbidden defaults, and forbidden wildcard disk matching.
+- Semi-dangerous targets must document what paths or live-environment state they may change.
+- If target names, variable names, defaults, or confirmation values change, update this skill, `README.md` or `docs/`, and the active OpenSpec `tasks.md`.
+- If failure modes or recovery behavior changes in implementation, update the `Failure Modes` and `Recovery Advice` sections here before finishing.

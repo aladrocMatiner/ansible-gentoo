@@ -129,6 +129,8 @@ Any missing dependency in the live environment should be installed through a mak
 ## 12. Expected Make Targets
 This skill should reference these targets:
 
+These targets define the expected control-plane contract for live-environment preparation. If a target is not present in the current `Makefile`, treat it as planned and do not document it as runnable in user-facing docs.
+
 - `make preflight`
 - `make detect-disks`
 - `make check-network`
@@ -181,3 +183,13 @@ This skill should produce or request:
 - Missing dependency list.
 - Go/no-go decision for `make bootstrap-codex`.
 - Notes suitable for OpenSpec validation evidence.
+
+## Documentation maintenance
+When live-environment preparation changes, documentation must change in the same implementation step.
+
+- If preflight checks change, update this skill, `README.md` or the relevant `docs/` workflow, and any OpenSpec `tasks.md` for the active change.
+- If network, DNS, time synchronization, UEFI detection, disk discovery, memory, CPU, root privilege, or writable-directory checks change, update the matching procedure and failure-mode entries here.
+- If official Gentoo live ISO assumptions change, update `AGENTS.md`, affected agent files, and manual install documentation; v1 must not imply a custom ISO.
+- If Makefile targets such as `make preflight`, `make check-network`, `make check-uefi`, `make check-time`, `make detect-disks`, or `make bootstrap-codex` change, update the target list here and the Makefile control-plane documentation.
+- If a documented recovery path starts requiring a script or command, expose it through a Makefile target or document the script in `docs/` before referencing it.
+- Before finishing, confirm failure modes and recovery advice still match the implemented preflight behavior.

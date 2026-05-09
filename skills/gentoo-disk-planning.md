@@ -151,6 +151,8 @@ The operator must understand that existing data on the selected disk or partitio
 ## 10. Makefile Targets
 Expected targets:
 
+These targets define the expected control-plane contract for disk planning. If a target is not present in the current `Makefile`, treat it as planned and do not document it as runnable in user-facing docs.
+
 - `make detect-disks`
 - `make partition-plan INSTALL_DISK=...`
 - `make partition INSTALL_DISK=... I_UNDERSTAND_THIS_WIPES_DISK=yes`
@@ -199,3 +201,13 @@ This skill should produce or request:
 - Required confirmation variables.
 - Safety review notes for destructive targets.
 - Go/no-go decision for partitioning and formatting.
+
+## Documentation maintenance
+When disk detection, partition planning, or destructive disk behavior changes, documentation must change in the same implementation step.
+
+- If the v1 layout changes, update this skill, manual install documentation under `docs/`, `agents/gentoo-install-agent.md`, and the active OpenSpec `tasks.md`.
+- If disk discovery output changes, update the required displayed fields here: disk path, model, serial, size, current partition table, current filesystems, and current mountpoints.
+- If confirmations, safety gates, or destructive target names change, update `skills/makefile-control-plane.md`, `agents/safety-review-agent.md`, and relevant `README.md` or `docs/` instructions.
+- If implementation changes partitioning or formatting behavior, update safety documentation before marking the OpenSpec task complete.
+- If Makefile targets such as `make detect-disks`, `make partition-plan`, `make partition`, or `make format` change, update the target examples and required variables here.
+- Before finishing, confirm the documentation still forbids default disks, wildcard disk matching, formatting mounted filesystems, and destructive operations without explicit `INSTALL_DISK` and `I_UNDERSTAND_THIS_WIPES_DISK=yes`.

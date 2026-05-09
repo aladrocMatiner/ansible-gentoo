@@ -88,6 +88,7 @@ Create `design.md` when the change involves:
 - Safety gates.
 - Disk, filesystem, mount, chroot, bootloader, user, or password operations.
 - Ansible layout, roles, variables, inventory, dry-run strategy, or idempotency.
+- Ansible reuse boundaries between OpenRC, systemd, and shared common roles.
 - Codex bootstrap method selection.
 - Cross-file or cross-phase coordination.
 
@@ -98,6 +99,7 @@ Designs must explain:
 - How failures are detected.
 - How the implementation fails closed.
 - How logs and evidence are collected.
+- For Ansible implementation, which behavior is shared, which behavior is init-specific, and why any duplication is necessary.
 
 ## 8. Tasks Requirements
 Tasks must be concrete, ordered, and reviewable. Each task should produce visible evidence.
@@ -105,12 +107,15 @@ Tasks must be concrete, ordered, and reviewable. Each task should produce visibl
 Tasks must include:
 
 - File creation or update steps.
+- Documentation update steps for implementation changes that modify operator behavior.
 - Safety review steps when risk is `HIGH` or `DESTRUCTIVE`.
 - Validation commands.
 - Documentation updates.
+- For Ansible changes, reuse analysis and tasks that identify shared versus init-specific behavior.
 - Final verification and task status update.
 
 Tasks must not hide implementation behind broad items such as `build installer`. Split broad work into smaller steps.
+Documentation tasks must remain incomplete until documentation has actually been updated and checked.
 
 ## 9. Spec Delta Requirements
 Spec deltas must:
@@ -171,6 +176,21 @@ Safety-review-agent review is required for changes involving:
 - Bootloader or EFI changes.
 - User, password, or privileged access changes.
 - Secret handling.
+- Ansible safety gate changes or duplicated OpenRC/systemd safety logic.
+
+## Documentation maintenance responsibilities
+When this agent creates, updates, reviews, or archives OpenSpec changes, it must keep documentation work explicit and validated.
+
+- Every implementation change that modifies operator behavior must include documentation tasks in `openspec/changes/<change>/tasks.md`; those tasks must name the affected documentation area instead of saying only "update docs".
+- Documentation tasks must remain unchecked until the relevant files are actually updated and reviewed.
+- If an OpenSpec workflow changes, update `skills/openspec-workflow.md`, this file, and `README.md` or `docs/` where operators invoke the workflow.
+- If a change affects Makefile targets, scripts, Ansible, QEMU, Codex bootstrap, disk safety, or manual install flow, ensure the proposal and tasks identify the required documentation updates for that behavior.
+- If a change affects Ansible OpenRC or systemd behavior, require reuse analysis that identifies shared behavior, init-specific behavior, safety gates, and any justified duplication.
+- For Ansible architecture changes, ensure `tasks.md` includes documentation updates for `docs/ansible-architecture.md`, `agents/ansible-installer-agent.md`, and `skills/ansible-gentoo-installer.md`.
+- If a project-wide agent rule changes, update `AGENTS.md` and any affected agent or skill file in the same change.
+- After documentation changes, require validation with `openspec validate <change> --strict`; when practical, also run `openspec validate --all --strict`.
+- Before finishing, check `README.md`, `docs/`, `skills/`, `agents/`, and the active OpenSpec `tasks.md` for stale workflow commands, missing acceptance criteria, and unchecked documentation tasks.
+- The final response must report documentation files updated, documentation files checked but not changed, stale documentation fixed, and any documentation intentionally deferred with the reason.
 
 ## 13. Example Changes
 - `bootstrap-codex-on-live-iso`: define temporary Codex install flow for the official Gentoo live ISO.

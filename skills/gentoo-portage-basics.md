@@ -138,6 +138,8 @@ Policy:
 ## 13. Makefile Targets
 Expected targets:
 
+These targets define the expected control-plane contract for Portage setup. If a target is not present in the current `Makefile`, treat it as planned and do not document it as runnable in user-facing docs.
+
 - `make configure-portage`
 - `make select-profile`
 - `make sync-portage`
@@ -191,3 +193,13 @@ This skill should produce or request:
 - Repository sync result.
 - Package installation result.
 - Notes for future Ansible variables.
+
+## Documentation maintenance
+When Portage setup behavior changes, documentation must change in the same implementation step.
+
+- If `make.conf`, `COMMON_FLAGS`, `MAKEOPTS`, `ACCEPT_LICENSE`, USE flag policy, profile selection, mirrors, repositories, overlays, or base package policy changes, update this skill and the relevant manual install documentation under `docs/`.
+- If GURU overlay policy changes, document whether the change applies only to the live Codex bootstrap environment or to the installed Gentoo system.
+- If Codex installation policy changes, update `skills/codex-bootstrap-on-gentoo-live.md` and Codex bootstrap docs; v1 documentation must not imply Codex is installed into the final Gentoo system unless an approved change does that.
+- If Makefile targets such as `make configure-portage`, `make select-profile`, `make sync-portage`, or `make install-base-packages` change, update this skill and `skills/makefile-control-plane.md`.
+- If failure modes or recovery advice change, keep package-conflict, license, overlay, and memory-pressure guidance synchronized with implementation.
+- If Ansible later maps these settings to variables, update `skills/ansible-gentoo-installer.md` and the active OpenSpec `tasks.md`.
