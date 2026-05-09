@@ -61,6 +61,6 @@
 - [x] Run `openspec validate --all --strict`.
 - [x] Verify `make qemu-check` reports missing tools, missing ISO, or ambiguous ISO directory clearly.
 - [x] Verify `make qemu-disk` creates `./var/qemu/gentoo-test.qcow2` if missing.
-- [ ] Verify `make qemu-boot` launches QEMU with the ISO and qcow2 disk.
+- [x] Verify `make qemu-boot` launches QEMU with the ISO and qcow2 disk.
 - [x] Verify `make qemu-clean` requires explicit confirmation before deleting generated artifacts.
 - [x] Verify no target or script accepts a real host block device.
