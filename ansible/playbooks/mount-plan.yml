@@ -1,0 +1,9 @@
+---
+- name: Read-only Gentoo mount plan
+  hosts: gentoo_live
+  gather_facts: true
+  roles:
+    - role: common/disk_detection
+    - role: common/install_plan
+    - role: common/partition_plan
+    - role: common/mount_plan

@@ -1,0 +1,101 @@
+---
+- name: Require partition plan report
+  ansible.builtin.assert:
+    that:
+      - partition_plan_report is defined
+      - partition_plan_report.read_only | bool
+    fail_msg: "mount-plan requires the shared read-only partition_plan role to run first."
+    success_msg: "Read-only partition plan is available."
+
+- name: Derive planned partition paths
+  ansible.builtin.set_fact:
+    mount_plan_partition_suffix: "{{ 'p' if (install_disk | regex_search('[0-9]$')) else '' }}"
+
+- name: Build planned mount entries
+  ansible.builtin.set_fact:
+    mount_plan_root_partition: "{{ install_disk }}{{ mount_plan_partition_suffix }}2"
+    mount_plan_efi_partition: "{{ install_disk }}{{ mount_plan_partition_suffix }}1"
+    mount_plan_root_options: "{{ ['defaults'] if install_plan_filesystem == 'ext4' else ['noatime', 'compress=zstd', 'subvol=@'] }}"
+    mount_plan_btrfs_subvolumes: "{{ partition_plan_report.planned_partitions[1].btrfs_subvolumes | default([]) if install_plan_filesystem == 'btrfs' else [] }}"
+
+- name: Build base planned mountpoint list
+  ansible.builtin.set_fact:
+    mount_plan_paths: "{{ [{'path': '/mnt/gentoo', 'purpose': 'target_root'}, {'path': '/mnt/gentoo/boot', 'purpose': 'boot_directory_parent'}, {'path': '/mnt/gentoo/boot/efi', 'purpose': 'efi_system_partition'}] }}"
+
+- name: Add Btrfs subvolume mountpoints to planned path list
+  ansible.builtin.set_fact:
+    mount_plan_paths: "{{ mount_plan_paths + [{'path': item.mountpoint, 'purpose': 'btrfs_subvolume:' ~ item.name}] }}"
+  loop: "{{ mount_plan_btrfs_subvolumes }}"
+  when:
+    - install_plan_filesystem == 'btrfs'
+    - item.mountpoint != '/mnt/gentoo'
+
+- name: Inspect planned mountpoint paths
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+  loop: "{{ mount_plan_paths }}"
+  register: mount_plan_path_stats
+
+- name: Check whether planned paths are mounted
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - "{{ item.path }}"
+      - --noheadings
+      - --output
+      - TARGET
+  loop: "{{ mount_plan_paths }}"
+  register: mount_plan_findmnt
+  changed_when: false
+  failed_when: false
+
+- name: Initialize planned mountpoint state
+  ansible.builtin.set_fact:
+    mount_plan_path_states: []
+
+- name: Build planned mountpoint state
+  ansible.builtin.set_fact:
+    mount_plan_path_states: >-
+      {{
+        mount_plan_path_states
+        + [
+          mount_plan_paths[item]
+          | combine({
+              'exists': mount_plan_path_stats.results[item].stat.exists,
+              'is_directory': mount_plan_path_stats.results[item].stat.isdir | default(false),
+              'is_mountpoint': mount_plan_findmnt.results[item].rc == 0
+            })
+        ]
+      }}
+  loop: "{{ range(0, mount_plan_paths | length) | list }}"
+
+- name: Derive read-only mount plan
+  ansible.builtin.set_fact:
+    mount_plan_report:
+      read_only: true
+      destructive_commands_run: false
+      directories_created: false
+      filesystems_mounted: false
+      confirmation_required_now: false
+      future_mount_target_requires_review: true
+      selected_disk: "{{ partition_plan_report.selected_disk }}"
+      planned_partitions:
+        efi:
+          source: "{{ mount_plan_efi_partition }}"
+          filesystem: vfat
+          mountpoint: /mnt/gentoo/boot/efi
+          options:
+            - defaults
+        root:
+          source: "{{ mount_plan_root_partition }}"
+          filesystem: "{{ install_plan_filesystem }}"
+          mountpoint: /mnt/gentoo
+          options: "{{ mount_plan_root_options }}"
+      btrfs_subvolumes: "{{ mount_plan_btrfs_subvolumes }}"
+      path_state: "{{ mount_plan_path_states }}"
+      next_step: "Review this read-only plan before implementing any future mount-target target."
+
+- name: Print read-only mount plan
+  ansible.builtin.debug:
+    msg: "{{ mount_plan_report }}"

@@ -41,7 +41,7 @@ export INSTALL_DISK
 
 .PHONY: help \
 	vm-check vm-disk vm-define vm-start vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
-	ansible-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan \
+	ansible-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -64,6 +64,7 @@ help:
 		'  make detect-disks    Run read-only Ansible disk detection in the live ISO' \
 		'  make install-plan    Generate read-only Ansible install plan (PROFILE=openrc|systemd FILESYSTEM=ext4|btrfs)' \
 		'  make partition-plan  Generate read-only partition plan (requires INSTALL_DISK)' \
+		'  make mount-plan      Generate read-only mount plan (requires INSTALL_DISK)' \
 		'  make vm-shutdown     Request clean guest shutdown' \
 		'  make vm-destroy      Stop the configured VM without deleting artifacts' \
 		'  make vm-clean        Undefine VM and delete generated artifacts after confirmation' \
@@ -146,6 +147,9 @@ install-plan:
 
 partition-plan:
 	@scripts/ansible-partition-plan.sh
+
+mount-plan:
+	@scripts/ansible-mount-plan.sh
 
 vm-shutdown:
 	@scripts/vm-shutdown.sh

@@ -53,6 +53,7 @@ ansible/
       disk_detection/
       install_plan/
       partition_plan/
+      mount_plan/
       disk_safety/
       partitioning/
       filesystem/
@@ -141,6 +142,7 @@ Shared roles:
 - `common/disk_detection`: read-only disk identity and partition reporting.
 - `common/install_plan`: profile-aware read-only plan output that follows the official Gentoo AMD64 Handbook baseline and does not select a disk by default.
 - `common/partition_plan`: read-only GPT partition plan that requires explicit `install_disk` and reports ext4 or Btrfs root layout without writing.
+- `common/mount_plan`: read-only mount layout plan that reuses partition-plan safety checks and reports root, EFI, and Btrfs subvolume mountpoints without running `mount`, `umount`, or `mkdir`.
 - `common/disk_safety`: shared assertions for `install_disk`, confirmation variables, disk identity, VM guest mode, and fail-closed behavior.
 - `common/partitioning`: partition only after shared safety gates pass.
 - `common/filesystem`: format approved partitions only after shared confirmation.
@@ -211,6 +213,7 @@ Dry-run must be built into future playbooks:
 - `make ansible-dry-run` should use Ansible check mode where practical.
 - `make ansible-dry-run PROFILE=openrc` and `make ansible-dry-run PROFILE=systemd` should use Ansible check mode where practical.
 - `make install-plan PROFILE=openrc` and `make install-plan PROFILE=systemd` should gather facts and show planned changes without mutation.
+- `make mount-plan PROFILE=... FILESYSTEM=... INSTALL_DISK=...` should report target root, EFI, and Btrfs subvolume mount layout without mutation.
 - Destructive tasks must not run in check mode.
 - Tasks that cannot support check mode must provide plan output and skip changes.
 - Dry-run output must show missing required variables and confirmations.

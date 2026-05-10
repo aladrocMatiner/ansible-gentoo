@@ -4,6 +4,8 @@ This workflow generates a read-only partition plan from inside the booted offici
 
 It does not partition, format, wipe, mount, unmount, chroot, install packages, create users, change passwords, enable services, or install bootloaders.
 
+After this plan is reviewed, use `make mount-plan PROFILE=... FILESYSTEM=... INSTALL_DISK=...` to inspect the future target mount layout without mounting anything.
+
 ## Required State
 
 Run the live ISO preflight and disk detection first:
