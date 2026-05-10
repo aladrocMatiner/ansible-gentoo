@@ -89,6 +89,7 @@
       - "{{ install_disk }}"
   register: disk_safety_lsblk_flat
   changed_when: false
+  check_mode: false
 
 - name: Parse selected disk flat inventory
   ansible.builtin.set_fact:

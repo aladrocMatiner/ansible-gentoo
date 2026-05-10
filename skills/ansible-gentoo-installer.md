@@ -377,6 +377,7 @@ Target expectations:
 - `make install-plan PROFILE=systemd`: gather facts and create an operator-readable systemd install plan.
 - `make install-openrc`: execute the approved OpenRC install with required confirmations.
 - `make install-systemd`: execute the approved systemd install with required confirmations.
+- `make partition`: destructive target that applies only the approved GPT ESP/root layout after shared disk safety gates and explicit wipe confirmation.
 - `make final-checks`: run read-only validation before reboot.
 
 Operators should not run `ansible-playbook` directly.

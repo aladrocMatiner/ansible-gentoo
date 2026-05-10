@@ -1,0 +1,197 @@
+---
+- name: Require shared partition plan for partition apply
+  ansible.builtin.assert:
+    that:
+      - partition_plan_report is defined
+      - partition_plan_report.read_only | bool
+      - disk_safety_report.confirmation_present | bool
+    fail_msg: "CONFIRMATION_MISSING: partition apply requires common/disk_safety and partition_plan with destructive confirmation."
+    success_msg: "Partition apply prerequisites are present."
+
+- name: Check sgdisk availability
+  ansible.builtin.command:
+    argv:
+      - which
+      - sgdisk
+  register: partitioning_sgdisk_check
+  changed_when: false
+  check_mode: false
+  failed_when: partitioning_sgdisk_check.rc != 0
+
+- name: Check partprobe availability
+  ansible.builtin.command:
+    argv:
+      - which
+      - partprobe
+  register: partitioning_partprobe_check
+  changed_when: false
+  check_mode: false
+  failed_when: partitioning_partprobe_check.rc != 0
+
+- name: Read partition table before apply
+  ansible.builtin.command:
+    argv:
+      - sgdisk
+      - --print
+      - "{{ install_disk }}"
+  register: partitioning_before_sgdisk
+  changed_when: false
+  check_mode: false
+
+- name: Read block devices before apply
+  ansible.builtin.command:
+    argv:
+      - lsblk
+      - --json
+      - --bytes
+      - --output
+      - NAME,PATH,TYPE,SIZE,MODEL,SERIAL,FSTYPE,MOUNTPOINTS,UUID,PARTTYPENAME
+      - "{{ install_disk }}"
+  register: partitioning_before_lsblk
+  changed_when: false
+  check_mode: false
+
+- name: Build partition apply preview
+  ansible.builtin.set_fact:
+    partitioning_partition_suffix: "{{ 'p' if install_disk is search('[0-9]$') else '' }}"
+    partitioning_preview:
+      read_only_preview: true
+      destructive_confirmation_present: "{{ disk_safety_report.confirmation_present }}"
+      selected_disk: "{{ disk_safety_report.selected_disk }}"
+      commands:
+        - argv: ["sgdisk", "--zap-all", "{{ install_disk }}"]
+          purpose: "clear existing GPT/MBR metadata on the selected disk"
+        - argv: ["sgdisk", "--clear", "{{ install_disk }}"]
+          purpose: "create a new empty GPT on the selected disk"
+        - argv: ["sgdisk", "--new=1:2048:+512M", "--typecode=1:EF00", "--change-name=1:EFI_SYSTEM", "{{ install_disk }}"]
+          purpose: "create 512 MiB EFI system partition"
+        - argv: ["sgdisk", "--new=2:0:0", "--typecode=2:8300", "--change-name=2:GENTOO_ROOT", "{{ install_disk }}"]
+          purpose: "create root partition using the remaining disk"
+        - argv: ["partprobe", "{{ install_disk }}"]
+          purpose: "ask the kernel to reread the partition table"
+      will_not:
+        - format filesystems
+        - mount filesystems
+        - chroot
+        - install packages
+        - install bootloader
+
+- name: Print destructive partition preview
+  ansible.builtin.debug:
+    msg: "{{ partitioning_preview }}"
+
+- name: Create local install run log directory
+  ansible.builtin.file:
+    path: "logs/install-runs/{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}/partition"
+    state: directory
+    mode: "0750"
+  delegate_to: localhost
+  become: false
+  when: not ansible_check_mode
+
+- name: Record partition state before apply
+  ansible.builtin.copy:
+    dest: "logs/install-runs/{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}/partition/before.json"
+    mode: "0640"
+    content: |
+      {
+        "install_disk": {{ install_disk | to_json }},
+        "sgdisk_print": {{ partitioning_before_sgdisk.stdout | to_json }},
+        "lsblk": {{ (partitioning_before_lsblk.stdout | from_json) | to_nice_json }},
+        "preview": {{ partitioning_preview | to_nice_json }}
+      }
+  delegate_to: localhost
+  become: false
+  when: not ansible_check_mode
+
+- name: Clear existing partition metadata on selected disk
+  ansible.builtin.command:
+    argv:
+      - sgdisk
+      - --zap-all
+      - "{{ install_disk }}"
+  changed_when: true
+  when: not ansible_check_mode
+
+- name: Create empty GPT on selected disk
+  ansible.builtin.command:
+    argv:
+      - sgdisk
+      - --clear
+      - "{{ install_disk }}"
+  changed_when: true
+  when: not ansible_check_mode
+
+- name: Create EFI system partition
+  ansible.builtin.command:
+    argv:
+      - sgdisk
+      - --new=1:2048:+512M
+      - --typecode=1:EF00
+      - --change-name=1:EFI_SYSTEM
+      - "{{ install_disk }}"
+  changed_when: true
+  when: not ansible_check_mode
+
+- name: Create root partition
+  ansible.builtin.command:
+    argv:
+      - sgdisk
+      - --new=2:0:0
+      - --typecode=2:8300
+      - --change-name=2:GENTOO_ROOT
+      - "{{ install_disk }}"
+  changed_when: true
+  when: not ansible_check_mode
+
+- name: Ask kernel to reread partition table
+  ansible.builtin.command:
+    argv:
+      - partprobe
+      - "{{ install_disk }}"
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Read block devices after apply
+  ansible.builtin.command:
+    argv:
+      - lsblk
+      - --json
+      - --bytes
+      - --output
+      - NAME,PATH,TYPE,SIZE,MODEL,SERIAL,FSTYPE,MOUNTPOINTS,UUID,PARTTYPENAME
+      - "{{ install_disk }}"
+  register: partitioning_after_lsblk
+  changed_when: false
+  check_mode: false
+
+- name: Record partition state after apply
+  ansible.builtin.copy:
+    dest: "logs/install-runs/{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}/partition/after.json"
+    mode: "0640"
+    content: |
+      {
+        "install_disk": {{ install_disk | to_json }},
+        "check_mode": {{ ansible_check_mode | to_json }},
+        "lsblk": {{ (partitioning_after_lsblk.stdout | from_json) | to_nice_json }}
+      }
+  delegate_to: localhost
+  become: false
+  when: not ansible_check_mode
+
+- name: Build partition apply report
+  ansible.builtin.set_fact:
+    partitioning_apply_report:
+      changed: "{{ not ansible_check_mode }}"
+      check_mode: "{{ ansible_check_mode }}"
+      install_disk: "{{ install_disk }}"
+      partition_table: gpt
+      efi_partition: "{{ install_disk }}{{ partitioning_partition_suffix }}1"
+      root_partition: "{{ install_disk }}{{ partitioning_partition_suffix }}2"
+      formatted_filesystems: false
+      mounted_filesystems: false
+      logs: "logs/install-runs/{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}/partition/"
+
+- name: Print partition apply report
+  ansible.builtin.debug:
+    msg: "{{ partitioning_apply_report }}"

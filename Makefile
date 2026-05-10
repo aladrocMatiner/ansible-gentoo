@@ -63,7 +63,7 @@ export INSTALL_DISK
 
 .PHONY: help \
 	vm-check vm-disk vm-define vm-start vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
-	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check \
+	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -91,6 +91,7 @@ help:
 		'  make mount-plan      Generate read-only mount plan (requires INSTALL_DISK)' \
 		'  make filesystem-plan Generate read-only filesystem format plan (requires INSTALL_DISK)' \
 		'  make destructive-safety-check Validate shared destructive disk gates without mutating disks' \
+		'  make partition      DESTRUCTIVE: apply GPT ESP/root partition layout (requires confirmation)' \
 		'  make vm-shutdown     Request clean guest shutdown' \
 		'  make vm-destroy      Stop the configured VM without deleting artifacts' \
 		'  make vm-clean        Undefine VM and delete generated artifacts after confirmation' \
@@ -199,6 +200,9 @@ filesystem-plan:
 
 destructive-safety-check:
 	@scripts/ansible-destructive-safety-check.sh
+
+partition:
+	@scripts/ansible-partition-apply.sh
 
 vm-shutdown:
 	@scripts/vm-shutdown.sh

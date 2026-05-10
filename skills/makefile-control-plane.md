@@ -263,6 +263,7 @@ Required behavior:
 - Stop if the disk differs from the plan output.
 - Stop if required confirmations are missing.
 - OpenRC and systemd install targets must call shared safety gates before variant-specific roles run.
+- `make partition` must partition only; it must not format, mount, chroot, install packages, or install bootloaders.
 
 `make install-bootloader` may not wipe disks, but it changes persistent boot state and must use the same seriousness as destructive targets.
 

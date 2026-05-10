@@ -3,6 +3,7 @@
   ansible.builtin.command: lsblk --json --bytes --output NAME,PATH,TYPE,SIZE,MODEL,SERIAL,FSTYPE,MOUNTPOINTS,UUID,PARTTYPENAME
   register: disk_detection_lsblk
   changed_when: false
+  check_mode: false
 
 - name: Parse block device inventory
   ansible.builtin.set_fact:
