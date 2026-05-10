@@ -42,6 +42,7 @@ Implemented infrastructure and installer workflow layers:
 14. Hostname, timezone, locale, and keymap configuration.
 15. UUID-based fstab generation.
 16. `gentoo-kernel-bin` installation with installkernel/dracut command-line input and `/boot` artifact validation.
+17. Minimal console package installation and init-specific service enablement.
 
 Read-only planning targets do not mutate the live ISO target. Destructive and target-mutating targets are exposed through Makefile targets and are gated by explicit variables, shared safety checks, or target-root assertions depending on the risk level.
 

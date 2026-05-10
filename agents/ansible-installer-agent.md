@@ -115,12 +115,12 @@ Shared roles:
 - `common/chroot`: prepare Handbook-aligned pseudo-filesystem mounts under `/mnt/gentoo`, copy resolver configuration safely, validate DNS with a read-only chroot lookup, report before/after mount state, and guard later target-mutating operations.
 - `common/portage`: configure conservative Portage baseline shared by both variants, including `make.conf`, official Gentoo repo sync, variant profile selection, GURU-disabled policy, pending config-update reporting, and evidence logs.
 - `common/locale_timezone_hostname`: configure target hostname, timezone, locale generation, OpenRC/systemd keymap files, and report inputs for final checks and install reports.
-- `common/package_install`: install packages from shared or variant package lists.
+- `common/package_install`: install packages from shared or variant package lists, apply conservative package USE policy, and record package/service evidence.
 - `common/fstab`: generate UUID-based fstab entries for ext4 root or the approved Btrfs subvolume layout plus `/boot/efi`.
 - `common/kernel`: install `sys-kernel/installkernel`, `sys-kernel/dracut`, and `gentoo-kernel-bin`; derive boot command-line input from target fstab; validate kernel/initramfs/module artifacts; and defer GRUB and EFI changes to the bootloader role.
 - `common/bootloader`: install and configure GRUB for UEFI with shared confirmation gates.
 - `common/users`: create configured users and credentials through explicit confirmation and secret-safe input.
-- `common/ssh`: install and enable SSH through init-specific service dispatch.
+- `common/ssh`: translate `ENABLE_SSH` into optional package/service inputs without storing secrets or enabling unsafe root SSH defaults.
 - `common/final_checks`: validate fstab, bootloader, kernel, users, services, mounts, and recovery notes.
 
 Init-specific roles:

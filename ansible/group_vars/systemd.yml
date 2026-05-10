@@ -5,3 +5,9 @@ portage_profile_path: default/linux/amd64/23.0/systemd
 portage_profile_description: Gentoo amd64 systemd default profile
 portage_global_use_flags: "systemd"
 portage_accept_license: "-* @FREE @BINARY-REDISTRIBUTABLE"
+base_console_variant_packages: []
+base_console_services:
+  - name: NetworkManager.service
+  - name: systemd-timesyncd.service
+installed_ssh_services:
+  - name: sshd.service

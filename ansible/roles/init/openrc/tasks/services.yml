@@ -1,0 +1,73 @@
+---
+- name: Validate OpenRC service inputs
+  ansible.builtin.assert:
+    that:
+      - profile == 'openrc'
+      - init_system == 'openrc'
+      - init_target_root | default('/mnt/gentoo') == '/mnt/gentoo'
+      - init_service_list is defined
+      - init_service_list | map(attribute='name') | reject('match', '^[A-Za-z0-9_.@:-]+$') | list | length == 0
+      - init_service_list | map(attribute='runlevel') | reject('match', '^[A-Za-z0-9_.@:-]+$') | list | length == 0
+    fail_msg: "OPENRC_SERVICE_FAILED: OpenRC service inputs are invalid."
+    success_msg: "OpenRC service inputs are valid."
+
+- name: Check OpenRC service runlevels
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ init_target_root }}"
+      - /sbin/rc-update
+      - show
+      - "{{ item.runlevel | default('default') }}"
+  loop: "{{ init_service_list }}"
+  register: openrc_service_state
+  changed_when: false
+  failed_when: openrc_service_state.rc != 0
+  check_mode: false
+
+- name: Enable OpenRC services
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ init_target_root }}"
+      - /sbin/rc-update
+      - add
+      - "{{ item.item.name }}"
+      - "{{ item.item.runlevel | default('default') }}"
+  loop: "{{ openrc_service_state.results }}"
+  register: openrc_service_add
+  changed_when: true
+  failed_when: openrc_service_add.rc != 0
+  when:
+    - not ansible_check_mode
+    - not (item.stdout is search('(^|\\n)\\s*' ~ (item.item.name | regex_escape) ~ '\\s'))
+
+- name: Recheck OpenRC service runlevels
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ init_target_root }}"
+      - /sbin/rc-update
+      - show
+      - "{{ item.runlevel | default('default') }}"
+  loop: "{{ init_service_list }}"
+  register: openrc_service_state_after
+  changed_when: false
+  failed_when: openrc_service_state_after.rc != 0
+  check_mode: false
+
+- name: Validate OpenRC services are enabled
+  ansible.builtin.assert:
+    that:
+      - item.stdout is search('(^|\\n)\\s*' ~ (item.item.name | regex_escape) ~ '\\s')
+    fail_msg: "OPENRC_SERVICE_FAILED: {{ item.item.name }} is not enabled in {{ item.item.runlevel | default('default') }}."
+    success_msg: "OpenRC service {{ item.item.name }} is enabled."
+  loop: "{{ openrc_service_state_after.results }}"
+
+- name: Report OpenRC service changes
+  ansible.builtin.set_fact:
+    init_services_changed: "{{ openrc_service_add.results | default([]) | selectattr('changed') | list | length > 0 }}"
+    init_service_report:
+      init_system: openrc
+      services: "{{ init_service_list }}"
+      changed: "{{ openrc_service_add.results | default([]) | selectattr('changed') | list | length > 0 }}"

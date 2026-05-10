@@ -1,0 +1,4 @@
+---
+- name: Explain OpenRC role entrypoint
+  ansible.builtin.debug:
+    msg: "Use tasks_from=services for OpenRC service enablement."

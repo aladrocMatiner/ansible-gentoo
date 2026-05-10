@@ -1,0 +1,232 @@
+---
+- name: Define package installation facts
+  ansible.builtin.set_fact:
+    package_install_target_root: "{{ target_mount | default('/mnt/gentoo') }}"
+    package_install_enable_ssh: "{{ (enable_ssh | default('no') | string | lower) == 'yes' }}"
+
+- name: Validate package installation inputs
+  ansible.builtin.assert:
+    that:
+      - profile is defined
+      - profile in ['openrc', 'systemd']
+      - init_system is defined
+      - init_system == profile
+      - filesystem is defined
+      - filesystem in ['ext4', 'btrfs']
+      - enable_ssh is defined
+      - (enable_ssh | string | lower) in ['yes', 'no']
+      - package_install_target_root == '/mnt/gentoo'
+      - package_install_target_root != '/'
+      - base_console_common_packages is defined
+      - base_console_variant_packages is defined
+      - base_console_services is defined
+      - base_console_package_use is defined
+      - btrfs_console_packages is defined
+      - ssh_requested_packages is defined
+      - ssh_requested_services is defined
+    fail_msg: "PACKAGE_INSTALL_FAILED: package variables, init system, filesystem, SSH policy, or target root are invalid."
+    success_msg: "Package installation inputs are approved."
+
+- name: Ensure target package.use directory exists for system package policy
+  ansible.builtin.file:
+    path: "{{ package_install_target_root }}/etc/portage/package.use"
+    state: directory
+    mode: "0755"
+  when: not ansible_check_mode
+
+- name: Configure package USE needed by selected system packages
+  ansible.builtin.copy:
+    dest: "{{ package_install_target_root }}/etc/portage/package.use/gentoo-ai-installer-system"
+    mode: "0644"
+    content: |
+      # Managed by gentoo-ai-installer.
+      # Keep the basic console target conservative and avoid optional desktop,
+      # modem, Wi-Fi, documentation, and mail stacks unless a later policy adds them.
+      {% for entry in base_console_package_use %}
+      {{ entry.atom }} {{ entry.flags }}
+      {% endfor %}
+  register: package_install_use_config
+  when: not ansible_check_mode
+
+- name: Require extracted stage3 before package installation
+  ansible.builtin.stat:
+    path: "{{ package_install_target_root }}/{{ item }}"
+  loop:
+    - etc
+    - usr
+    - var
+    - root
+  register: package_install_stage3_markers
+
+- name: Validate extracted stage3 before package installation
+  ansible.builtin.assert:
+    that:
+      - package_install_stage3_markers.results | selectattr('stat.exists') | list | length == package_install_stage3_markers.results | length
+    fail_msg: "PACKAGE_INSTALL_FAILED: stage3 markers are missing under /mnt/gentoo."
+    success_msg: "Stage3 markers exist under /mnt/gentoo."
+
+- name: Verify chroot pseudo-filesystems are mounted before package installation
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - "{{ item }}"
+      - --noheadings
+      - --output
+      - TARGET,FSTYPE
+  loop:
+    - "{{ package_install_target_root }}/proc"
+    - "{{ package_install_target_root }}/sys"
+    - "{{ package_install_target_root }}/dev"
+    - "{{ package_install_target_root }}/run"
+    - "{{ package_install_target_root }}/dev/pts"
+  register: package_install_chroot_mounts
+  changed_when: false
+  failed_when: package_install_chroot_mounts.rc != 0
+  check_mode: false
+
+- name: Build requested package list
+  ansible.builtin.set_fact:
+    package_install_requested_packages: >-
+      {{
+        (
+          base_console_common_packages
+          + base_console_variant_packages
+          + (btrfs_console_packages if filesystem == 'btrfs' else [])
+          + ssh_requested_packages
+        ) | unique | list
+      }}
+    package_install_requested_services: "{{ (base_console_services + ssh_requested_services) | unique | list }}"
+
+- name: Validate package atoms and service names
+  ansible.builtin.assert:
+    that:
+      - package_install_requested_packages | length > 0
+      - package_install_requested_packages | reject('match', '^[A-Za-z0-9+_.-]+/[A-Za-z0-9+_.-]+$') | list | length == 0
+      - package_install_requested_services | map(attribute='name') | reject('match', '^[A-Za-z0-9_.@:-]+$') | list | length == 0
+    fail_msg: "PACKAGE_INSTALL_FAILED: package atom or service name is outside the conservative allowed syntax."
+    success_msg: "Package atoms and service names are syntactically safe."
+
+- name: Check target package installation state
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ package_install_target_root }}"
+      - /usr/bin/portageq
+      - has_version
+      - /
+      - "{{ item }}"
+  loop: "{{ package_install_requested_packages }}"
+  register: package_install_state
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Store missing target packages
+  ansible.builtin.set_fact:
+    package_install_missing_packages: "{{ package_install_state.results | selectattr('rc', 'ne', 0) | map(attribute='item') | list }}"
+
+- name: Install missing console packages
+  ansible.builtin.command:
+    argv: "{{ ['chroot', package_install_target_root, '/usr/bin/emerge', '--verbose', '--noreplace', '--changed-use'] + package_install_requested_packages }}"
+  register: package_install_emerge
+  changed_when: (package_install_missing_packages | length > 0) or (package_install_use_config is defined and package_install_use_config is changed)
+  failed_when: package_install_emerge.rc != 0
+  when:
+    - not ansible_check_mode
+    - (package_install_missing_packages | length > 0) or (package_install_use_config is defined and package_install_use_config is changed)
+
+- name: Recheck target package installation state
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ package_install_target_root }}"
+      - /usr/bin/portageq
+      - has_version
+      - /
+      - "{{ item }}"
+  loop: "{{ package_install_requested_packages }}"
+  register: package_install_state_after
+  changed_when: false
+  failed_when: package_install_state_after.rc != 0
+  check_mode: false
+
+- name: Enable OpenRC services
+  ansible.builtin.include_role:
+    name: init/openrc
+    tasks_from: services
+  vars:
+    init_service_list: "{{ package_install_requested_services }}"
+    init_target_root: "{{ package_install_target_root }}"
+  when: profile == 'openrc'
+
+- name: Enable systemd services
+  ansible.builtin.include_role:
+    name: init/systemd
+    tasks_from: services
+  vars:
+    init_service_list: "{{ package_install_requested_services }}"
+    init_target_root: "{{ package_install_target_root }}"
+  when: profile == 'systemd'
+
+- name: Define package installation audit run id
+  ansible.builtin.set_fact:
+    package_install_run_id: "{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}"
+
+- name: Define package installation audit log path
+  ansible.builtin.set_fact:
+    package_install_log_dir: "{{ project_root | default(lookup('ansible.builtin.env', 'PWD'), true) }}/logs/install-runs/{{ package_install_run_id }}/system-packages"
+
+- name: Create local package installation log directory
+  ansible.builtin.file:
+    path: "{{ package_install_log_dir }}"
+    state: directory
+    mode: "0750"
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Record package and service evidence
+  ansible.builtin.copy:
+    dest: "{{ package_install_log_dir }}/packages-services.json"
+    mode: "0640"
+    content: |
+      {
+        "profile": {{ profile | to_json }},
+        "init_system": {{ init_system | to_json }},
+        "filesystem": {{ filesystem | to_json }},
+        "enable_ssh": {{ package_install_enable_ssh | to_json }},
+        "packages": {{ package_install_requested_packages | to_nice_json }},
+        "package_use": {{ base_console_package_use | to_nice_json }},
+        "missing_before": {{ package_install_missing_packages | to_nice_json }},
+        "services": {{ package_install_requested_services | to_nice_json }},
+        "package_install_ran": {{ (package_install_emerge is defined and package_install_emerge is changed) | to_json }},
+        "services_changed": {{ (init_services_changed | default(false)) | to_json }},
+        "network_manager_policy": "NetworkManager is the v1 network manager",
+        "time_sync_policy": {{ ('chrony' if profile == 'openrc' else 'systemd-timesyncd') | to_json }},
+        "ssh_policy_enabled": {{ package_install_enable_ssh | to_json }},
+        "final_checks_input": true,
+        "install_report_input": true
+      }
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Build package and service report
+  ansible.builtin.set_fact:
+    package_install_report:
+      changed: "{{ (not ansible_check_mode) and ((package_install_use_config is defined and package_install_use_config is changed) or (package_install_emerge is defined and package_install_emerge is changed) or (init_services_changed | default(false))) }}"
+      packages: "{{ package_install_requested_packages }}"
+      services: "{{ package_install_requested_services }}"
+      network_manager: enabled
+      time_sync: "{{ 'chrony' if profile == 'openrc' else 'systemd-timesyncd' }}"
+      ssh_enabled: "{{ package_install_enable_ssh }}"
+      final_checks_input: true
+      install_report_input: true
+      logs: "{{ package_install_log_dir }}/"
+
+- name: Print package and service report
+  ansible.builtin.debug:
+    msg: "{{ package_install_report }}"

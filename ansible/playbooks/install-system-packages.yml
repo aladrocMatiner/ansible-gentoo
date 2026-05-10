@@ -1,0 +1,17 @@
+---
+- name: Install minimal console packages and enable services
+  hosts: gentoo_live
+  gather_facts: true
+  pre_tasks:
+    - name: Load shared package variables
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../group_vars/all.yml"
+
+    - name: Load init-specific variables
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../group_vars/{{ profile }}.yml"
+  roles:
+    - role: common/live_preflight
+    - role: common/chroot
+    - role: common/ssh
+    - role: common/package_install

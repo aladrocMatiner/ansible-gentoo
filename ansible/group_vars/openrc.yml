@@ -5,3 +5,21 @@ portage_profile_path: default/linux/amd64/23.0
 portage_profile_description: Gentoo amd64 OpenRC default profile
 portage_global_use_flags: ""
 portage_accept_license: "-* @FREE @BINARY-REDISTRIBUTABLE"
+base_console_variant_packages:
+  - app-admin/sysklogd
+  - sys-process/cronie
+  - net-misc/chrony
+base_console_services:
+  - name: dbus
+    runlevel: default
+  - name: NetworkManager
+    runlevel: default
+  - name: sysklogd
+    runlevel: default
+  - name: cronie
+    runlevel: default
+  - name: chronyd
+    runlevel: default
+installed_ssh_services:
+  - name: sshd
+    runlevel: default

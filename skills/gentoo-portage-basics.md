@@ -152,14 +152,16 @@ These targets define the expected control-plane contract for Portage setup. If a
 - `make configure-portage`
 - `make select-profile`
 - `make sync-portage`
-- `make install-base-packages`
+- `make install-system-packages`
+- `make install-base-packages` as a compatibility alias when present
 
 Target expectations:
 
 - `make configure-portage`: implemented target that writes minimal `make.conf`, installs official Gentoo repo settings, syncs official Gentoo repository metadata, selects the amd64 OpenRC or systemd profile matching `PROFILE`, reports pending protected config updates, and confirms GURU is disabled.
 - `make select-profile`: planned split target that would select and show the amd64 profile.
 - `make sync-portage`: planned split target that would sync official Gentoo repository metadata.
-- `make install-base-packages`: install the v1 base package set.
+- `make install-system-packages`: install the v1 base console package set, apply the approved package USE policy, and enable init-specific target services.
+- `make install-base-packages`: compatibility alias for `make install-system-packages` when present.
 
 The operator should not be asked to run raw `emerge`, `eselect profile`, or repository commands when Makefile targets exist.
 
@@ -209,6 +211,6 @@ When Portage setup behavior changes, documentation must change in the same imple
 - If `make.conf`, `COMMON_FLAGS`, `MAKEOPTS`, `ACCEPT_LICENSE`, USE flag policy, profile selection, mirrors, repositories, overlays, or base package policy changes, update this skill and the relevant manual install documentation under `docs/`.
 - If GURU overlay policy changes, document whether the change applies only to the live Codex bootstrap environment or to the installed Gentoo system.
 - If Codex installation policy changes, update `skills/codex-bootstrap-on-gentoo-live.md` and Codex bootstrap docs; v1 documentation must not imply Codex is installed into the final Gentoo system unless an approved change does that.
-- If Makefile targets such as `make configure-portage`, `make select-profile`, `make sync-portage`, or `make install-base-packages` change, update this skill and `skills/makefile-control-plane.md`.
+- If Makefile targets such as `make configure-portage`, `make select-profile`, `make sync-portage`, `make install-system-packages`, or `make install-base-packages` change, update this skill and `skills/makefile-control-plane.md`.
 - If failure modes or recovery advice change, keep package-conflict, license, overlay, and memory-pressure guidance synchronized with implementation.
 - If Ansible later maps these settings to variables, update `skills/ansible-gentoo-installer.md` and the active OpenSpec `tasks.md`.

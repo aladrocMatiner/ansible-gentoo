@@ -8,12 +8,9 @@ require_command ansible
 require_command ansible-playbook
 
 printf '%s\n' 'Checking Ansible syntax for implemented playbooks...'
-ansible-playbook -i ansible/inventory/live.yml ansible/playbooks/live-preflight.yml --syntax-check >/dev/null
-ansible-playbook -i ansible/inventory/live.yml ansible/playbooks/detect-disks.yml --syntax-check >/dev/null
-ansible-playbook -i ansible/inventory/live.yml ansible/playbooks/install-plan.yml --syntax-check >/dev/null
-ansible-playbook -i ansible/inventory/live.yml ansible/playbooks/partition-plan.yml --syntax-check >/dev/null
-ansible-playbook -i ansible/inventory/live.yml ansible/playbooks/mount-plan.yml --syntax-check >/dev/null
-ansible-playbook -i ansible/inventory/live.yml ansible/playbooks/filesystem-plan.yml --syntax-check >/dev/null
+for playbook in ansible/playbooks/*.yml; do
+  ansible-playbook -i ansible/inventory/live.yml "$playbook" --syntax-check >/dev/null
+done
 
 if command -v ansible-lint >/dev/null 2>&1; then
   printf '%s\n' 'Running ansible-lint for implemented Ansible content...'

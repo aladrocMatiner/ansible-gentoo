@@ -1,0 +1,27 @@
+---
+base_console_common_packages:
+  - app-admin/sudo
+  - app-editors/nano
+  - sys-fs/dosfstools
+  - sys-fs/e2fsprogs
+  - net-misc/networkmanager
+
+btrfs_console_packages:
+  - sys-fs/btrfs-progs
+
+installed_ssh_packages:
+  - net-misc/openssh
+
+base_console_package_use:
+  - atom: app-admin/sudo
+    flags: -sendmail
+  - atom: net-misc/networkmanager
+    flags: gnutls -nss -introspection -modemmanager -ppp -wifi -wext
+  - atom: dev-libs/glib
+    flags: -introspection -sysprof
+  - atom: net-misc/chrony
+    flags: -cmdmon -nts -refclock -rtc
+  - atom: sys-process/cronie
+    flags: -anacron
+  - atom: sys-fs/btrfs-progs
+    flags: -convert -man zstd

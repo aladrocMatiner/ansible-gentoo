@@ -176,12 +176,12 @@ Shared roles:
 - `common/chroot`: prepare Handbook-aligned pseudo-filesystem mounts under `/mnt/gentoo`, copy resolver configuration safely, validate DNS with a read-only chroot lookup, report before/after mount state, and guard later target-mutating operations.
 - `common/portage`: configure minimal Portage baseline shared by both init systems, including conservative `make.conf`, official Gentoo repo sync, variant profile selection, GURU-disabled policy, pending config-update reporting, and evidence logs.
 - `common/locale_timezone_hostname`: configure target hostname, timezone, locale generation, OpenRC/systemd keymap files, and report inputs for final checks and install reports.
-- `common/package_install`: install packages from shared and variant package lists.
+- `common/package_install`: install packages from shared and variant package lists, apply conservative package USE policy, and record package/service evidence.
 - `common/fstab`: generate stable UUID-based fstab entries for ext4 root or the approved Btrfs subvolume layout plus `/boot/efi`, validate UUIDs, and write only under `/mnt/gentoo`.
 - `common/kernel`: install `sys-kernel/installkernel`, `sys-kernel/dracut`, and `gentoo-kernel-bin`; derive the kernel command line from `/mnt/gentoo/etc/fstab`; write installkernel/dracut command-line input; validate kernel, initramfs, and module artifacts; and leave GRUB installation to `common/bootloader`.
 - `common/bootloader`: install and configure GRUB for UEFI through shared safety gates.
 - `common/users`: create users and credentials through secret-safe mechanisms.
-- `common/ssh`: install SSH packages and dispatch service enablement through init-specific logic.
+- `common/ssh`: translate `ENABLE_SSH` into optional package/service inputs without storing secrets, enabling root password login, or assuming SSH is enabled by default.
 - `common/final_checks`: read-only validation before reboot.
 
 Init-specific roles:

@@ -1,0 +1,31 @@
+---
+- name: Define installed SSH policy facts
+  ansible.builtin.set_fact:
+    ssh_target_root: "{{ target_mount | default('/mnt/gentoo') }}"
+    ssh_enabled: "{{ (enable_ssh | default('no') | string | lower) == 'yes' }}"
+
+- name: Validate installed SSH policy inputs
+  ansible.builtin.assert:
+    that:
+      - ssh_target_root == '/mnt/gentoo'
+      - ssh_target_root != '/'
+      - enable_ssh is defined
+      - (enable_ssh | string | lower) in ['yes', 'no']
+      - installed_ssh_packages is defined
+      - installed_ssh_services is defined
+    fail_msg: "SSH_POLICY_INVALID: installed SSH variables are invalid."
+    success_msg: "Installed SSH policy inputs are valid."
+
+- name: Define requested installed SSH packages and services
+  ansible.builtin.set_fact:
+    ssh_requested_packages: "{{ installed_ssh_packages if ssh_enabled else [] }}"
+    ssh_requested_services: "{{ installed_ssh_services if ssh_enabled else [] }}"
+
+- name: Report installed SSH policy
+  ansible.builtin.debug:
+    msg:
+      enabled: "{{ ssh_enabled }}"
+      packages: "{{ ssh_requested_packages }}"
+      services: "{{ ssh_requested_services }}"
+      root_password_login_default: disabled
+      authorized_keys_source: approved secret-safe channel only
