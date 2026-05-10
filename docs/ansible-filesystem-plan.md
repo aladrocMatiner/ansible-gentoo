@@ -82,6 +82,8 @@ For `FILESYSTEM=btrfs`, the plan reports these subvolumes for future creation af
 - `@var_cache` at `/mnt/gentoo/var/cache`
 - `@snapshots` at `/mnt/gentoo/.snapshots`
 
+This mapping is defined by the shared Btrfs layout policy in `docs/btrfs-layout-policy.md`. Future destructive formatting must consume the same policy and must not create OpenRC/systemd-specific Btrfs layouts.
+
 ## Safety
 
 `filesystem-plan` is read-only and does not require `I_UNDERSTAND_THIS_WIPES_DISK=yes`.

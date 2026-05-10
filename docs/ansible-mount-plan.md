@@ -88,6 +88,8 @@ The Btrfs plan reports these subvolumes:
 - `@var_cache` at `/mnt/gentoo/var/cache`
 - `@snapshots` at `/mnt/gentoo/.snapshots`
 
+These names and mountpoints are shared policy, documented in `docs/btrfs-layout-policy.md`. The later `mount-target`, fstab, and final-check workflows must use the same policy and verify that root is mounted with `subvol=@`.
+
 ## Safety
 
 `mount-plan` is read-only and does not require `I_UNDERSTAND_THIS_WIPES_DISK=yes`.

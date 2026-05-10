@@ -186,6 +186,7 @@ Expected behavior:
 - `make mount-plan`: require explicit `INSTALL_DISK` and summarize the future root and EFI mount layout without running `mount`, `umount`, or `mkdir`.
 - `make filesystem-plan`: require explicit `INSTALL_DISK` and summarize the future EFI/root filesystem creation plan without running `mkfs.*`, `wipefs`, `mount`, `umount`, or `mkdir`.
 - `make destructive-safety-check`: require explicit `INSTALL_DISK` and `I_UNDERSTAND_THIS_WIPES_DISK=yes`, then run the shared read-only disk safety role without mutating disks.
+- `make format`: require explicit `INSTALL_DISK` and `I_UNDERSTAND_THIS_WIPES_DISK=yes`, then create only the approved ESP/root filesystems for `FILESYSTEM=ext4` or `FILESYSTEM=btrfs` after printing a destructive preview.
 - `make install-plan PROFILE=openrc`: summarize the planned OpenRC flow through the shared Ansible install path.
 - `make install-plan PROFILE=systemd`: summarize the planned systemd flow through the shared Ansible install path.
 - `make vm-check`: read-only validation of libvirt tools, ISO resolution, UEFI firmware, network mode, and safe project-local paths.
@@ -258,6 +259,8 @@ Required behavior:
 - Run a safety confirmation script.
 - Print disk model, serial, size, and current partitions.
 - Use no default disk.
+- `make partition` may write the GPT layout only.
+- `make format` may create vfat plus ext4 or Btrfs filesystems only; Btrfs must use the shared subvolume policy and clean up its temporary setup mount.
 - Use no wildcard disk matching.
 - Stop if disk identity is ambiguous.
 - Stop if the disk differs from the plan output.

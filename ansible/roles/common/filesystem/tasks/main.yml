@@ -1,0 +1,445 @@
+---
+- name: Require shared filesystem plan for filesystem apply
+  ansible.builtin.assert:
+    that:
+      - filesystem_plan_report is defined
+      - filesystem_plan_report.read_only | bool
+      - disk_safety_report.confirmation_present | bool
+    fail_msg: "CONFIRMATION_MISSING: filesystem apply requires common/disk_safety and filesystem_plan with destructive confirmation."
+    success_msg: "Filesystem apply prerequisites are present."
+
+- name: Store planned filesystem targets
+  ansible.builtin.set_fact:
+    filesystem_efi_target: "{{ filesystem_plan_report.planned_filesystems | selectattr('name', 'equalto', 'efi') | first }}"
+    filesystem_root_target: "{{ filesystem_plan_report.planned_filesystems | selectattr('name', 'equalto', 'root') | first }}"
+    filesystem_btrfs_setup_mount: "{{ btrfs_setup_mount | default('/mnt/gentoo-ai-installer-btrfs-setup') }}"
+    filesystem_btrfs_subvolumes: "{{ filesystem_plan_report.btrfs_subvolumes | default([]) }}"
+
+- name: Require planned filesystem target partitions
+  ansible.builtin.assert:
+    that:
+      - filesystem_efi_target.source is match('^/dev/.+')
+      - filesystem_root_target.source is match('^/dev/.+')
+      - filesystem_efi_target.exists | bool
+      - filesystem_root_target.exists | bool
+      - filesystem_efi_target.source != filesystem_root_target.source
+    fail_msg: "FILESYSTEM_UNSAFE: planned ESP/root partition paths must exist and be distinct."
+    success_msg: "Planned ESP/root partition paths exist and are distinct."
+
+- name: Validate Btrfs setup mount path
+  ansible.builtin.assert:
+    that:
+      - filesystem_btrfs_setup_mount is match('^/mnt/[A-Za-z0-9_.-]+$')
+      - filesystem_btrfs_setup_mount != '/mnt/gentoo'
+      - filesystem_btrfs_setup_mount != target_mount | default('/mnt/gentoo')
+    fail_msg: "FILESYSTEM_UNSAFE: Btrfs setup mount must be a simple temporary path under /mnt and not the target root."
+    success_msg: "Btrfs setup mount path is safe."
+  when: install_plan_filesystem == 'btrfs'
+
+- name: Check whether planned filesystem targets are mounted
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --source
+      - "{{ item.source }}"
+      - --noheadings
+      - --output
+      - TARGET
+  loop:
+    - "{{ filesystem_efi_target }}"
+    - "{{ filesystem_root_target }}"
+  register: filesystem_apply_findmnt
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Refuse to format mounted target partitions
+  ansible.builtin.assert:
+    that:
+      - filesystem_apply_findmnt.results | selectattr('rc', 'equalto', 0) | list | length == 0
+    fail_msg: "FILESYSTEM_UNSAFE: refusing to format mounted target partition(s): {{ filesystem_apply_findmnt.results | selectattr('rc', 'equalto', 0) | map(attribute='stdout_lines') | list }}"
+    success_msg: "Planned filesystem targets are not mounted."
+
+- name: Check mkfs.vfat availability
+  ansible.builtin.command:
+    argv:
+      - which
+      - mkfs.vfat
+  register: filesystem_mkfs_vfat_check
+  changed_when: false
+  check_mode: false
+  failed_when: filesystem_mkfs_vfat_check.rc != 0
+
+- name: Check mkfs.ext4 availability
+  ansible.builtin.command:
+    argv:
+      - which
+      - mkfs.ext4
+  register: filesystem_mkfs_ext4_check
+  changed_when: false
+  check_mode: false
+  failed_when: filesystem_mkfs_ext4_check.rc != 0
+  when: install_plan_filesystem == 'ext4'
+
+- name: Check Btrfs tooling availability
+  ansible.builtin.command:
+    argv:
+      - which
+      - "{{ item }}"
+  loop:
+    - mkfs.btrfs
+    - btrfs
+    - mount
+    - umount
+  register: filesystem_btrfs_tool_checks
+  changed_when: false
+  check_mode: false
+  failed_when: filesystem_btrfs_tool_checks.rc != 0
+  when: install_plan_filesystem == 'btrfs'
+
+- name: Read filesystem target state before apply
+  ansible.builtin.command:
+    argv:
+      - lsblk
+      - --json
+      - --bytes
+      - --output
+      - NAME,PATH,TYPE,SIZE,MODEL,SERIAL,FSTYPE,MOUNTPOINTS,UUID,PARTTYPENAME
+      - "{{ item.source }}"
+  loop:
+    - "{{ filesystem_efi_target }}"
+    - "{{ filesystem_root_target }}"
+  register: filesystem_before_lsblk
+  changed_when: false
+  check_mode: false
+
+- name: Build filesystem apply preview
+  ansible.builtin.set_fact:
+    filesystem_preview:
+      read_only_preview: true
+      destructive_confirmation_present: "{{ disk_safety_report.confirmation_present }}"
+      selected_disk: "{{ disk_safety_report.selected_disk }}"
+      planned_filesystems:
+        - name: efi
+          source: "{{ filesystem_efi_target.source }}"
+          filesystem: vfat
+          label: EFI
+        - name: root
+          source: "{{ filesystem_root_target.source }}"
+          filesystem: "{{ install_plan_filesystem }}"
+          label: GENTOO_ROOT
+      commands: >-
+        {{
+          [
+            {'argv': ['mkfs.vfat', '-F', '32', '-n', 'EFI', filesystem_efi_target.source], 'purpose': 'create FAT32 EFI system partition filesystem'}
+          ]
+          + (
+            [
+              {'argv': ['mkfs.ext4', '-F', '-L', 'GENTOO_ROOT', filesystem_root_target.source], 'purpose': 'create ext4 root filesystem'}
+            ]
+            if install_plan_filesystem == 'ext4'
+            else
+            [
+              {'argv': ['mkfs.btrfs', '-f', '-L', 'GENTOO_ROOT', filesystem_root_target.source], 'purpose': 'create Btrfs root filesystem'},
+              {'argv': ['mount', '-t', 'btrfs', filesystem_root_target.source, filesystem_btrfs_setup_mount], 'purpose': 'temporarily mount Btrfs top level for subvolume creation'},
+              {'argv': ['btrfs', 'subvolume', 'create', filesystem_btrfs_setup_mount ~ '/<approved-subvolume-name>'], 'purpose': 'create each approved Btrfs subvolume'},
+              {'argv': ['umount', filesystem_btrfs_setup_mount], 'purpose': 'unmount temporary Btrfs setup mount'}
+            ]
+          )
+        }}
+      btrfs_subvolumes: "{{ filesystem_btrfs_subvolumes if install_plan_filesystem == 'btrfs' else [] }}"
+      btrfs_setup_mount: "{{ filesystem_btrfs_setup_mount if install_plan_filesystem == 'btrfs' else omit }}"
+      will_not:
+        - partition disks
+        - mount the final target root
+        - chroot
+        - install packages
+        - install bootloader
+
+- name: Print destructive filesystem preview
+  ansible.builtin.debug:
+    msg: "{{ filesystem_preview }}"
+
+- name: Define filesystem audit run id
+  ansible.builtin.set_fact:
+    filesystem_run_id: "{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}"
+
+- name: Define filesystem audit log path
+  ansible.builtin.set_fact:
+    filesystem_log_dir: "{{ project_root | default(lookup('ansible.builtin.env', 'PWD'), true) }}/logs/install-runs/{{ filesystem_run_id }}/filesystem"
+
+- name: Create local filesystem run log directory
+  ansible.builtin.file:
+    path: "{{ filesystem_log_dir }}"
+    state: directory
+    mode: "0750"
+  delegate_to: localhost
+  become: false
+  when: not ansible_check_mode
+
+- name: Record filesystem state before apply
+  ansible.builtin.copy:
+    dest: "{{ filesystem_log_dir }}/before.json"
+    mode: "0640"
+    content: |
+      {
+        "install_disk": {{ install_disk | to_json }},
+        "filesystem": {{ install_plan_filesystem | to_json }},
+        "lsblk": {{ filesystem_before_lsblk.results | map(attribute='stdout') | map('from_json') | list | to_nice_json }},
+        "preview": {{ filesystem_preview | to_nice_json }}
+      }
+  delegate_to: localhost
+  become: false
+  when: not ansible_check_mode
+
+- name: Create EFI system partition filesystem
+  ansible.builtin.command:
+    argv:
+      - mkfs.vfat
+      - -F
+      - "32"
+      - -n
+      - EFI
+      - "{{ filesystem_efi_target.source }}"
+  changed_when: true
+  when: not ansible_check_mode
+
+- name: Create ext4 root filesystem
+  ansible.builtin.command:
+    argv:
+      - mkfs.ext4
+      - -F
+      - -L
+      - GENTOO_ROOT
+      - "{{ filesystem_root_target.source }}"
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - install_plan_filesystem == 'ext4'
+
+- name: Create Btrfs root filesystem
+  ansible.builtin.command:
+    argv:
+      - mkfs.btrfs
+      - -f
+      - -L
+      - GENTOO_ROOT
+      - "{{ filesystem_root_target.source }}"
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - install_plan_filesystem == 'btrfs'
+
+- name: Inspect temporary Btrfs setup directory before creation
+  ansible.builtin.stat:
+    path: "{{ filesystem_btrfs_setup_mount }}"
+  register: filesystem_btrfs_setup_mount_stat
+  when:
+    - not ansible_check_mode
+    - install_plan_filesystem == 'btrfs'
+
+- name: Refuse pre-existing Btrfs setup directory
+  ansible.builtin.assert:
+    that:
+      - not filesystem_btrfs_setup_mount_stat.stat.exists
+    fail_msg: "FILESYSTEM_UNSAFE: Btrfs setup path already exists and will not be removed as a generated artifact: {{ filesystem_btrfs_setup_mount }}"
+    success_msg: "Btrfs setup path does not pre-exist."
+  when:
+    - not ansible_check_mode
+    - install_plan_filesystem == 'btrfs'
+
+- name: Create approved Btrfs subvolumes
+  when:
+    - not ansible_check_mode
+    - install_plan_filesystem == 'btrfs'
+  block:
+    - name: Check temporary Btrfs setup mount before use
+      ansible.builtin.command:
+        argv:
+          - findmnt
+          - --mountpoint
+          - "{{ filesystem_btrfs_setup_mount }}"
+          - --noheadings
+          - --output
+          - SOURCE
+      register: filesystem_btrfs_setup_findmnt_before
+      changed_when: false
+      failed_when: false
+
+    - name: Refuse busy Btrfs setup mount
+      ansible.builtin.assert:
+        that:
+          - filesystem_btrfs_setup_findmnt_before.rc != 0
+        fail_msg: "FILESYSTEM_UNSAFE: Btrfs setup mount is already mounted: {{ filesystem_btrfs_setup_mount }}"
+        success_msg: "Btrfs setup mount is not mounted."
+
+    - name: Create temporary Btrfs setup directory
+      ansible.builtin.file:
+        path: "{{ filesystem_btrfs_setup_mount }}"
+        state: directory
+        mode: "0755"
+
+    - name: Temporarily mount Btrfs top level
+      ansible.builtin.command:
+        argv:
+          - mount
+          - -t
+          - btrfs
+          - "{{ filesystem_root_target.source }}"
+          - "{{ filesystem_btrfs_setup_mount }}"
+      changed_when: true
+
+    - name: Create approved Btrfs subvolume
+      ansible.builtin.command:
+        argv:
+          - btrfs
+          - subvolume
+          - create
+          - "{{ filesystem_btrfs_setup_mount }}/{{ item.name }}"
+      loop: "{{ filesystem_btrfs_subvolumes }}"
+      register: filesystem_btrfs_subvolume_create
+      changed_when: true
+
+    - name: List created Btrfs subvolumes
+      ansible.builtin.command:
+        argv:
+          - btrfs
+          - subvolume
+          - list
+          - "{{ filesystem_btrfs_setup_mount }}"
+      register: filesystem_btrfs_subvolume_list
+      changed_when: false
+  always:
+    - name: Check temporary Btrfs setup mount during cleanup
+      ansible.builtin.command:
+        argv:
+          - findmnt
+          - --mountpoint
+          - "{{ filesystem_btrfs_setup_mount }}"
+          - --noheadings
+          - --output
+          - SOURCE
+      register: filesystem_btrfs_setup_findmnt_cleanup
+      changed_when: false
+      failed_when: false
+      when:
+        - not ansible_check_mode
+        - install_plan_filesystem == 'btrfs'
+
+    - name: Unmount temporary Btrfs setup mount
+      ansible.builtin.command:
+        argv:
+          - umount
+          - "{{ filesystem_btrfs_setup_mount }}"
+      changed_when: true
+      when:
+        - not ansible_check_mode
+        - install_plan_filesystem == 'btrfs'
+        - filesystem_btrfs_setup_findmnt_cleanup.rc == 0
+
+    - name: Remove temporary Btrfs setup directory
+      ansible.builtin.file:
+        path: "{{ filesystem_btrfs_setup_mount }}"
+        state: absent
+      when:
+        - not ansible_check_mode
+        - install_plan_filesystem == 'btrfs'
+
+- name: Verify temporary Btrfs setup mount is unmounted
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - "{{ filesystem_btrfs_setup_mount }}"
+      - --noheadings
+      - --output
+      - SOURCE
+  register: filesystem_btrfs_setup_findmnt_after
+  changed_when: false
+  failed_when: filesystem_btrfs_setup_findmnt_after.rc == 0
+  when: install_plan_filesystem == 'btrfs'
+
+- name: Verify Btrfs filesystem after apply
+  ansible.builtin.command:
+    argv:
+      - btrfs
+      - filesystem
+      - show
+      - "{{ filesystem_root_target.source }}"
+  register: filesystem_btrfs_show_after
+  changed_when: false
+  failed_when: filesystem_btrfs_show_after.rc != 0
+  when:
+    - not ansible_check_mode
+    - install_plan_filesystem == 'btrfs'
+
+- name: Derive created Btrfs subvolume names
+  ansible.builtin.set_fact:
+    filesystem_btrfs_created_subvolume_names: "{{ filesystem_btrfs_subvolume_list.stdout_lines | default([]) | map('regex_replace', '^.* path ', '') | list }}"
+  when:
+    - not ansible_check_mode
+    - install_plan_filesystem == 'btrfs'
+
+- name: Verify approved Btrfs subvolumes were created
+  ansible.builtin.assert:
+    that:
+      - item.name in filesystem_btrfs_created_subvolume_names
+    fail_msg: "FILESYSTEM_UNSAFE: approved Btrfs subvolume was not found after creation: {{ item.name }}"
+    success_msg: "Approved Btrfs subvolume exists: {{ item.name }}"
+  loop: "{{ filesystem_btrfs_subvolumes }}"
+  when:
+    - not ansible_check_mode
+    - install_plan_filesystem == 'btrfs'
+
+- name: Read filesystem target state after apply
+  ansible.builtin.command:
+    argv:
+      - lsblk
+      - --json
+      - --bytes
+      - --output
+      - NAME,PATH,TYPE,SIZE,MODEL,SERIAL,FSTYPE,MOUNTPOINTS,UUID,PARTTYPENAME
+      - "{{ item.source }}"
+  loop:
+    - "{{ filesystem_efi_target }}"
+    - "{{ filesystem_root_target }}"
+  register: filesystem_after_lsblk
+  changed_when: false
+  check_mode: false
+
+- name: Record filesystem state after apply
+  ansible.builtin.copy:
+    dest: "{{ filesystem_log_dir }}/after.json"
+    mode: "0640"
+    content: |
+      {
+        "install_disk": {{ install_disk | to_json }},
+        "check_mode": {{ ansible_check_mode | to_json }},
+        "filesystem": {{ install_plan_filesystem | to_json }},
+        "lsblk": {{ filesystem_after_lsblk.results | map(attribute='stdout') | map('from_json') | list | to_nice_json }},
+        "btrfs_filesystem_show": {{ filesystem_btrfs_show_after.stdout_lines | default([]) | to_nice_json }},
+        "btrfs_subvolumes": {{ filesystem_btrfs_subvolume_list.stdout_lines | default([]) | to_nice_json }}
+      }
+  delegate_to: localhost
+  become: false
+  when: not ansible_check_mode
+
+- name: Build filesystem apply report
+  ansible.builtin.set_fact:
+    filesystem_apply_report:
+      changed: "{{ not ansible_check_mode }}"
+      check_mode: "{{ ansible_check_mode }}"
+      install_disk: "{{ install_disk }}"
+      efi_partition: "{{ filesystem_efi_target.source }}"
+      root_partition: "{{ filesystem_root_target.source }}"
+      efi_filesystem: vfat
+      root_filesystem: "{{ install_plan_filesystem }}"
+      btrfs_subvolumes_created: "{{ install_plan_filesystem == 'btrfs' and not ansible_check_mode }}"
+      btrfs_filesystem_verified: "{{ install_plan_filesystem == 'btrfs' and not ansible_check_mode }}"
+      temporary_btrfs_mount: "{{ filesystem_btrfs_setup_mount if install_plan_filesystem == 'btrfs' else omit }}"
+      mounted_filesystems: false
+      logs: "{{ filesystem_log_dir }}/"
+
+- name: Print filesystem apply report
+  ansible.builtin.debug:
+    msg: "{{ filesystem_apply_report }}"

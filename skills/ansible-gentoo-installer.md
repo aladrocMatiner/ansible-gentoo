@@ -31,6 +31,7 @@ Do not use this skill to bypass OpenSpec or safety review for destructive automa
 - A network-reachable official Gentoo live ISO target over SSH, selected by inventory or Makefile variables such as `ANSIBLE_LIVE_HOST`.
 - Libvirt VM SSH access only when using the local validation harness.
 - Basic console targets: amd64, OpenRC or systemd, UEFI, ext4 or planned Btrfs subvolumes, `gentoo-kernel-bin`, GRUB, NetworkManager, no LUKS.
+- Btrfs policy, when `FILESYSTEM=btrfs`, is shared across init systems and documented in `docs/btrfs-layout-policy.md`: root `@`, `@home`, `@var`, `@var_log`, `@var_cache`, and `@snapshots`; root must mount with `subvol=@`.
 - Project Handbook choices: NetworkManager for v1 networking, GRUB for UEFI, EFI mounted at `/boot/efi` in the installed system, and `gentoo-kernel-bin` with required installkernel/initramfs support.
 - Planned shared guardrails: install configuration schema, config validation report, target system baseline, installed time sync policy, installed SSH policy, boot kernel command line policy, download/cache mirror policy, Portage world update policy, install state checkpoints, destructive previews, audit bundles, secret input policy, logging/error taxonomy, Handbook traceability, live ISO network bootstrap hardening, host requirements, cleanup/reset policy, manual escape hatch, libvirt matrix validation, first-boot validation, and install report summary.
 - Makefile target contract.
@@ -137,6 +138,7 @@ Rules:
 - No default disk.
 - No wildcard disk matching.
 - `filesystem` must be `ext4` or `btrfs`.
+- Btrfs subvolume names, mountpoints, and root `subvol=@` behavior must come from the shared Btrfs policy, not from OpenRC/systemd-specific roles.
 - `stage3_variant` must match `init_system`.
 - OpenRC variables belong in `group_vars/openrc.yml` or an equivalent variant file.
 - systemd variables belong in `group_vars/systemd.yml` or an equivalent variant file.
@@ -254,6 +256,7 @@ Required gates:
 - Confirm target root and EFI mount paths before writing.
 - Confirm `/mnt/gentoo/boot/efi` in the live ISO maps to `/boot/efi` in the target system.
 - Confirm no mounted filesystem is formatted.
+- Confirm Btrfs formatting creates only the approved shared subvolumes and verifies them with Btrfs tooling when generic block inspection does not report Btrfs metadata.
 - Confirm GRUB target disk is operator-provided.
 - Confirm current EFI boot entries are shown before EFI changes.
 - Confirm OpenRC flows do not call `systemctl`.

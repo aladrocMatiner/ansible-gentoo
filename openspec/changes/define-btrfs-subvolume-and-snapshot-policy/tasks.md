@@ -5,10 +5,10 @@
 - [x] Validate with `openspec validate define-btrfs-subvolume-and-snapshot-policy --strict`.
 
 ## Implementation
-- [ ] Update Btrfs planning docs with approved subvolume names and mountpoints.
-- [ ] Update filesystem apply proposal to consume this policy.
-- [ ] Update mount target proposal to consume this policy.
-- [ ] Update fstab proposal to consume this policy.
-- [ ] Update final checks proposal to verify `subvol=@`.
-- [ ] Update skills and docs.
-- [ ] Validate all OpenSpec changes.
+- [x] Update Btrfs planning docs with approved subvolume names and mountpoints.
+- [x] Update filesystem apply proposal to consume this policy.
+- [x] Update mount target proposal to consume this policy.
+- [x] Update fstab proposal to consume this policy.
+- [x] Update final checks proposal to verify `subvol=@`.
+- [x] Update skills and docs.
+- [x] Validate all OpenSpec changes.

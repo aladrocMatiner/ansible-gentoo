@@ -33,9 +33,9 @@ The shared `common/disk_safety` role verifies:
 
 ## Relationship To Plan Targets
 
-`partition-plan`, `mount-plan`, and `filesystem-plan` reuse the same `common/disk_safety` role without requiring destructive confirmation. Future apply targets must reuse the same role with confirmation enabled before doing any disk mutation.
+`partition-plan`, `mount-plan`, and `filesystem-plan` reuse the same `common/disk_safety` role without requiring destructive confirmation. Apply targets such as `make partition` and `make format` reuse the same role with confirmation enabled before doing any disk mutation.
 
-Preview output is not confirmation. Operators must still pass `I_UNDERSTAND_THIS_WIPES_DISK=yes` to destructive apply workflows when those workflows are implemented.
+Preview output is not confirmation. Operators must still pass `I_UNDERSTAND_THIS_WIPES_DISK=yes` to destructive apply workflows.
 
 ## Failure Modes
 
