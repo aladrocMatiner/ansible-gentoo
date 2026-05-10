@@ -1,0 +1,33 @@
+---
+- name: Read block device inventory
+  ansible.builtin.command: lsblk --json --bytes --output NAME,PATH,TYPE,SIZE,MODEL,SERIAL,FSTYPE,MOUNTPOINTS,UUID,PARTTYPENAME
+  register: disk_detection_lsblk
+  changed_when: false
+
+- name: Parse block device inventory
+  ansible.builtin.set_fact:
+    disk_detection_report: "{{ disk_detection_lsblk.stdout | from_json }}"
+
+- name: Build visible disk path list
+  ansible.builtin.set_fact:
+    disk_detection_disk_paths: >-
+      {{
+        disk_detection_report.blockdevices
+        | selectattr('type', 'equalto', 'disk')
+        | map(attribute='path')
+        | list
+      }}
+
+- name: Check expected VM disk path
+  ansible.builtin.stat:
+    path: /dev/vda
+  register: disk_detection_vda
+
+- name: Print read-only disk inventory
+  ansible.builtin.debug:
+    msg:
+      read_only: true
+      install_disk_selected: false
+      dev_vda_present: "{{ disk_detection_vda.stat.exists }}"
+      disk_paths: "{{ disk_detection_disk_paths }}"
+      block_devices: "{{ disk_detection_report.blockdevices }}"

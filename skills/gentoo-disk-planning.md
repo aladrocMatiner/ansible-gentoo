@@ -16,6 +16,7 @@ Use this skill:
 - Before mounting target filesystems.
 - Before bootloader planning.
 - When reviewing Ansible disk automation later.
+- When reviewing read-only Ansible disk detection or install-plan output.
 
 Do not use this skill to support Btrfs, LUKS, BIOS boot, or advanced layouts in v1. Those require future OpenSpec changes.
 
@@ -154,13 +155,19 @@ Expected targets:
 These targets define the expected control-plane contract for disk planning. If a target is not present in the current `Makefile`, treat it as planned and do not document it as runnable in user-facing docs.
 
 - `make detect-disks`
+- `make install-plan PROFILE=openrc`
+- `make install-plan PROFILE=systemd`
+- `make install-plan PROFILE=openrc INSTALL_DISK=/dev/vda`
 - `make partition-plan INSTALL_DISK=...`
 - `make partition INSTALL_DISK=... I_UNDERSTAND_THIS_WIPES_DISK=yes`
 - `make format INSTALL_DISK=... I_UNDERSTAND_THIS_WIPES_DISK=yes`
 
 Target expectations:
 
-- `make detect-disks`: read-only disk inventory.
+- `make detect-disks`: read-only disk inventory without selecting an install disk.
+- `make install-plan PROFILE=openrc`: read-only OpenRC plan; reports no selected disk unless `INSTALL_DISK` is explicitly provided.
+- `make install-plan PROFILE=systemd`: read-only systemd plan; reports no selected disk unless `INSTALL_DISK` is explicitly provided.
+- `make install-plan PROFILE=openrc INSTALL_DISK=/dev/vda`: VM-only example that matches the explicitly provided guest disk for read-only planning.
 - `make partition-plan INSTALL_DISK=...`: show proposed v1 layout and current disk state without writing.
 - `make partition INSTALL_DISK=... I_UNDERSTAND_THIS_WIPES_DISK=yes`: partition only after safety checks and confirmation.
 - `make format INSTALL_DISK=... I_UNDERSTAND_THIS_WIPES_DISK=yes`: format only approved partitions after mount checks and confirmation.
@@ -181,6 +188,7 @@ The operator should not be asked to run raw `parted`, `sgdisk`, `fdisk`, `wipefs
 
 ## 12. Recovery Advice
 - Re-run `make detect-disks` before destructive work.
+- Use `make install-plan PROFILE=... INSTALL_DISK=...` to confirm read-only disk identity before any future destructive plan.
 - Re-run `make partition-plan INSTALL_DISK=...` if disk state changes.
 - Stop if disk identity is ambiguous.
 - Reboot in UEFI mode if `/sys/firmware/efi` is missing.
@@ -193,6 +201,7 @@ The operator should not be asked to run raw `parted`, `sgdisk`, `fdisk`, `wipefs
 This skill should produce or request:
 
 - Disk inventory from `make detect-disks`.
+- Read-only install-plan output from `make install-plan PROFILE=...`.
 - UEFI verification result.
 - Operator-provided `INSTALL_DISK`.
 - v1 partition plan.
@@ -207,6 +216,7 @@ When disk detection, partition planning, or destructive disk behavior changes, d
 
 - If the v1 layout changes, update this skill, manual install documentation under `docs/`, `agents/gentoo-install-agent.md`, and the active OpenSpec `tasks.md`.
 - If disk discovery output changes, update the required displayed fields here: disk path, model, serial, size, current partition table, current filesystems, and current mountpoints.
+- If read-only install-plan output changes, update `docs/ansible-install-plan.md` and this skill so `PROFILE`, optional `INSTALL_DISK`, v1 layout, and Handbook baseline remain accurate.
 - If confirmations, safety gates, or destructive target names change, update `skills/makefile-control-plane.md`, `agents/safety-review-agent.md`, and relevant `README.md` or `docs/` instructions.
 - If implementation changes partitioning or formatting behavior, update safety documentation before marking the OpenSpec task complete.
 - If Makefile targets such as `make detect-disks`, `make partition-plan`, `make partition`, or `make format` change, update the target examples and required variables here.

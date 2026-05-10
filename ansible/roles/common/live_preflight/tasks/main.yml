@@ -1,0 +1,79 @@
+---
+- name: Read Gentoo release file
+  ansible.builtin.command: cat /etc/gentoo-release
+  register: gentoo_release
+  changed_when: false
+  failed_when: false
+
+- name: Check UEFI firmware directory
+  ansible.builtin.stat:
+    path: /sys/firmware/efi
+  register: uefi_dir
+
+- name: Read DNS resolver configuration
+  ansible.builtin.command: cat /etc/resolv.conf
+  register: resolv_conf
+  changed_when: false
+  failed_when: false
+
+- name: Read default route
+  ansible.builtin.command: ip route show default
+  register: default_route
+  changed_when: false
+  failed_when: false
+
+- name: Read network addresses
+  ansible.builtin.command: ip -brief addr
+  register: network_addresses
+  changed_when: false
+
+- name: Read block devices
+  ansible.builtin.command: lsblk --json --output NAME,PATH,TYPE,SIZE,MODEL,SERIAL,FSTYPE,MOUNTPOINTS
+  register: lsblk_json
+  changed_when: false
+
+- name: Check expected VM disk path
+  ansible.builtin.stat:
+    path: /dev/vda
+  register: vda_device
+
+- name: Parse block device report
+  ansible.builtin.set_fact:
+    live_preflight_block_devices: "{{ lsblk_json.stdout | from_json }}"
+
+- name: Print live ISO preflight summary
+  ansible.builtin.debug:
+    msg:
+      gentoo_release: "{{ gentoo_release.stdout | default('unavailable', true) }}"
+      distribution: "{{ ansible_distribution | default('unknown') }}"
+      distribution_version: "{{ ansible_distribution_version | default('unknown') }}"
+      architecture: "{{ ansible_architecture }}"
+      kernel: "{{ ansible_kernel }}"
+      uefi_available: "{{ uefi_dir.stat.exists }}"
+      default_route: "{{ default_route.stdout_lines | default([]) }}"
+      dns: "{{ resolv_conf.stdout_lines | default([]) }}"
+      network_addresses: "{{ network_addresses.stdout_lines }}"
+      dev_vda_present: "{{ vda_device.stat.exists }}"
+      block_devices: "{{ live_preflight_block_devices.blockdevices }}"
+
+- name: Require amd64/x86_64 architecture
+  ansible.builtin.assert:
+    that:
+      - ansible_architecture == "x86_64"
+    fail_msg: "Expected x86_64/amd64 live ISO architecture, got {{ ansible_architecture }}"
+    success_msg: "Architecture is x86_64/amd64."
+
+- name: Require Gentoo live environment evidence
+  ansible.builtin.assert:
+    that:
+      - gentoo_release.rc == 0
+      - "'Gentoo' in gentoo_release.stdout"
+    fail_msg: "Could not confirm Gentoo live environment from /etc/gentoo-release."
+    success_msg: "Gentoo live environment evidence found."
+
+- name: Require expected VM disk to be visible
+  ansible.builtin.assert:
+    that:
+      - vda_device.stat.exists
+    fail_msg: "Expected VM disk /dev/vda is not visible."
+    success_msg: "Expected VM disk /dev/vda is visible."

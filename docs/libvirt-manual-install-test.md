@@ -65,9 +65,23 @@ make vm-ip
 make vm-ssh
 make vm-rsync
 make vm-ansible-ping
+make ansible-live-ping
+make ansible-live-preflight
+make detect-disks
+make install-plan PROFILE=openrc
 ```
 
 The default network mode is the libvirt managed `default` network. `make vm-ip` discovers the live ISO address from libvirt DHCP leases. The project does not commit passwords, tokens, or private keys.
+
+`make ansible-live-ping` and `make ansible-live-preflight` are the first project Ansible handoff targets. They validate SSH connectivity and gather read-only live ISO facts. They do not install Gentoo, select an install disk, partition, format, mount target filesystems, or modify `/dev/vda`.
+
+`make detect-disks` and `make install-plan` are also read-only. To plan against the VM disk, pass it deliberately:
+
+```sh
+make install-plan PROFILE=openrc INSTALL_DISK=/dev/vda
+```
+
+This matches `/dev/vda` against live ISO disk inventory only; it does not write to the qcow2 disk.
 
 Stop or clean the VM:
 

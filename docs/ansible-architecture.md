@@ -7,6 +7,8 @@ The Ansible installer phase should turn validated manual Gentoo installation ste
 
 The architecture must support basic console installs for OpenRC and systemd while reusing as much implementation as possible.
 
+Future installer roles and playbooks must use the official Gentoo AMD64 Handbook as the baseline procedure: <https://wiki.gentoo.org/wiki/Handbook:AMD64>. The project may translate Handbook steps into Ansible tasks, variables, templates, and validations, but deviations must be intentional, documented, and reviewed through OpenSpec.
+
 ## Reuse-first Design
 Common behavior must be implemented once and reused.
 
@@ -33,6 +35,8 @@ Shared behavior includes:
 - libvirt VM validation flow
 
 Do not duplicate OpenRC and systemd logic unless the behavior genuinely differs. If duplication is necessary, the implementing OpenSpec change must explain why shared roles, variables, handlers, templates, or includes cannot express the behavior.
+
+Shared roles should correspond to Handbook phases where practical. For example, disk preparation, stage3 installation, chroot preparation, Portage configuration, kernel installation, bootloader setup, networking, users, and final checks should each preserve the Handbook order and safety assumptions unless an approved OpenSpec change explains the deviation.
 
 ## Proposed Directory Layout
 Planned layout:
@@ -93,6 +97,12 @@ Shared roles live under `roles/common/` or an equivalent shared structure.
 - `users`: user creation framework with secret-safe input.
 - `ssh`: SSH package framework and init-specific enablement dispatch.
 - `final_checks`: read-only validation before reboot.
+
+Currently implemented read-only planning roles:
+
+- `common/live_preflight`: validates the live ISO environment over SSH.
+- `common/disk_detection`: reports visible block devices without selecting or modifying a disk.
+- `common/install_plan`: prints a profile-aware OpenRC or systemd plan without defaulting `install_disk`.
 
 ## Init-specific Roles
 Init-specific roles must be thin and explicit.
@@ -206,6 +216,7 @@ Unacceptable patterns:
 ## Review Checklist
 Before approving future Ansible implementation:
 
+- Does the role or playbook follow the relevant official Gentoo AMD64 Handbook step unless a reviewed deviation is documented?
 - Is common behavior implemented once?
 - Are init-specific differences isolated and named clearly?
 - Does `install_disk` have no default?

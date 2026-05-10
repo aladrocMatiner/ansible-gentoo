@@ -135,6 +135,8 @@ Required safe targets:
 - `make openspec-list`
 - `make openspec-validate`
 - `make ansible-check`
+- `make ansible-live-ping`
+- `make ansible-live-preflight`
 - `make install-plan`
 - `make install-plan PROFILE=openrc`
 - `make install-plan PROFILE=systemd`
@@ -148,7 +150,9 @@ Expected behavior:
 - `make openspec-list`: list OpenSpec changes.
 - `make openspec-validate`: validate OpenSpec changes.
 - `make ansible-check`: validate Ansible availability and project structure.
-- `make install-plan`: summarize intended install flow without making changes.
+- `make ansible-live-ping`: validate SSH-based Ansible connectivity to the booted official live ISO VM.
+- `make ansible-live-preflight`: run read-only live ISO checks without selecting an install disk or mutating the VM disk.
+- `make install-plan`: summarize intended install flow without making changes; default `PROFILE=openrc` but never default `INSTALL_DISK`.
 - `make install-plan PROFILE=openrc`: summarize the planned OpenRC flow through the shared Ansible install path.
 - `make install-plan PROFILE=systemd`: summarize the planned systemd flow through the shared Ansible install path.
 - `make vm-check`: read-only validation of libvirt tools, ISO resolution, UEFI firmware, network mode, and safe project-local paths.
@@ -269,6 +273,8 @@ Rules:
 - `make bootstrap-codex CODEX_INSTALL_METHOD=npm`
 - `make openspec-validate`
 - `make ansible-check`
+- `make ansible-live-ping`
+- `make ansible-live-preflight`
 - `make ansible-dry-run PROFILE=openrc`
 - `make ansible-dry-run PROFILE=systemd`
 - `make vm-check`
@@ -334,4 +340,6 @@ When Makefile behavior changes, documentation must change in the same commit or 
 - Semi-dangerous targets must document what paths or live-environment state they may change.
 - If target names, variable names, defaults, or confirmation values change, update this skill, `README.md` or `docs/`, and the active OpenSpec `tasks.md`.
 - If VM/libvirt targets change, update `docs/libvirt-manual-install-test.md`, any QEMU migration note, and active OpenSpec tasks. Document ISO path, qcow2 path, libvirt URI, network mode, serial console, SSH bootstrap, guest `/dev/vda`, Ansible connectivity validation, and cleanup behavior.
+- If live ISO Ansible preflight targets change, update `docs/ansible-live-preflight.md`, `docs/libvirt-manual-install-test.md`, `skills/ansible-gentoo-installer.md`, and the active OpenSpec tasks.
+- If read-only Ansible disk detection or install-plan targets change, update `docs/ansible-install-plan.md`, `skills/ansible-gentoo-installer.md`, `skills/gentoo-disk-planning.md`, and the active OpenSpec tasks.
 - If failure modes or recovery behavior changes in implementation, update the `Failure Modes` and `Recovery Advice` sections here before finishing.

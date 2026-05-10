@@ -1,0 +1,72 @@
+---
+- name: Validate supported install profile
+  ansible.builtin.assert:
+    that:
+      - profile is defined
+      - profile in ['openrc', 'systemd']
+    fail_msg: "PROFILE/profile must be openrc or systemd."
+    success_msg: "Install profile is supported."
+
+- name: Derive read-only plan variables
+  ansible.builtin.set_fact:
+    install_plan_init_system: "{{ profile }}"
+    install_plan_stage3_variant: "{{ profile }}"
+    install_plan_disk_selected: "{{ install_disk is defined and (install_disk | string | length > 0) }}"
+
+- name: Match explicit install disk when provided
+  ansible.builtin.set_fact:
+    install_plan_matching_disks: >-
+      {{
+        disk_detection_report.blockdevices
+        | selectattr('path', 'equalto', install_disk | default(''))
+        | list
+      }}
+  when: install_plan_disk_selected
+
+- name: Require explicit install disk to be visible when provided
+  ansible.builtin.assert:
+    that:
+      - install_plan_matching_disks | length == 1
+    fail_msg: "Explicit INSTALL_DISK={{ install_disk }} was not found in detected live ISO disks."
+    success_msg: "Explicit INSTALL_DISK={{ install_disk }} was found and is used only for read-only planning."
+  when: install_plan_disk_selected
+
+- name: Print read-only install plan
+  ansible.builtin.debug:
+    msg:
+      read_only: true
+      handbook_baseline: "https://wiki.gentoo.org/wiki/Handbook:AMD64"
+      profile: "{{ profile }}"
+      init_system: "{{ install_plan_init_system }}"
+      stage3_variant: "{{ install_plan_stage3_variant }}"
+      v1_assumptions:
+        architecture: amd64
+        boot_mode: uefi
+        filesystem: ext4
+        kernel: gentoo-kernel-bin
+        bootloader: grub
+        network: NetworkManager
+        luks: false
+        btrfs: false
+        custom_iso: false
+      install_disk:
+        selected: "{{ install_plan_disk_selected }}"
+        path: "{{ install_disk | default('not selected', true) }}"
+        matched_identity: "{{ (install_plan_matching_disks | default([]) | first) if install_plan_disk_selected else 'not selected' }}"
+      planned_partition_layout:
+        efi_system_partition:
+          size: 512MiB
+          filesystem: FAT32
+          mountpoint: /boot/efi
+        root_partition:
+          size: remaining disk
+          filesystem: ext4
+          mountpoint: /mnt/gentoo
+        swap:
+          partition: false
+          note: "No swap partition in v1 unless a future approved change adds one; optional swapfile can be planned later."
+      safety_boundary:
+        destructive_commands_run: false
+        install_disk_defaulted: false
+        confirmation_required: false
+        next_destructive_change_required_before_partitioning: true

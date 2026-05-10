@@ -1,0 +1,6 @@
+all:
+  hosts:
+    gentoo_live:
+      ansible_connection: ssh
+      ansible_user: root
+      ansible_python_interpreter: auto_silent

@@ -5,36 +5,37 @@
 - [x] Create `design.md`.
 - [x] Create `tasks.md`.
 - [x] Create spec delta.
-- [ ] Validate with `openspec validate implement-live-iso-ansible-preflight --strict`.
-- [ ] Validate with `openspec validate --all --strict`.
+- [x] Validate with `openspec validate implement-live-iso-ansible-preflight --strict`.
+- [x] Validate with `openspec validate --all --strict`.
 
 ## 2. Makefile
-- [ ] Add `make ansible-live-ping`.
-- [ ] Add `make ansible-live-preflight`.
-- [ ] Document the new targets in `make help`.
-- [ ] Ensure targets discover `VM_IP` through `make vm-ip` or accept explicit `VM_IP`.
+- [x] Add `make ansible-live-ping`.
+- [x] Add `make ansible-live-preflight`.
+- [x] Document the new targets in `make help`.
+- [x] Ensure targets discover `VM_IP` through `make vm-ip` or accept explicit `VM_IP`.
 
 ## 3. Ansible
-- [ ] Create `ansible/inventory/live.yml`.
-- [ ] Create `ansible/playbooks/live-preflight.yml`.
-- [ ] Create `ansible/roles/common/live_preflight/tasks/main.yml`.
-- [ ] Keep tasks read-only.
-- [ ] Report architecture, kernel, Gentoo release, UEFI, network, DNS, routes, block devices, and `/dev/vda`.
+- [x] Create `ansible/inventory/live.yml`.
+- [x] Create `ansible/playbooks/live-preflight.yml`.
+- [x] Create `ansible/roles/common/live_preflight/tasks/main.yml`.
+- [x] Keep tasks read-only.
+- [x] Report architecture, kernel, Gentoo release, UEFI, network, DNS, routes, block devices, and `/dev/vda`.
 
 ## 4. Safety
-- [ ] Verify no destructive commands are used.
-- [ ] Verify no install disk is selected or defaulted.
-- [ ] Verify no secrets are committed.
-- [ ] Verify no installer playbooks run.
+- [x] Verify no destructive commands are used.
+- [x] Verify no install disk is selected or defaulted.
+- [x] Verify no secrets are committed.
+- [x] Verify no installer playbooks run.
 
 ## 5. Documentation
-- [ ] Create `docs/ansible-live-preflight.md`.
-- [ ] Update `docs/libvirt-manual-install-test.md`.
-- [ ] Update `skills/ansible-gentoo-installer.md`.
-- [ ] Update `skills/makefile-control-plane.md`.
+- [x] Create `docs/ansible-live-preflight.md`.
+- [x] Update `docs/libvirt-manual-install-test.md`.
+- [x] Update `skills/ansible-gentoo-installer.md`.
+- [x] Update `skills/makefile-control-plane.md`.
+- [x] Document that future Ansible installer roles use the official Gentoo AMD64 Handbook as the baseline procedure.
 
 ## 6. Validation
-- [ ] Run `make ansible-live-ping`.
-- [ ] Run `make ansible-live-preflight`.
-- [ ] Run `openspec validate implement-live-iso-ansible-preflight --strict`.
-- [ ] Run `openspec validate --all --strict`.
+- [x] Run `make ansible-live-ping`.
+- [x] Run `make ansible-live-preflight`.
+- [x] Run `openspec validate implement-live-iso-ansible-preflight --strict`.
+- [x] Run `openspec validate --all --strict`.

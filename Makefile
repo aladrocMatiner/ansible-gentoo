@@ -16,6 +16,7 @@ VM_SSH_GUEST_PORT ?= 22
 VM_SSH_USER ?= root
 VM_BOOT_MODE ?= uefi
 VM_KERNEL_ARGS ?= dokeymap nodhcp root=live:CDLABEL=Gentoo-amd64-20260426 rd.live.dir=/ rd.live.squashimg=image.squashfs cdroot console=tty0 console=ttyS0,115200n8
+PROFILE ?= openrc
 
 export LIBVIRT_URI
 export VM_NET_MODE
@@ -33,9 +34,12 @@ export VM_SSH_GUEST_PORT
 export VM_SSH_USER
 export VM_BOOT_MODE
 export VM_KERNEL_ARGS
+export PROFILE
+export INSTALL_DISK
 
 .PHONY: help \
 	vm-check vm-disk vm-define vm-start vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
+	ansible-check ansible-live-ping ansible-live-preflight detect-disks install-plan \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -52,6 +56,11 @@ help:
 		'  make vm-ssh          SSH to the live ISO after SSH is enabled in the guest' \
 		'  make vm-rsync        Copy non-secret project files to the guest over SSH' \
 		'  make vm-ansible-ping Validate Ansible connectivity to the live ISO over SSH' \
+		'  make ansible-check   Verify Ansible tooling and syntax for implemented playbooks' \
+		'  make ansible-live-ping Validate Ansible connectivity using project inventory' \
+		'  make ansible-live-preflight Run read-only live ISO Ansible preflight' \
+		'  make detect-disks    Run read-only Ansible disk detection in the live ISO' \
+		'  make install-plan    Generate read-only Ansible install plan (PROFILE=openrc|systemd)' \
 		'  make vm-shutdown     Request clean guest shutdown' \
 		'  make vm-destroy      Stop the configured VM without deleting artifacts' \
 		'  make vm-clean        Undefine VM and delete generated artifacts after confirmation' \
@@ -78,7 +87,9 @@ help:
 		'  VM_SSH_GUEST_PORT=$(VM_SSH_GUEST_PORT)' \
 		'  VM_SSH_USER=$(VM_SSH_USER)' \
 		'  VM_BOOT_MODE=$(VM_BOOT_MODE)' \
-		'  VM_KERNEL_ARGS=$(VM_KERNEL_ARGS)'
+		'  VM_KERNEL_ARGS=$(VM_KERNEL_ARGS)' \
+		'  PROFILE=$(PROFILE)' \
+		'  INSTALL_DISK has no default; pass INSTALL_DISK=/dev/vda only deliberately inside the VM'
 
 vm-check:
 	@scripts/vm-check-libvirt.sh
@@ -113,6 +124,21 @@ vm-rsync:
 
 vm-ansible-ping:
 	@scripts/vm-ansible-ping.sh
+
+ansible-check:
+	@scripts/ansible-check.sh
+
+ansible-live-ping:
+	@scripts/ansible-live-ping.sh
+
+ansible-live-preflight:
+	@scripts/ansible-live-preflight.sh
+
+detect-disks:
+	@scripts/ansible-detect-disks.sh
+
+install-plan:
+	@scripts/ansible-install-plan.sh
 
 vm-shutdown:
 	@scripts/vm-shutdown.sh

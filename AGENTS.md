@@ -67,6 +67,8 @@ Scripts must document usage in `docs/` or relevant `skills/`. Scripts must print
 ## 10. Ansible Documentation Rule
 Playbooks and roles must document required variables. Dangerous playbooks must document safety gates. Local-vs-remote execution must be explicit.
 
+Future Ansible installer behavior must use the official Gentoo AMD64 Handbook as the baseline installation procedure: <https://wiki.gentoo.org/wiki/Handbook:AMD64>. Agents may adapt Handbook steps into reusable Ansible roles, but must preserve the project safety model, Makefile control-plane rule, OpenSpec review flow, and v1 assumptions.
+
 ## 11. Ansible reuse-first architecture
 Future Ansible implementation must reuse shared roles, tasks, variables, handlers, templates, validation logic, safety gates, and documentation across OpenRC and systemd console installation flows whenever behavior is common.
 
@@ -75,6 +77,7 @@ Future Ansible implementation must reuse shared roles, tasks, variables, handler
 - Shared safety gates must be implemented once and reused by both init flows.
 - Init-specific behavior must be isolated under explicit OpenRC or systemd roles, task files, handlers, templates, variables, or validation tasks.
 - New Ansible tasks must first be evaluated for reuse in the common flow before adding init-specific logic.
+- Shared Ansible roles should map back to the relevant official Gentoo AMD64 Handbook phase where practical, with deviations documented in the OpenSpec change or implementation summary.
 - If duplication is introduced, the agent must justify it in the OpenSpec change notes or implementation summary.
 - Makefile targets should call shared Ansible flows where practical and pass `PROFILE=openrc` or `PROFILE=systemd` into the shared flow.
 - Documentation must describe shared behavior once and call out init-specific behavior clearly.

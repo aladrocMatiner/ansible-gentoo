@@ -1,0 +1,6 @@
+---
+- name: Read-only disk detection
+  hosts: gentoo_live
+  gather_facts: true
+  roles:
+    - role: common/disk_detection

@@ -15,13 +15,17 @@ Use this skill:
 - When adding Ansible inventories, variables, playbooks, or roles.
 - When defining Makefile targets that wrap Ansible.
 - When reviewing safety gates, dry-run behavior, idempotency, or logging.
+- When adding or changing the read-only live ISO Ansible preflight used before installer automation.
+- When adding or changing read-only disk detection or install-plan behavior.
 
 Do not use this skill to bypass OpenSpec or safety review for destructive automation.
 
 ## 3. Required Context
 - Approved OpenSpec change for Ansible work.
 - Validated phase-1 manual workflow.
+- Official Gentoo AMD64 Handbook baseline: <https://wiki.gentoo.org/wiki/Handbook:AMD64>.
 - Official Gentoo live ISO preflight behavior.
+- Libvirt VM SSH access for host-driven live ISO validation, when using `make ansible-live-ping` or `make ansible-live-preflight`.
 - Basic console targets: amd64, OpenRC or systemd, UEFI, ext4, `gentoo-kernel-bin`, GRUB, NetworkManager or equivalent network setup, no LUKS, no Btrfs.
 - Makefile target contract.
 - Safety review requirements.
@@ -47,6 +51,7 @@ ansible/
     common/
       preflight/
       disk_detection/
+      install_plan/
       disk_safety/
       partitioning/
       filesystem/
@@ -86,6 +91,8 @@ Rules:
 - Do not treat the installed target as the control host.
 - Do not store secrets in inventory.
 - Do not define a default install disk in inventory.
+
+The live ISO VM preflight is an exception for test validation before phase-2 installer execution. It may use SSH from the host to the libvirt VM through `ansible/inventory/live.yml`, but it must remain read-only and must not select `install_disk`.
 
 ## 6. Variable Model
 Variables must make init selection, shared behavior, and destructive intent explicit.
@@ -130,6 +137,7 @@ Shared roles:
 
 - `common/preflight`: verify live ISO, amd64, UEFI, network, time, tools, and root privileges.
 - `common/disk_detection`: read-only disk identity and partition reporting.
+- `common/install_plan`: profile-aware read-only plan output that follows the official Gentoo AMD64 Handbook baseline and does not select a disk by default.
 - `common/disk_safety`: shared assertions for `install_disk`, confirmation variables, disk identity, VM guest mode, and fail-closed behavior.
 - `common/partitioning`: partition only after shared safety gates pass.
 - `common/filesystem`: format approved partitions only after shared confirmation.
@@ -162,6 +170,7 @@ Expected playbooks:
 
 Rules:
 
+- Future installer playbooks and roles must be derived from the official Gentoo AMD64 Handbook flow unless an approved OpenSpec change documents a deliberate deviation.
 - Planning playbooks must be runnable without mutation.
 - Apply playbooks must require prior plan output and confirmations.
 - Destructive work must be isolated in clearly named playbooks and tags.
@@ -225,6 +234,7 @@ Non-idempotent tasks must be isolated, tagged, documented, and explicitly confir
 ## 12. Reuse-first Rules
 Future Ansible implementation must follow these rules:
 
+- Map shared roles to the relevant Gentoo AMD64 Handbook phase where practical.
 - Implement common behavior once under `roles/common/` or equivalent shared task, handler, template, validation, or variable files.
 - Add init-specific files only for behavior that genuinely differs between OpenRC and systemd.
 - Use variant variables for package lists, profile names, service names, and stage3 variant values where that avoids duplicated tasks.
@@ -236,6 +246,7 @@ Future Ansible implementation must follow these rules:
 
 Anti-duplication checklist:
 
+- Does the implementation preserve the Handbook order for shared installation phases unless a deviation is documented?
 - Are OpenRC and systemd playbooks thin wrappers around the shared flow?
 - Are shared roles used for disk, mount, stage3, chroot, Portage, package framework, fstab, kernel, bootloader, users, SSH, final checks, and logging?
 - Are init-specific service commands isolated?
@@ -267,9 +278,13 @@ Expected targets:
 
 These targets define the expected control-plane contract for future Ansible installation work. If a target is not present in the current `Makefile`, treat it as planned and do not document it as runnable in user-facing docs.
 
+- `make ansible-live-ping`
+- `make ansible-live-preflight`
 - `make ansible-check`
+- `make detect-disks`
 - `make ansible-dry-run PROFILE=openrc`
 - `make ansible-dry-run PROFILE=systemd`
+- `make install-plan`
 - `make install-plan PROFILE=openrc`
 - `make install-plan PROFILE=systemd`
 - `make install-openrc`
@@ -278,9 +293,13 @@ These targets define the expected control-plane contract for future Ansible inst
 
 Target expectations:
 
+- `make ansible-live-ping`: validate SSH-based Ansible connectivity to the booted official live ISO VM.
+- `make ansible-live-preflight`: run read-only live ISO checks for architecture, kernel, Gentoo release evidence, UEFI availability, network, DNS, routes, block devices, and `/dev/vda`.
 - `make ansible-check`: validate Ansible availability, inventory, variables, playbooks, roles, and syntax.
+- `make detect-disks`: run read-only Ansible disk inventory from inside the live ISO without selecting an install disk.
 - `make ansible-dry-run PROFILE=openrc`: run the supported OpenRC check-mode workflow through the shared flow.
 - `make ansible-dry-run PROFILE=systemd`: run the supported systemd check-mode workflow through the shared flow.
+- `make install-plan`: default to `PROFILE=openrc` and produce a read-only plan without defaulting `INSTALL_DISK`.
 - `make install-plan PROFILE=openrc`: gather facts and create an operator-readable OpenRC install plan.
 - `make install-plan PROFILE=systemd`: gather facts and create an operator-readable systemd install plan.
 - `make install-openrc`: execute the approved OpenRC install with required confirmations.
@@ -289,6 +308,9 @@ Target expectations:
 
 Operators should not run `ansible-playbook` directly.
 Makefile targets should pass init-specific variables into shared Ansible flows where practical.
+
+`make ansible-live-preflight` is not an installer target. It must not set `install_disk`, consume destructive confirmation variables, or mutate target filesystems.
+`make detect-disks` and `make install-plan` are also read-only at this stage. `INSTALL_DISK` may be passed for identity matching only, and the playbook must explicitly report when it is omitted.
 
 ## 15. Failure Modes
 - No approved OpenSpec change for Ansible work.
@@ -341,6 +363,9 @@ This skill should produce or request:
 When phase 2 Ansible behavior changes, documentation must change in the same implementation step.
 
 - If the Ansible layout, inventory model, variable model, roles, playbooks, safety gates, dry-run behavior, idempotency rules, or log locations change, update this skill and the relevant Ansible documentation under `docs/`.
+- If disk detection or install-plan behavior changes, update `docs/ansible-install-plan.md`, `skills/gentoo-disk-planning.md`, and the active OpenSpec `tasks.md`.
+- If a role or playbook intentionally differs from the official Gentoo AMD64 Handbook flow, document the reason in the relevant OpenSpec change and `docs/ansible-architecture.md`.
+- If the live ISO preflight role, inventory, SSH targeting, checks, or Makefile targets change, update `docs/ansible-live-preflight.md`, `docs/libvirt-manual-install-test.md`, and the active OpenSpec `tasks.md`.
 - If shared role boundaries or init-specific behavior changes, update `docs/ansible-architecture.md`.
 - If local execution assumptions change, document whether playbooks run locally from the official Gentoo live ISO or against a remote target; v1 documentation must keep local live ISO execution explicit.
 - If Makefile targets such as `make ansible-check`, `make ansible-dry-run PROFILE=...`, `make install-plan PROFILE=...`, `make install-openrc`, `make install-systemd`, or `make final-checks` change, update this skill and `skills/makefile-control-plane.md`.

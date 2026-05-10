@@ -1,0 +1,6 @@
+---
+- name: Read-only Gentoo live ISO preflight
+  hosts: gentoo_live
+  gather_facts: true
+  roles:
+    - role: common/live_preflight
