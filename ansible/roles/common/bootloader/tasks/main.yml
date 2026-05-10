@@ -1,0 +1,428 @@
+---
+- name: Define bootloader facts
+  ansible.builtin.set_fact:
+    bootloader_target_root: "{{ target_mount | default('/mnt/gentoo') }}"
+    bootloader_efi_mount: "{{ efi_mount | default('/mnt/gentoo/boot/efi') }}"
+    bootloader_id: Gentoo
+    bootloader_packages:
+      - sys-boot/grub
+      - sys-boot/efibootmgr
+
+- name: Validate bootloader inputs
+  ansible.builtin.assert:
+    that:
+      - profile is defined
+      - profile in ['openrc', 'systemd']
+      - init_system is defined
+      - init_system == profile
+      - filesystem is defined
+      - filesystem in ['ext4', 'btrfs']
+      - boot_mode | default('uefi') == 'uefi'
+      - bootloader_target_root == '/mnt/gentoo'
+      - bootloader_target_root != '/'
+      - bootloader_efi_mount == '/mnt/gentoo/boot/efi'
+      - install_disk is defined
+      - install_disk | length > 0
+      - bootloader_confirmation is defined
+      - bootloader_confirmation == 'yes'
+      - disk_safety_report is defined
+    fail_msg: "BOOTLOADER_FAILED: bootloader inputs, target paths, disk safety report, or confirmation are invalid."
+    success_msg: "Bootloader inputs are approved."
+
+- name: Verify live ISO UEFI mode before bootloader changes
+  ansible.builtin.stat:
+    path: /sys/firmware/efi
+  register: bootloader_live_uefi
+
+- name: Require live ISO UEFI mode
+  ansible.builtin.assert:
+    that:
+      - bootloader_live_uefi.stat.exists
+      - bootloader_live_uefi.stat.isdir
+    fail_msg: "BOOTLOADER_FAILED: UEFI firmware path is missing; BIOS boot is outside v1 scope."
+    success_msg: "UEFI firmware evidence exists."
+
+- name: Verify chroot pseudo-filesystems before bootloader changes
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - "{{ item }}"
+      - --noheadings
+      - --output
+      - TARGET,FSTYPE
+  loop:
+    - "{{ bootloader_target_root }}/proc"
+    - "{{ bootloader_target_root }}/sys"
+    - "{{ bootloader_target_root }}/dev"
+    - "{{ bootloader_target_root }}/run"
+    - "{{ bootloader_target_root }}/dev/pts"
+  register: bootloader_chroot_mounts
+  changed_when: false
+  failed_when: bootloader_chroot_mounts.rc != 0
+  check_mode: false
+
+- name: Verify target EFI mount
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - "{{ bootloader_efi_mount }}"
+      - --noheadings
+      - --output
+      - TARGET,SOURCE,FSTYPE,OPTIONS
+  register: bootloader_efi_findmnt
+  changed_when: false
+  failed_when: bootloader_efi_findmnt.rc != 0 or bootloader_efi_findmnt.stdout is not search('vfat')
+  check_mode: false
+
+- name: Verify target fstab and kernel command-line inputs
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ bootloader_target_root }}/etc/fstab"
+    - "{{ bootloader_target_root }}/etc/kernel/cmdline"
+    - "{{ bootloader_target_root }}/etc/cmdline.d/00-gentoo-ai-installer.conf"
+  register: bootloader_required_files
+
+- name: Validate target boot prerequisite files
+  ansible.builtin.assert:
+    that:
+      - bootloader_required_files.results | selectattr('stat.exists') | list | length == bootloader_required_files.results | length
+    fail_msg: "BOOTLOADER_FAILED: fstab or kernel command-line inputs are missing. Run generate-fstab and install-kernel first."
+    success_msg: "Boot prerequisite files exist."
+
+- name: Read target kernel command line
+  ansible.builtin.slurp:
+    src: "{{ bootloader_target_root }}/etc/kernel/cmdline"
+  register: bootloader_kernel_cmdline_raw
+
+- name: Store target kernel command line
+  ansible.builtin.set_fact:
+    bootloader_kernel_cmdline: "{{ bootloader_kernel_cmdline_raw.content | b64decode | trim }}"
+
+- name: Validate boot kernel command line policy
+  ansible.builtin.assert:
+    that:
+      - bootloader_kernel_cmdline is search('root=UUID=')
+      - bootloader_kernel_cmdline is not search('/dev/')
+      - bootloader_kernel_cmdline is not search('(^|\\s)(crypt|doluks|rd\\.luks|luks|resume)=')
+      - filesystem != 'btrfs' or bootloader_kernel_cmdline is search('(^|\\s)rootflags=subvol=@(\\s|$)')
+    fail_msg: "BOOTLOADER_FAILED: target kernel command line violates the approved boot policy."
+    success_msg: "Target kernel command line matches the approved boot policy."
+
+- name: Find target kernel and initramfs artifacts
+  ansible.builtin.find:
+    paths: "{{ bootloader_target_root }}/boot"
+    file_type: file
+    patterns:
+      - "vmlinuz-*"
+      - "kernel-*"
+      - "initramfs-*"
+      - "initrd*"
+  register: bootloader_boot_artifacts
+
+- name: Validate target kernel and initramfs artifacts
+  ansible.builtin.assert:
+    that:
+      - bootloader_boot_artifacts.files | selectattr('path', 'search', '/(vmlinuz|kernel)-') | list | length > 0
+      - bootloader_boot_artifacts.files | selectattr('path', 'search', '/(initramfs|initrd)') | list | length > 0
+    fail_msg: "BOOTLOADER_FAILED: target /boot is missing kernel or initramfs artifacts."
+    success_msg: "Target /boot has kernel and initramfs artifacts."
+
+- name: Read current EFI boot entries before changes
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/efibootmgr
+      - -v
+  register: bootloader_efi_entries_before
+  changed_when: false
+  failed_when: bootloader_efi_entries_before.rc != 0
+  check_mode: false
+
+- name: Print bootloader change preview
+  ansible.builtin.debug:
+    msg:
+      risk: high
+      confirmation: "I_UNDERSTAND_BOOTLOADER_CHANGES=yes"
+      selected_disk: "{{ disk_safety_report.selected_disk }}"
+      efi_mount: "{{ bootloader_efi_mount }}"
+      target_efi_directory: /boot/efi
+      bootloader_id: "{{ bootloader_id }}"
+      commands:
+        - "emerge --verbose --noreplace sys-boot/grub sys-boot/efibootmgr"
+        - "grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id={{ bootloader_id }} --recheck"
+        - "grub-mkconfig -o /boot/grub/grub.cfg"
+      current_efi_entries: "{{ bootloader_efi_entries_before.stdout_lines }}"
+      will_not:
+        - partition disks
+        - format filesystems
+        - wipe data
+        - reboot automatically
+
+- name: Ensure GRUB platform is configured for UEFI
+  ansible.builtin.lineinfile:
+    path: "{{ bootloader_target_root }}/etc/portage/make.conf"
+    regexp: '^GRUB_PLATFORMS='
+    line: 'GRUB_PLATFORMS="efi-64"'
+    mode: "0644"
+  register: bootloader_grub_platform
+  when: not ansible_check_mode
+
+- name: Check bootloader package installation state
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ bootloader_target_root }}"
+      - /usr/bin/portageq
+      - has_version
+      - /
+      - "{{ item }}"
+  loop: "{{ bootloader_packages }}"
+  register: bootloader_package_state
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Store missing bootloader packages
+  ansible.builtin.set_fact:
+    bootloader_missing_packages: "{{ bootloader_package_state.results | selectattr('rc', 'ne', 0) | map(attribute='item') | list }}"
+
+- name: Install GRUB and EFI boot tools
+  ansible.builtin.command:
+    argv: "{{ ['chroot', bootloader_target_root, '/usr/bin/emerge', '--verbose', '--noreplace'] + bootloader_packages }}"
+  register: bootloader_emerge
+  changed_when: (bootloader_missing_packages | length > 0) or (bootloader_grub_platform is defined and bootloader_grub_platform is changed)
+  failed_when: bootloader_emerge.rc != 0
+  when:
+    - not ansible_check_mode
+    - (bootloader_missing_packages | length > 0) or (bootloader_grub_platform is defined and bootloader_grub_platform is changed)
+
+- name: Recheck bootloader package installation state
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ bootloader_target_root }}"
+      - /usr/bin/portageq
+      - has_version
+      - /
+      - "{{ item }}"
+  loop: "{{ bootloader_packages }}"
+  register: bootloader_package_state_after
+  changed_when: false
+  failed_when: bootloader_package_state_after.rc != 0
+  check_mode: false
+
+- name: Configure GRUB default kernel command line
+  ansible.builtin.blockinfile:
+    path: "{{ bootloader_target_root }}/etc/default/grub"
+    create: true
+    mode: "0644"
+    marker: "# {mark} gentoo-ai-installer boot policy"
+    block: |
+      GRUB_CMDLINE_LINUX="{{ bootloader_kernel_cmdline }}"
+  register: bootloader_default_grub
+  when: not ansible_check_mode
+
+- name: Check installed GRUB EFI file
+  ansible.builtin.stat:
+    path: "{{ bootloader_efi_mount }}/EFI/{{ bootloader_id }}/grubx64.efi"
+  register: bootloader_grub_efi_file_before
+
+- name: Install GRUB for UEFI
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ bootloader_target_root }}"
+      - /usr/sbin/grub-install
+      - --target=x86_64-efi
+      - --efi-directory=/boot/efi
+      - "--bootloader-id={{ bootloader_id }}"
+      - --recheck
+  register: bootloader_grub_install
+  changed_when: true
+  failed_when: bootloader_grub_install.rc != 0
+  when:
+    - not ansible_check_mode
+    - >-
+      (not bootloader_grub_efi_file_before.stat.exists)
+      or (bootloader_emerge is defined and bootloader_emerge is changed)
+
+- name: Ensure target GRUB config directory exists
+  ansible.builtin.file:
+    path: "{{ bootloader_target_root }}/boot/grub"
+    state: directory
+    mode: "0755"
+  when: not ansible_check_mode
+
+- name: Generate candidate GRUB config
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ bootloader_target_root }}"
+      - /usr/sbin/grub-mkconfig
+      - -o
+      - /boot/grub/grub.cfg.gentoo-ai-installer-new
+  register: bootloader_grub_mkconfig
+  changed_when: false
+  failed_when: bootloader_grub_mkconfig.rc != 0
+  when: not ansible_check_mode
+
+- name: Remove GRUB-generated device root fallback from candidate config
+  ansible.builtin.replace:
+    path: "{{ bootloader_target_root }}/boot/grub/grub.cfg.gentoo-ai-installer-new"
+    regexp: '\sroot=/dev/[A-Za-z0-9_./-]+'
+    replace: ''
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Stat current GRUB config for comparison
+  ansible.builtin.stat:
+    path: "{{ bootloader_target_root }}/boot/grub/grub.cfg"
+    checksum_algorithm: sha256
+  register: bootloader_grub_config_current
+  when: not ansible_check_mode
+
+- name: Stat candidate GRUB config for comparison
+  ansible.builtin.stat:
+    path: "{{ bootloader_target_root }}/boot/grub/grub.cfg.gentoo-ai-installer-new"
+    checksum_algorithm: sha256
+  register: bootloader_grub_config_candidate
+  when: not ansible_check_mode
+
+- name: Require candidate GRUB config before installation
+  ansible.builtin.assert:
+    that:
+      - bootloader_grub_config_candidate.stat.exists
+      - bootloader_grub_config_candidate.stat.isreg
+    fail_msg: "BOOTLOADER_FAILED: candidate grub.cfg was not generated."
+    success_msg: "Candidate grub.cfg exists."
+  when: not ansible_check_mode
+
+- name: Install updated GRUB config
+  ansible.builtin.command:
+    argv:
+      - mv
+      - "{{ bootloader_target_root }}/boot/grub/grub.cfg.gentoo-ai-installer-new"
+      - "{{ bootloader_target_root }}/boot/grub/grub.cfg"
+  register: bootloader_grub_config_install
+  changed_when: true
+  failed_when: bootloader_grub_config_install.rc != 0
+  when:
+    - not ansible_check_mode
+    - >-
+      (not bootloader_grub_config_current.stat.exists)
+      or (bootloader_grub_config_current.stat.checksum != bootloader_grub_config_candidate.stat.checksum)
+
+- name: Remove unchanged candidate GRUB config
+  ansible.builtin.file:
+    path: "{{ bootloader_target_root }}/boot/grub/grub.cfg.gentoo-ai-installer-new"
+    state: absent
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - bootloader_grub_config_current.stat.exists
+    - bootloader_grub_config_current.stat.checksum == bootloader_grub_config_candidate.stat.checksum
+
+- name: Validate installed GRUB EFI and config artifacts
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ bootloader_efi_mount }}/EFI/{{ bootloader_id }}/grubx64.efi"
+    - "{{ bootloader_target_root }}/boot/grub/grub.cfg"
+  register: bootloader_final_artifacts
+
+- name: Require installed GRUB artifacts
+  ansible.builtin.assert:
+    that:
+      - bootloader_final_artifacts.results | selectattr('stat.exists') | list | length == bootloader_final_artifacts.results | length
+    fail_msg: "BOOTLOADER_FAILED: GRUB EFI file or grub.cfg is missing after installation."
+    success_msg: "GRUB EFI file and grub.cfg exist."
+
+- name: Read generated GRUB config
+  ansible.builtin.slurp:
+    src: "{{ bootloader_target_root }}/boot/grub/grub.cfg"
+  register: bootloader_grub_config_raw
+
+- name: Store generated GRUB config text
+  ansible.builtin.set_fact:
+    bootloader_grub_config_text: "{{ bootloader_grub_config_raw.content | b64decode }}"
+
+- name: Validate generated GRUB config command line
+  ansible.builtin.assert:
+    that:
+      - bootloader_grub_config_text is search('root=UUID=')
+      - bootloader_grub_config_text is not search('/dev/')
+      - filesystem != 'btrfs' or bootloader_grub_config_text is search('rootflags=subvol=@')
+    fail_msg: "BOOTLOADER_FAILED: generated GRUB config does not match the approved root command line policy."
+    success_msg: "Generated GRUB config matches the approved root command line policy."
+
+- name: Read EFI boot entries after GRUB installation
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/efibootmgr
+      - -v
+  register: bootloader_efi_entries_after
+  changed_when: false
+  failed_when: bootloader_efi_entries_after.rc != 0
+  check_mode: false
+
+- name: Define bootloader audit run id
+  ansible.builtin.set_fact:
+    bootloader_run_id: "{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}"
+
+- name: Define bootloader audit log path
+  ansible.builtin.set_fact:
+    bootloader_log_dir: "{{ project_root | default(lookup('ansible.builtin.env', 'PWD'), true) }}/logs/install-runs/{{ bootloader_run_id }}/bootloader"
+
+- name: Create local bootloader log directory
+  ansible.builtin.file:
+    path: "{{ bootloader_log_dir }}"
+    state: directory
+    mode: "0750"
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Record bootloader evidence
+  ansible.builtin.copy:
+    dest: "{{ bootloader_log_dir }}/grub.json"
+    mode: "0640"
+    content: |
+      {
+        "profile": {{ profile | to_json }},
+        "filesystem": {{ filesystem | to_json }},
+        "install_disk": {{ install_disk | to_json }},
+        "bootloader_id": {{ bootloader_id | to_json }},
+        "efi_mount": {{ bootloader_efi_mount | to_json }},
+        "kernel_cmdline": {{ bootloader_kernel_cmdline | to_json }},
+        "packages": {{ bootloader_packages | to_nice_json }},
+        "grub_install_ran": {{ (bootloader_grub_install is defined and bootloader_grub_install is changed) | to_json }},
+        "grub_config_changed": {{ (bootloader_grub_config_install is defined and bootloader_grub_config_install is changed) | to_json }},
+        "efi_entries_before": {{ bootloader_efi_entries_before.stdout_lines | to_nice_json }},
+        "efi_entries_after": {{ bootloader_efi_entries_after.stdout_lines | to_nice_json }},
+        "final_checks_input": true,
+        "install_report_input": true
+      }
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Build bootloader report
+  ansible.builtin.set_fact:
+    bootloader_report:
+      changed: "{{ (not ansible_check_mode) and ((bootloader_grub_platform is defined and bootloader_grub_platform is changed) or (bootloader_emerge is defined and bootloader_emerge is changed) or (bootloader_default_grub is defined and bootloader_default_grub is changed) or (bootloader_grub_install is defined and bootloader_grub_install is changed) or (bootloader_grub_config_install is defined and bootloader_grub_config_install is changed)) }}"
+      bootloader: grub
+      bootloader_id: "{{ bootloader_id }}"
+      efi_mount: "{{ bootloader_efi_mount }}"
+      target_efi_directory: /boot/efi
+      kernel_cmdline: "{{ bootloader_kernel_cmdline }}"
+      final_checks_input: true
+      install_report_input: true
+      logs: "{{ bootloader_log_dir }}/"
+
+- name: Print bootloader report
+  ansible.builtin.debug:
+    msg: "{{ bootloader_report }}"

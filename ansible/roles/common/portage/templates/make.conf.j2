@@ -12,6 +12,7 @@ MAKEOPTS="-j{{ portage_makeopts_jobs }}"
 USE="{{ portage_global_use_flags }}"
 ACCEPT_LICENSE="{{ portage_accept_license }}"
 GENTOO_MIRRORS="{{ portage_gentoo_mirrors }}"
+GRUB_PLATFORMS="efi-64"
 
 # Keep build output language stable for troubleshooting.
 LC_MESSAGES=C.UTF-8

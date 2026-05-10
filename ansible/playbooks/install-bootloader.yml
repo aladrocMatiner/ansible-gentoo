@@ -1,0 +1,16 @@
+---
+- name: Install GRUB UEFI bootloader
+  hosts: gentoo_live
+  gather_facts: true
+  vars_files:
+    - ../group_vars/all.yml
+    - "../group_vars/{{ profile | default('openrc') }}.yml"
+  roles:
+    - role: common/live_preflight
+    - role: common/disk_detection
+    - role: common/disk_safety
+      vars:
+        disk_safety_require_confirmation: false
+        disk_safety_allow_mounted_descendants: true
+    - role: common/chroot
+    - role: common/bootloader

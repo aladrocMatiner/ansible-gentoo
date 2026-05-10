@@ -118,7 +118,7 @@ Shared roles:
 - `common/package_install`: install packages from shared or variant package lists, apply conservative package USE policy, and record package/service evidence.
 - `common/fstab`: generate UUID-based fstab entries for ext4 root or the approved Btrfs subvolume layout plus `/boot/efi`.
 - `common/kernel`: install `sys-kernel/installkernel`, `sys-kernel/dracut`, and `gentoo-kernel-bin`; derive boot command-line input from target fstab; validate kernel/initramfs/module artifacts; and defer GRUB and EFI changes to the bootloader role.
-- `common/bootloader`: install and configure GRUB for UEFI with shared confirmation gates.
+- `common/bootloader`: install and configure GRUB for UEFI with explicit `install_disk`, `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`, EFI entry preview, generated GRUB config validation, and non-secret evidence logs.
 - `common/users`: require explicit `admin_user`, create or update the target admin account, manage admin group membership, configure sudo, apply optional password hashes from gitignored controller-local files with `no_log`, install optional authorized keys, enforce installed SSH root-login restrictions when SSH is enabled, and record only non-secret evidence.
 - `common/ssh`: translate `ENABLE_SSH` into optional package/service inputs without storing secrets or enabling unsafe root SSH defaults.
 - `common/final_checks`: validate fstab, bootloader, kernel, users, services, mounts, and recovery notes.

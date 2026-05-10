@@ -196,6 +196,7 @@ stage3_cache_dir=${STAGE3_CACHE_DIR:-/tmp/gentoo-ai-installer/stage3}
 portage_gentoo_mirrors=${PORTAGE_GENTOO_MIRRORS:-https://distfiles.gentoo.org}
 config_requires_install_disk=${CONFIG_REQUIRE_INSTALL_DISK:-no}
 config_destructive=${CONFIG_DESTRUCTIVE:-no}
+bootloader_confirmation=${I_UNDERSTAND_BOOTLOADER_CHANGES:-}
 
 schema_exists
 
@@ -264,6 +265,10 @@ elif [[ "$confirm_wipe_disk" == yes ]]; then
   add_warning DESTRUCTIVE_CONFIRMATION_IGNORED "I_UNDERSTAND_THIS_WIPES_DISK=yes is set for a non-destructive config check"
 fi
 
+if [[ -n "$bootloader_confirmation" && "$bootloader_confirmation" != yes ]]; then
+  add_error CONFIG_INVALID "I_UNDERSTAND_BOOTLOADER_CHANGES must be yes when set"
+fi
+
 validate_no_secret_like_values
 
 printf 'Configuration validation report\n'
@@ -289,6 +294,7 @@ printf '  ENABLE_SSH: %s\n' "$enable_ssh"
 printf '  TARGET_MOUNT: %s\n' "$target_mount"
 printf '  EFI_MOUNT: %s\n' "$efi_mount"
 printf '  INSTALL_DISK: %s\n' "${install_disk:-<unset>}"
+printf '  I_UNDERSTAND_BOOTLOADER_CHANGES: %s\n' "$([[ "$bootloader_confirmation" == yes ]] && printf '<set>' || printf '<unset>')"
 printf '  destructive mode: %s\n' "$config_destructive"
 
 if [[ "${#warnings[@]}" -gt 0 ]]; then

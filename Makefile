@@ -36,6 +36,7 @@ TARGET_MOUNT ?= /mnt/gentoo
 EFI_MOUNT ?= $(TARGET_MOUNT)/boot/efi
 CODEX_INSTALL_METHOD ?= npm
 I_UNDERSTAND_THIS_WIPES_DISK ?=
+I_UNDERSTAND_BOOTLOADER_CHANGES ?=
 PROFILE ?= openrc
 FILESYSTEM ?= ext4
 STAGE3_MIRROR ?= https://distfiles.gentoo.org/releases/amd64/autobuilds
@@ -78,6 +79,7 @@ export TARGET_MOUNT
 export EFI_MOUNT
 export CODEX_INSTALL_METHOD
 export I_UNDERSTAND_THIS_WIPES_DISK
+export I_UNDERSTAND_BOOTLOADER_CHANGES
 export PROFILE
 export FILESYSTEM
 export STAGE3_MIRROR
@@ -87,7 +89,7 @@ export INSTALL_DISK
 
 .PHONY: help \
 	vm-check vm-disk vm-define vm-start vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
-	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users \
+	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -126,6 +128,7 @@ help:
 		'  make install-kernel  Install gentoo-kernel-bin and validate /boot artifacts' \
 		'  make install-system-packages Install console packages and enable target services' \
 		'  make configure-users Configure target admin user, sudo policy, and optional SSH keys' \
+		'  make install-bootloader HIGH-RISK: install GRUB for UEFI (requires confirmation)' \
 		'  make vm-shutdown     Request clean guest shutdown' \
 		'  make vm-destroy      Stop the configured VM without deleting artifacts' \
 		'  make vm-clean        Undefine VM and delete generated artifacts after confirmation' \
@@ -179,7 +182,8 @@ help:
 		'  STAGE3_MIRROR=$(STAGE3_MIRROR)' \
 		'  STAGE3_CACHE_DIR=$(STAGE3_CACHE_DIR)' \
 		'  PORTAGE_GENTOO_MIRRORS=$(PORTAGE_GENTOO_MIRRORS)' \
-		'  INSTALL_DISK has no default; pass INSTALL_DISK=/dev/vda only deliberately inside the VM'
+		'  INSTALL_DISK has no default; pass INSTALL_DISK=/dev/vda only deliberately inside the VM' \
+		'  I_UNDERSTAND_BOOTLOADER_CHANGES must be yes for make install-bootloader'
 
 vm-check:
 	@scripts/vm-check-libvirt.sh
@@ -281,6 +285,9 @@ install-base-packages: install-system-packages
 
 configure-users:
 	@scripts/ansible-configure-users.sh
+
+install-bootloader:
+	@scripts/ansible-install-bootloader.sh
 
 vm-shutdown:
 	@scripts/vm-shutdown.sh

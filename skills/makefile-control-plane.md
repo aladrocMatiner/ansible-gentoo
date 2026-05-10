@@ -76,6 +76,7 @@ Required project variables:
 - `ADMIN_AUTHORIZED_KEYS_FILE`
 - `ADMIN_PASSWORD_HASH_FILE`
 - `ROOT_PASSWORD_HASH_FILE`
+- `I_UNDERSTAND_BOOTLOADER_CHANGES`
 - `I_UNDERSTAND_THIS_WIPES_DISK`
 
 VM/libvirt variables:
@@ -164,6 +165,7 @@ Rules:
 - `KEYMAP` must be a simple console keymap name such as `us`.
 - `ADMIN_USER` must have no useful default for user-creation workflows; `make configure-users` must require it explicitly.
 - `ADMIN_PASSWORD_HASH_FILE`, `ROOT_PASSWORD_HASH_FILE`, and `ADMIN_AUTHORIZED_KEYS_FILE` are local input file paths only. The Makefile may report whether they are set, but it must not print their contents.
+- `I_UNDERSTAND_BOOTLOADER_CHANGES=yes` is required for GRUB/EFI workflows that may update persistent EFI boot entries.
 - Variables containing secrets must not be printed or committed.
 - `VM_DISK` must be a project-relative qcow2 path under `VM_DIR`.
 - `VM_DIR` must not be the project root, `/dev`, absolute, symlinked, or contain parent traversal.
@@ -328,8 +330,9 @@ Required behavior:
 - Stop if required confirmations are missing.
 - OpenRC and systemd install targets must call shared safety gates before variant-specific roles run.
 - `make partition` must partition only; it must not format, mount, chroot, install packages, or install bootloaders.
+- `make install-bootloader` must require explicit `INSTALL_DISK` and `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`; show disk identity and current EFI entries; install GRUB for UEFI; generate `grub.cfg`; validate the boot command line; and avoid partitioning, formatting, wiping, user changes, or reboot.
 
-`make install-bootloader` may not wipe disks, but it changes persistent boot state and must use the same seriousness as destructive targets.
+`make install-bootloader` may not wipe disks, but it changes persistent boot state and must use the same seriousness as destructive targets. It must use `/mnt/gentoo/boot/efi` as the live ISO path and `/boot/efi` inside chroot, and record bootloader evidence.
 
 ## 9. Required Confirmations
 Before destructive or persistent-risk targets run:

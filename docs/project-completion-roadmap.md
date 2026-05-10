@@ -159,6 +159,7 @@ Create admin access safely without committing secrets. Configure sudo through th
 Install GRUB for UEFI and generate configuration. This is high-risk because it can modify persistent EFI boot state.
 
 Use `/boot/efi` inside the target system, corresponding to `/mnt/gentoo/boot/efi` before chroot.
+Require explicit `INSTALL_DISK` and `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`.
 
 ### 33. `implement-ansible-final-checks-and-reboot-readiness`
 Run read-only final checks for fstab, kernel, GRUB, EFI files, networking, users, and target state. Do not reboot automatically.

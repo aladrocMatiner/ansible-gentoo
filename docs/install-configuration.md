@@ -58,6 +58,7 @@ make config-check CONFIG_DESTRUCTIVE=yes INSTALL_DISK=/dev/vda I_UNDERSTAND_THIS
 | `EFI_MOUNT` | `/mnt/gentoo/boot/efi` | Must be below `TARGET_MOUNT`. |
 | `INSTALL_DISK` | no default | Must be explicit when required; never defaults. |
 | `I_UNDERSTAND_THIS_WIPES_DISK` | no default | Must be `yes` only for destructive workflows that require it. |
+| `I_UNDERSTAND_BOOTLOADER_CHANGES` | no default | Must be `yes` for `make install-bootloader`, which may update EFI boot entries. |
 
 ## Failure Modes
 

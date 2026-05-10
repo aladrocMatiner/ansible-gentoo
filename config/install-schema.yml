@@ -201,6 +201,17 @@ variables:
     no_default: true
     notes: Required only for destructive disk apply workflows.
 
+  I_UNDERSTAND_BOOTLOADER_CHANGES:
+    ansible_names:
+      - bootloader_confirmation
+    default: null
+    allowed:
+      - "yes"
+    required_for:
+      - bootloader
+    no_default: true
+    notes: Required for GRUB/EFI bootloader workflows that may update EFI boot entries.
+
 unsupported_v1:
   - bios_boot
   - luks

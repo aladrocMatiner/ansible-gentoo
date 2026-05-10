@@ -131,6 +131,7 @@ Expected variables:
 - `privilege_tool`: currently `sudo`; doas requires a later OpenSpec change.
 - `admin_password_hash_file`, `root_password_hash_file`: optional controller-local gitignored files; contents must use `no_log`.
 - `admin_authorized_keys_file`: optional controller-local gitignored authorized_keys file; private key material must be rejected.
+- `bootloader_confirmation`: required value is `yes` for GRUB/EFI workflows that may update EFI boot entries.
 - `target_mount: /mnt/gentoo`
 - `efi_mount: /mnt/gentoo/boot/efi`
 - `vm_guest_mode`: true only in the libvirt-managed VM guest test environment.
@@ -186,7 +187,7 @@ Shared roles:
 - `common/package_install`: install packages from shared and variant package lists, apply conservative package USE policy, and record package/service evidence.
 - `common/fstab`: generate stable UUID-based fstab entries for ext4 root or the approved Btrfs subvolume layout plus `/boot/efi`, validate UUIDs, and write only under `/mnt/gentoo`.
 - `common/kernel`: install `sys-kernel/installkernel`, `sys-kernel/dracut`, and `gentoo-kernel-bin`; derive the kernel command line from `/mnt/gentoo/etc/fstab`; write installkernel/dracut command-line input; validate kernel, initramfs, and module artifacts; and leave GRUB installation to `common/bootloader`.
-- `common/bootloader`: install and configure GRUB for UEFI through shared safety gates.
+- `common/bootloader`: require explicit `install_disk` plus bootloader confirmation, show current EFI entries before changes, install `sys-boot/grub` and `sys-boot/efibootmgr`, run guarded UEFI `grub-install`, generate `grub.cfg`, validate root UUID and Btrfs `rootflags=subvol=@`, and record bootloader evidence.
 - `common/users`: require explicit `admin_user`, create or update the target admin account under `/mnt/gentoo`, manage admin group membership, configure sudo through `wheel` by default, apply optional password hashes from gitignored controller-local files with `no_log`, install optional authorized keys, enforce installed SSH root-login restrictions when SSH is enabled, and record only non-secret evidence.
 - `common/ssh`: translate `ENABLE_SSH` into optional package/service inputs without storing secrets, enabling root password login, or assuming SSH is enabled by default.
 - `common/final_checks`: read-only validation before reboot.

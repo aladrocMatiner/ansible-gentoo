@@ -37,6 +37,7 @@ Use this skill:
 - Prefer readable settings that are easy to reproduce in Ansible later.
 - Do not copy host-specific tuning from another machine.
 - Do not add settings just because they may improve performance.
+- Set `GRUB_PLATFORMS="efi-64"` for the v1 UEFI GRUB path.
 - Keep comments short and useful.
 - Avoid storing secrets or tokens.
 

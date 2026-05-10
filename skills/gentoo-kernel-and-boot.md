@@ -90,12 +90,21 @@ Use:
 make install-bootloader
 ```
 
+Example:
+
+```text
+make install-bootloader INSTALL_DISK=/dev/vda I_UNDERSTAND_BOOTLOADER_CHANGES=yes
+```
+
+`/dev/vda` is only a local libvirt guest example; real targets must use the disk reported by `make detect-disks`.
+
 Expectations:
 
 - Confirm UEFI mode before installing GRUB for UEFI.
 - Confirm target root is mounted at `/mnt/gentoo`.
 - Confirm EFI partition is mounted at `/boot/efi`.
 - Require an operator-provided boot disk.
+- Require `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`.
 - Do not run `grub-install` against an unspecified disk.
 - Show the target disk, EFI mount, bootloader ID, and current EFI boot entries before changes.
 - Log bootloader changes.
@@ -152,7 +161,7 @@ These targets define the expected control-plane contract for kernel and bootload
 Target expectations:
 
 - `make install-kernel`: install `sys-kernel/installkernel`, `sys-kernel/dracut`, and `sys-kernel/gentoo-kernel-bin`; write target command-line input; validate `/boot` kernel/initramfs artifacts; and record non-secret evidence. It must not install GRUB or alter EFI boot entries.
-- `make install-bootloader`: install GRUB for UEFI only after safety gates pass.
+- `make install-bootloader`: install GRUB for UEFI only after explicit `INSTALL_DISK`, mounted-descendant-aware disk safety checks, EFI entry preview, and `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`; validate generated root UUID and Btrfs root flags.
 - `make configure-grub`: generate and review GRUB configuration.
 - `make final-boot-checks`: validate kernel, GRUB, EFI files, fstab, UUIDs, and NetworkManager.
 

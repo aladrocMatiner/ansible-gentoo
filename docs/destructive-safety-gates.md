@@ -35,9 +35,11 @@ The shared `common/disk_safety` role verifies:
 
 `partition-plan`, `mount-plan`, and `filesystem-plan` reuse the same `common/disk_safety` role without requiring destructive confirmation. Apply targets such as `make partition` and `make format` reuse the same role with confirmation enabled before doing any disk mutation.
 
-`make mount-target` is the only current workflow allowed to set `disk_safety_allow_mounted_descendants=true`. That exception exists so the target remains idempotent after the approved root, Btrfs subvolumes, and ESP are already mounted. The caller must then validate each mounted descendant against the approved plan before skipping a mount action. No partitioning or formatting workflow may use this exception.
+`make mount-target` and `make install-bootloader` are the current workflows allowed to set `disk_safety_allow_mounted_descendants=true`. For `mount-target`, the exception exists so the target remains idempotent after the approved root, Btrfs subvolumes, and ESP are already mounted. For `install-bootloader`, the exception exists because the target root and ESP must already be mounted before GRUB work. The caller must then validate each mounted descendant against the approved plan before continuing. No partitioning or formatting workflow may use this exception.
 
 Preview output is not confirmation. Operators must still pass `I_UNDERSTAND_THIS_WIPES_DISK=yes` to destructive apply workflows.
+
+Bootloader workflows do not use the disk-wipe confirmation variable. They must require `I_UNDERSTAND_BOOTLOADER_CHANGES=yes` because GRUB may update persistent EFI boot entries.
 
 ## Failure Modes
 
