@@ -20,6 +20,8 @@ Do not use this skill before the target root mount has been verified.
 
 Before any future `mount-target` implementation is used, the operator should review `make mount-plan PROFILE=... FILESYSTEM=... INSTALL_DISK=...` output to confirm the intended root, EFI, and Btrfs subvolume mount layout.
 
+Before any future `format` implementation is used, the operator should review `make filesystem-plan PROFILE=... FILESYSTEM=... INSTALL_DISK=...` output to confirm the intended EFI/root filesystem creation plan and Btrfs subvolume plan.
+
 ## 3. Required Context
 - Official Gentoo live ISO preflight result.
 - Target root path: `/mnt/gentoo`.
@@ -168,6 +170,7 @@ These targets define the expected control-plane contract for stage3 and chroot w
 - `make prepare-chroot`
 - `make enter-chroot`
 - `make mount-plan`
+- `make filesystem-plan`
 
 Target expectations:
 
@@ -177,6 +180,7 @@ Target expectations:
 - `make prepare-chroot`: prepare pseudo-filesystems and DNS for chroot.
 - `make enter-chroot`: enter target chroot after readiness checks.
 - `make mount-plan`: read-only prerequisite check that reports the intended target mount layout before any future `mount-target` action.
+- `make filesystem-plan`: read-only prerequisite check that reports the intended filesystem creation plan before any future `format` action.
 
 The operator should not be asked to run raw download, tar extraction, mount, DNS-copy, or chroot commands when Makefile targets exist.
 

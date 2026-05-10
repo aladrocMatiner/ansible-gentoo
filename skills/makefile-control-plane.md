@@ -142,6 +142,7 @@ Required safe targets:
 - `make install-plan`
 - `make partition-plan`
 - `make mount-plan`
+- `make filesystem-plan`
 - `make install-plan PROFILE=openrc`
 - `make install-plan PROFILE=systemd`
 - `make vm-check`
@@ -159,6 +160,7 @@ Expected behavior:
 - `make install-plan`: summarize intended install flow without making changes; default `PROFILE=openrc` and `FILESYSTEM=ext4`, but never default `INSTALL_DISK`.
 - `make partition-plan`: require explicit `INSTALL_DISK` and summarize the exact GPT partition layout without writing.
 - `make mount-plan`: require explicit `INSTALL_DISK` and summarize the future root and EFI mount layout without running `mount`, `umount`, or `mkdir`.
+- `make filesystem-plan`: require explicit `INSTALL_DISK` and summarize the future EFI/root filesystem creation plan without running `mkfs.*`, `wipefs`, `mount`, `umount`, or `mkdir`.
 - `make install-plan PROFILE=openrc`: summarize the planned OpenRC flow through the shared Ansible install path.
 - `make install-plan PROFILE=systemd`: summarize the planned systemd flow through the shared Ansible install path.
 - `make vm-check`: read-only validation of libvirt tools, ISO resolution, UEFI firmware, network mode, and safe project-local paths.

@@ -176,6 +176,8 @@ Target expectations:
 - `make partition-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=...`: show proposed Btrfs GPT layout, subvolumes, and current disk state without writing.
 - `make mount-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=...`: show future ext4 root and EFI mount layout without mounting.
 - `make mount-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=...`: show future Btrfs root, EFI, and subvolume mount layout without mounting.
+- `make filesystem-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=...`: show future EFI and ext4 root filesystem creation plan without formatting.
+- `make filesystem-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=...`: show future EFI, Btrfs root, and subvolume creation plan without formatting.
 - `make partition INSTALL_DISK=... I_UNDERSTAND_THIS_WIPES_DISK=yes`: partition only after safety checks and confirmation.
 - `make format INSTALL_DISK=... I_UNDERSTAND_THIS_WIPES_DISK=yes`: format only approved partitions after mount checks and confirmation.
 
@@ -198,6 +200,7 @@ The operator should not be asked to run raw `parted`, `sgdisk`, `fdisk`, `wipefs
 - Use `make install-plan PROFILE=... INSTALL_DISK=...` to confirm read-only disk identity before any future destructive plan.
 - Re-run `make partition-plan PROFILE=... FILESYSTEM=... INSTALL_DISK=...` if disk state changes.
 - Re-run `make mount-plan PROFILE=... FILESYSTEM=... INSTALL_DISK=...` after partition planning and before any future mount-target operation.
+- Re-run `make filesystem-plan PROFILE=... FILESYSTEM=... INSTALL_DISK=...` before any future format operation.
 - Stop if disk identity is ambiguous.
 - Reboot in UEFI mode if `/sys/firmware/efi` is missing.
 - Unmount only after reviewing current mountpoints and using documented targets.
@@ -212,6 +215,7 @@ This skill should produce or request:
 - Read-only install-plan output from `make install-plan PROFILE=...`.
 - Read-only partition-plan output from `make partition-plan PROFILE=... FILESYSTEM=... INSTALL_DISK=...`.
 - Read-only mount-plan output from `make mount-plan PROFILE=... FILESYSTEM=... INSTALL_DISK=...`.
+- Read-only filesystem-plan output from `make filesystem-plan PROFILE=... FILESYSTEM=... INSTALL_DISK=...`.
 - UEFI verification result.
 - Operator-provided `INSTALL_DISK`.
 - v1 partition plan.

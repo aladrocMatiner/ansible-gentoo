@@ -4,6 +4,8 @@ This workflow generates a read-only mount plan from inside the booted official G
 
 It does not mount, unmount, create directories, partition, format, wipe, chroot, install packages, create users, change passwords, enable services, or install bootloaders.
 
+After this plan is reviewed, use `make filesystem-plan PROFILE=... FILESYSTEM=... INSTALL_DISK=...` to inspect the future filesystem creation plan without formatting anything.
+
 ## Required State
 
 Run the live ISO checks and partition plan first:

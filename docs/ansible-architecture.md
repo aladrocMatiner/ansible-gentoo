@@ -20,6 +20,7 @@ Shared behavior includes:
 - safety confirmation validation
 - partition planning
 - mount planning
+- filesystem planning
 - filesystem checks
 - mount target preparation
 - stage3 download, verification, and extraction framework
@@ -61,6 +62,7 @@ ansible/
       install_plan/
       partition_plan/
       mount_plan/
+      filesystem_plan/
       disk_safety/
       partitioning/
       filesystem/
@@ -90,6 +92,7 @@ Shared roles live under `roles/common/` or an equivalent shared structure.
 - `install_plan`: profile-aware read-only plan output.
 - `partition_plan`: read-only GPT layout planning.
 - `mount_plan`: read-only root, EFI, and Btrfs subvolume mount layout planning.
+- `filesystem_plan`: read-only EFI/root filesystem and Btrfs subvolume creation planning.
 - `disk_safety`: required variables, confirmations, disk identity, libvirt VM guest mode, and fail-closed behavior.
 - `partitioning`: partition planning and approved execution.
 - `filesystem`: filesystem checks and approved formatting.
@@ -112,6 +115,7 @@ Currently implemented read-only planning roles:
 - `common/install_plan`: prints a profile-aware OpenRC or systemd plan without defaulting `install_disk`; it supports `FILESYSTEM=ext4` and `FILESYSTEM=btrfs` as read-only plan variants.
 - `common/partition_plan`: requires explicit `INSTALL_DISK` and prints the exact read-only GPT plan for ext4 or Btrfs without writing.
 - `common/mount_plan`: requires explicit `INSTALL_DISK`, reuses partition-plan safety checks, and prints the read-only target root, EFI, and Btrfs subvolume mount layout without mounting or creating directories.
+- `common/filesystem_plan`: reuses mount-plan output and prints the read-only EFI/root filesystem creation plan without running `mkfs.*`, `wipefs`, or Btrfs subvolume commands.
 
 ## Init-specific Roles
 Init-specific roles must be thin and explicit.
@@ -174,6 +178,8 @@ make partition-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda
 make partition-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda
 make mount-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda
 make mount-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda
+make filesystem-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda
+make filesystem-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda
 make install-openrc
 make install-systemd
 ```

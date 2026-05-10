@@ -13,4 +13,5 @@ ansible-playbook -i ansible/inventory/live.yml ansible/playbooks/detect-disks.ym
 ansible-playbook -i ansible/inventory/live.yml ansible/playbooks/install-plan.yml --syntax-check >/dev/null
 ansible-playbook -i ansible/inventory/live.yml ansible/playbooks/partition-plan.yml --syntax-check >/dev/null
 ansible-playbook -i ansible/inventory/live.yml ansible/playbooks/mount-plan.yml --syntax-check >/dev/null
+ansible-playbook -i ansible/inventory/live.yml ansible/playbooks/filesystem-plan.yml --syntax-check >/dev/null
 printf '%s\n' 'Ansible tooling and syntax checks passed.'

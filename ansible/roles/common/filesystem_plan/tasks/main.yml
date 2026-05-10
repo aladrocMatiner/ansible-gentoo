@@ -1,0 +1,108 @@
+---
+- name: Require mount plan report
+  ansible.builtin.assert:
+    that:
+      - mount_plan_report is defined
+      - mount_plan_report.read_only | bool
+    fail_msg: "filesystem-plan requires the shared read-only mount_plan role to run first."
+    success_msg: "Read-only mount plan is available."
+
+- name: Define planned filesystem targets
+  ansible.builtin.set_fact:
+    filesystem_plan_targets:
+      - name: efi
+        source: "{{ mount_plan_report.planned_partitions.efi.source }}"
+        partition_number: 1
+        filesystem: vfat
+        label: EFI
+        mountpoint: "{{ mount_plan_report.planned_partitions.efi.mountpoint }}"
+        future_command_family: mkfs.vfat
+      - name: root
+        source: "{{ mount_plan_report.planned_partitions.root.source }}"
+        partition_number: 2
+        filesystem: "{{ install_plan_filesystem }}"
+        label: GENTOO_ROOT
+        mountpoint: "{{ mount_plan_report.planned_partitions.root.mountpoint }}"
+        future_command_family: "{{ 'mkfs.ext4' if install_plan_filesystem == 'ext4' else 'mkfs.btrfs' }}"
+
+- name: Inspect planned filesystem target paths
+  ansible.builtin.stat:
+    path: "{{ item.source }}"
+  loop: "{{ filesystem_plan_targets }}"
+  register: filesystem_plan_target_stats
+
+- name: Read current block state for planned targets
+  ansible.builtin.command:
+    argv:
+      - lsblk
+      - --json
+      - --bytes
+      - --output
+      - NAME,PATH,TYPE,SIZE,MODEL,SERIAL,FSTYPE,MOUNTPOINTS,UUID,PARTTYPENAME
+      - "{{ item.source }}"
+  loop: "{{ filesystem_plan_targets }}"
+  register: filesystem_plan_target_lsblk
+  changed_when: false
+  failed_when: false
+
+- name: Check whether planned filesystem targets are mounted
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --source
+      - "{{ item.source }}"
+      - --noheadings
+      - --output
+      - TARGET
+  loop: "{{ filesystem_plan_targets }}"
+  register: filesystem_plan_target_findmnt
+  changed_when: false
+  failed_when: false
+
+- name: Initialize planned filesystem target state
+  ansible.builtin.set_fact:
+    filesystem_plan_target_states: []
+
+- name: Build planned filesystem target state
+  ansible.builtin.set_fact:
+    filesystem_plan_target_states: >-
+      {{
+        filesystem_plan_target_states
+        + [
+          filesystem_plan_targets[item]
+          | combine({
+              'exists': filesystem_plan_target_stats.results[item].stat.exists,
+              'current_block_state': (
+                (filesystem_plan_target_lsblk.results[item].stdout | default('{}') | from_json).blockdevices | default([])
+                if filesystem_plan_target_lsblk.results[item].rc == 0
+                else []
+              ),
+              'is_mounted': filesystem_plan_target_findmnt.results[item].rc == 0,
+              'mounted_at': (
+                filesystem_plan_target_findmnt.results[item].stdout_lines | default([])
+                if filesystem_plan_target_findmnt.results[item].rc == 0
+                else []
+              )
+            })
+        ]
+      }}
+  loop: "{{ range(0, filesystem_plan_targets | length) | list }}"
+
+- name: Derive read-only filesystem plan
+  ansible.builtin.set_fact:
+    filesystem_plan_report:
+      read_only: true
+      destructive_commands_run: false
+      filesystems_created: false
+      btrfs_subvolumes_created: false
+      filesystems_mounted: false
+      confirmation_required_now: false
+      future_format_requires_confirmation: true
+      selected_disk: "{{ mount_plan_report.selected_disk }}"
+      planned_filesystems: "{{ filesystem_plan_target_states }}"
+      btrfs_subvolumes: "{{ mount_plan_report.btrfs_subvolumes if install_plan_filesystem == 'btrfs' else [] }}"
+      next_step: "Review this read-only plan before implementing any future destructive format target."
+
+- name: Print read-only filesystem plan
+  ansible.builtin.debug:
+    msg: "{{ filesystem_plan_report }}"
