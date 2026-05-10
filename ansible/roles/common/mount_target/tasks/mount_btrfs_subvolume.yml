@@ -1,0 +1,52 @@
+---
+- name: Check current Btrfs subvolume mount
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - "{{ mount_target_btrfs_entry.mountpoint }}"
+      - --noheadings
+      - --output
+      - SOURCE,FSTYPE,OPTIONS
+  register: mount_target_btrfs_entry_findmnt
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Derive Btrfs subvolume mount validation pattern
+  ansible.builtin.set_fact:
+    mount_target_btrfs_subvol_regex: "{{ 'subvol=/?' ~ (mount_target_btrfs_entry.name | regex_escape) }}"
+
+- name: Validate existing Btrfs subvolume mount
+  ansible.builtin.assert:
+    that:
+      - mount_target_btrfs_entry_findmnt.stdout is search(filesystem_root_target.source | regex_escape)
+      - mount_target_btrfs_entry_findmnt.stdout is search('btrfs')
+      - mount_target_btrfs_entry_findmnt.stdout is search(mount_target_btrfs_subvol_regex)
+    fail_msg: "MOUNT_UNSAFE: {{ mount_target_btrfs_entry.mountpoint }} is already mounted but does not match {{ filesystem_root_target.source }} subvol={{ mount_target_btrfs_entry.name }}: {{ mount_target_btrfs_entry_findmnt.stdout }}"
+    success_msg: "Btrfs subvolume mount already matches plan: {{ mount_target_btrfs_entry.mountpoint }}"
+  when: mount_target_btrfs_entry_findmnt.rc == 0
+
+- name: Create Btrfs subvolume mountpoint
+  ansible.builtin.file:
+    path: "{{ mount_target_btrfs_entry.mountpoint }}"
+    state: directory
+    mode: "0755"
+  when:
+    - not ansible_check_mode
+    - mount_target_btrfs_entry_findmnt.rc != 0
+
+- name: Mount Btrfs subvolume
+  ansible.builtin.command:
+    argv:
+      - mount
+      - -t
+      - btrfs
+      - -o
+      - "noatime,compress=zstd,subvol={{ mount_target_btrfs_entry.name }}"
+      - "{{ filesystem_root_target.source }}"
+      - "{{ mount_target_btrfs_entry.mountpoint }}"
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - mount_target_btrfs_entry_findmnt.rc != 0

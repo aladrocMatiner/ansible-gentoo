@@ -200,7 +200,7 @@ The operator should not be asked to run raw `parted`, `sgdisk`, `fdisk`, `wipefs
 - Re-run `make detect-disks` before destructive work.
 - Use `make install-plan PROFILE=... INSTALL_DISK=...` to confirm read-only disk identity before any future destructive plan.
 - Re-run `make partition-plan PROFILE=... FILESYSTEM=... INSTALL_DISK=...` if disk state changes.
-- Re-run `make mount-plan PROFILE=... FILESYSTEM=... INSTALL_DISK=...` after partition planning and before any future mount-target operation.
+- Re-run `make mount-plan PROFILE=... FILESYSTEM=... INSTALL_DISK=...` after partition planning and before `make mount-target`.
 - Re-run `make filesystem-plan PROFILE=... FILESYSTEM=... INSTALL_DISK=...` before any future format operation.
 - Stop if disk identity is ambiguous.
 - Reboot in UEFI mode if `/sys/firmware/efi` is missing.

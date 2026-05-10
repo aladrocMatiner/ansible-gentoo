@@ -1,6 +1,6 @@
 # Ansible Mount Plan
 
-This workflow generates a read-only mount plan against a booted official Gentoo live ISO target over SSH. It is the checkpoint after `partition-plan` and before any future `mount-target` implementation.
+This workflow generates a read-only mount plan against a booted official Gentoo live ISO target over SSH. It is the checkpoint after `partition-plan` and before `make mount-target`.
 
 Use `ANSIBLE_LIVE_HOST=...` for a real network target. If it is omitted, the wrappers may use the local libvirt VM as the validation target.
 
@@ -69,7 +69,7 @@ The plan reports:
 - whether planned mountpoint paths exist,
 - whether planned mountpoint paths are already mountpoints,
 - whether confirmation is required now: false,
-- whether a future `mount-target` needs review: true.
+- `mount_target_requires_review: true`, meaning `make mount-target` should only run after the plan has been reviewed.
 
 For `FILESYSTEM=ext4`, the root partition is planned as partition 2 of the explicit `INSTALL_DISK` mounted at `/mnt/gentoo` with default options, and EFI is planned as partition 1 mounted at `/mnt/gentoo/boot/efi`. In the local VM examples, those paths are `/dev/vda2` and `/dev/vda1`.
 
@@ -88,7 +88,7 @@ The Btrfs plan reports these subvolumes:
 - `@var_cache` at `/mnt/gentoo/var/cache`
 - `@snapshots` at `/mnt/gentoo/.snapshots`
 
-These names and mountpoints are shared policy, documented in `docs/btrfs-layout-policy.md`. The later `mount-target`, fstab, and final-check workflows must use the same policy and verify that root is mounted with `subvol=@`.
+These names and mountpoints are shared policy, documented in `docs/btrfs-layout-policy.md`. The `mount-target`, fstab, and final-check workflows must use the same policy and verify that root is mounted with `subvol=@`.
 
 ## Safety
 

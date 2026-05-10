@@ -35,6 +35,8 @@ The shared `common/disk_safety` role verifies:
 
 `partition-plan`, `mount-plan`, and `filesystem-plan` reuse the same `common/disk_safety` role without requiring destructive confirmation. Apply targets such as `make partition` and `make format` reuse the same role with confirmation enabled before doing any disk mutation.
 
+`make mount-target` is the only current workflow allowed to set `disk_safety_allow_mounted_descendants=true`. That exception exists so the target remains idempotent after the approved root, Btrfs subvolumes, and ESP are already mounted. The caller must then validate each mounted descendant against the approved plan before skipping a mount action. No partitioning or formatting workflow may use this exception.
+
 Preview output is not confirmation. Operators must still pass `I_UNDERSTAND_THIS_WIPES_DISK=yes` to destructive apply workflows.
 
 ## Failure Modes

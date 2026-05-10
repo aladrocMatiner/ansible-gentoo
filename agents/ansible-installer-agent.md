@@ -110,7 +110,7 @@ Shared roles:
 - `common/disk_safety`: validate required disk variables, confirmations, libvirt VM guest-mode assumptions, and fail-closed behavior.
 - `common/partitioning`: perform partition changes only after shared disk and confirmation gates pass.
 - `common/filesystem`: create filesystems only after partition confirmation gates pass.
-- `common/mount_target`: mount target root and EFI partitions with path assertions.
+- `common/mount_target`: mount target root and EFI partitions with path assertions, idempotent existing-mount validation, and Btrfs `subvol=@` handling.
 - `common/stage3`: provide shared download, checksum, signature, architecture, and variant validation framework.
 - `common/chroot`: prepare chroot bind mounts and guard target-mutating operations.
 - `common/portage`: configure conservative Portage baseline shared by both variants.

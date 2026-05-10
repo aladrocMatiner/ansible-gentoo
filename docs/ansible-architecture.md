@@ -183,7 +183,7 @@ Shared roles live under `roles/common/` or an equivalent shared structure.
 - `manual_escape_hatch`: records non-secret manual intervention notes and triggers revalidation before resume.
 - `partitioning`: partition planning and approved execution.
 - `filesystem`: filesystem checks and approved formatting.
-- `mount_target`: target root and EFI mount preparation.
+- `mount_target`: target root and EFI mount preparation, idempotent existing-mount validation, and Btrfs `subvol=@` subvolume mounting.
 - `stage3`: stage3 download, checksum, signature, architecture, and variant validation framework.
 - `chroot`: pseudo-filesystem, DNS, and chroot readiness.
 - `portage`: shared Portage baseline.

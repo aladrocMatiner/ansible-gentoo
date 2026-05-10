@@ -165,7 +165,7 @@ Shared roles:
 - `common/disk_safety`: shared assertions for `install_disk`, confirmation variables, disk identity, VM guest mode, and fail-closed behavior.
 - `common/partitioning`: partition only after shared safety gates pass.
 - `common/filesystem`: format approved partitions only after shared confirmation.
-- `common/mount_target`: mount root and EFI partitions with path assertions.
+- `common/mount_target`: mount root and EFI partitions with path assertions, validate already-mounted paths for idempotency, and mount Btrfs root with `subvol=@` plus the approved subvolumes.
 - `common/stage3`: download, verify, validate variant, and extract official stage3.
 - `common/chroot`: prepare chroot mounts and DNS, and guard target-mutating operations.
 - `common/portage`: configure minimal Portage baseline shared by both init systems.

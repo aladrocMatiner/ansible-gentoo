@@ -1,0 +1,14 @@
+---
+- name: Mount approved Gentoo target filesystems
+  hosts: gentoo_live
+  gather_facts: true
+  roles:
+    - role: common/disk_detection
+    - role: common/disk_safety
+      vars:
+        disk_safety_allow_mounted_descendants: true
+    - role: common/install_plan
+    - role: common/partition_plan
+    - role: common/mount_plan
+    - role: common/filesystem_plan
+    - role: common/mount_target

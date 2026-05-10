@@ -187,6 +187,7 @@ Expected behavior:
 - `make filesystem-plan`: require explicit `INSTALL_DISK` and summarize the future EFI/root filesystem creation plan without running `mkfs.*`, `wipefs`, `mount`, `umount`, or `mkdir`.
 - `make destructive-safety-check`: require explicit `INSTALL_DISK` and `I_UNDERSTAND_THIS_WIPES_DISK=yes`, then run the shared read-only disk safety role without mutating disks.
 - `make format`: require explicit `INSTALL_DISK` and `I_UNDERSTAND_THIS_WIPES_DISK=yes`, then create only the approved ESP/root filesystems for `FILESYSTEM=ext4` or `FILESYSTEM=btrfs` after printing a destructive preview.
+- `make mount-target`: require explicit `INSTALL_DISK`, reuse the approved mount/filesystem plans, mount only `/mnt/gentoo` and `/mnt/gentoo/boot/efi`, and validate existing mounts for idempotency.
 - `make install-plan PROFILE=openrc`: summarize the planned OpenRC flow through the shared Ansible install path.
 - `make install-plan PROFILE=systemd`: summarize the planned systemd flow through the shared Ansible install path.
 - `make vm-check`: read-only validation of libvirt tools, ISO resolution, UEFI firmware, network mode, and safe project-local paths.
@@ -219,7 +220,7 @@ Expected behavior:
 - `make bootstrap-codex`: install Codex temporarily in the live ISO using `CODEX_INSTALL_METHOD`.
 - `make prepare-live-env`: install or verify temporary live-session dependencies only.
 - `make download-stage3`: download and verify the amd64 OpenRC stage3 without extracting over existing data.
-- `make mount-target`: mount explicitly provided partitions to explicitly provided target paths after mount-state checks.
+- `make mount-target`: mount explicitly provided partitions to explicitly provided target paths after mount-state checks; for Btrfs it must mount root with `subvol=@` and the approved subvolumes from `docs/btrfs-layout-policy.md`.
 - `make vm-disk`: create or preserve the project-local qcow2 VM disk.
 - `make vm-define`: define the project-owned libvirt domain from reviewed project-local inputs.
 - `make vm-start`: start the project-owned VM from the official Gentoo live ISO.
@@ -234,7 +235,7 @@ Expected behavior:
 - `make vm-destroy`: stop the configured project-owned domain without deleting artifacts.
 - `make vm-clean`: undefine the project-owned domain and delete generated VM artifacts only after typing `DELETE`.
 
-`make mount-target` must become destructive-adjacent if it can mount over an existing path. It must print current mounts and require confirmation when ambiguity exists.
+`make mount-target` is destructive-adjacent because mounting over a wrong path can hide data. It must print current mounts, refuse unrelated existing mounts, remain idempotent for already-correct mounts, and fail closed when ambiguity exists.
 
 Future destructive targets should print or call a read-only preview before accepting confirmation. Preview output must not set `I_UNDERSTAND_THIS_WIPES_DISK=yes` or any equivalent confirmation.
 

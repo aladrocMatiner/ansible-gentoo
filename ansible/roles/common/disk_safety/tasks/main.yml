@@ -117,6 +117,14 @@
       - disk_safety_mounted_descendants | length == 0
     fail_msg: "DISK_UNSAFE: selected disk has mounted descendants: {{ disk_safety_mounted_descendants }}"
     success_msg: "Selected disk has no mounted descendants."
+  when: not disk_safety_allow_mounted_descendants | default(false) | bool
+
+- name: Report allowed mounted descendants
+  ansible.builtin.debug:
+    msg: "Mounted descendants are allowed for this workflow and must be validated by the caller: {{ disk_safety_mounted_descendants }}"
+  when:
+    - disk_safety_allow_mounted_descendants | default(false) | bool
+    - disk_safety_mounted_descendants | length > 0
 
 - name: Build disk safety report
   ansible.builtin.set_fact:

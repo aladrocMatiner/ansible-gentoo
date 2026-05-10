@@ -1,0 +1,334 @@
+---
+- name: Require shared mount and filesystem plans for target mount
+  ansible.builtin.assert:
+    that:
+      - mount_plan_report is defined
+      - mount_plan_report.read_only | bool
+      - filesystem_plan_report is defined
+      - filesystem_plan_report.read_only | bool
+    fail_msg: "mount-target requires shared mount_plan and filesystem_plan roles to run first."
+    success_msg: "Mount target prerequisites are present."
+
+- name: Store planned mount target facts
+  ansible.builtin.set_fact:
+    mount_target_root_path: "{{ target_mount | default('/mnt/gentoo') }}"
+    mount_target_efi_path: "{{ efi_mount | default('/mnt/gentoo/boot/efi') }}"
+    filesystem_efi_target: "{{ filesystem_plan_report.planned_filesystems | selectattr('name', 'equalto', 'efi') | first }}"
+    filesystem_root_target: "{{ filesystem_plan_report.planned_filesystems | selectattr('name', 'equalto', 'root') | first }}"
+    mount_target_btrfs_subvolumes: "{{ mount_plan_report.btrfs_subvolumes | default([]) }}"
+
+- name: Validate target mount paths
+  ansible.builtin.assert:
+    that:
+      - mount_target_root_path == '/mnt/gentoo'
+      - mount_target_root_path != '/'
+      - mount_target_efi_path == mount_target_root_path ~ '/boot/efi'
+      - filesystem_efi_target.source is match('^/dev/.+')
+      - filesystem_root_target.source is match('^/dev/.+')
+      - filesystem_efi_target.source != filesystem_root_target.source
+    fail_msg: "MOUNT_UNSAFE: target mount paths or partition sources are outside the approved layout."
+    success_msg: "Target mount paths and partition sources match the approved layout."
+
+- name: Check root filesystem for ext4
+  ansible.builtin.command:
+    argv:
+      - blkid
+      - -o
+      - value
+      - -s
+      - TYPE
+      - "{{ filesystem_root_target.source }}"
+  register: mount_target_ext4_blkid
+  changed_when: false
+  failed_when: mount_target_ext4_blkid.stdout != 'ext4'
+  check_mode: false
+  when: install_plan_filesystem == 'ext4'
+
+- name: Check root filesystem for Btrfs
+  ansible.builtin.command:
+    argv:
+      - btrfs
+      - filesystem
+      - show
+      - "{{ filesystem_root_target.source }}"
+  register: mount_target_btrfs_show
+  changed_when: false
+  failed_when: mount_target_btrfs_show.rc != 0
+  check_mode: false
+  when: install_plan_filesystem == 'btrfs'
+
+- name: Check EFI filesystem
+  ansible.builtin.command:
+    argv:
+      - blkid
+      - -o
+      - value
+      - -s
+      - TYPE
+      - "{{ filesystem_efi_target.source }}"
+  register: mount_target_efi_blkid
+  changed_when: false
+  failed_when: mount_target_efi_blkid.stdout not in ['vfat', 'fat']
+  check_mode: false
+
+- name: Build mount target preview
+  ansible.builtin.set_fact:
+    mount_target_preview:
+      read_only_preview: true
+      selected_disk: "{{ disk_safety_report.selected_disk }}"
+      root:
+        source: "{{ filesystem_root_target.source }}"
+        mountpoint: "{{ mount_target_root_path }}"
+        filesystem: "{{ install_plan_filesystem }}"
+        options: "{{ ['defaults'] if install_plan_filesystem == 'ext4' else ['noatime', 'compress=zstd', 'subvol=@'] }}"
+      btrfs_subvolumes: "{{ mount_target_btrfs_subvolumes if install_plan_filesystem == 'btrfs' else [] }}"
+      efi:
+        source: "{{ filesystem_efi_target.source }}"
+        mountpoint: "{{ mount_target_efi_path }}"
+        filesystem: vfat
+      will_not:
+        - partition disks
+        - format filesystems
+        - chroot
+        - install packages
+        - install bootloader
+
+- name: Print mount target preview
+  ansible.builtin.debug:
+    msg: "{{ mount_target_preview }}"
+
+- name: Build mountpoint inspection list
+  ansible.builtin.set_fact:
+    mount_target_expected_mountpoints: >-
+      {{
+        [mount_target_root_path, mount_target_efi_path]
+        + (
+          mount_target_btrfs_subvolumes
+          | rejectattr('name', 'equalto', '@')
+          | map(attribute='mountpoint')
+          | list
+          if install_plan_filesystem == 'btrfs'
+          else []
+        )
+      }}
+
+- name: Read mount state before apply
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - "{{ item }}"
+      - --noheadings
+      - --output
+      - TARGET,SOURCE,FSTYPE,OPTIONS
+  loop: "{{ mount_target_expected_mountpoints }}"
+  register: mount_target_before_findmnt
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Determine whether mount actions are needed
+  ansible.builtin.set_fact:
+    mount_target_mounts_needed: "{{ mount_target_before_findmnt.results | selectattr('rc', 'ne', 0) | list | length > 0 }}"
+
+- name: Define mount target audit run id
+  ansible.builtin.set_fact:
+    mount_target_run_id: "{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}"
+
+- name: Define mount target audit log path
+  ansible.builtin.set_fact:
+    mount_target_log_dir: "{{ project_root | default(lookup('ansible.builtin.env', 'PWD'), true) }}/logs/install-runs/{{ mount_target_run_id }}/mount-target"
+
+- name: Create local mount target log directory
+  ansible.builtin.file:
+    path: "{{ mount_target_log_dir }}"
+    state: directory
+    mode: "0750"
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Record mount state before apply
+  ansible.builtin.copy:
+    dest: "{{ mount_target_log_dir }}/before.json"
+    mode: "0640"
+    content: |
+      {
+        "install_disk": {{ install_disk | to_json }},
+        "filesystem": {{ install_plan_filesystem | to_json }},
+        "preview": {{ mount_target_preview | to_nice_json }},
+        "findmnt": {{ mount_target_before_findmnt.results | map(attribute='stdout') | list | to_nice_json }}
+      }
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Check current root mount
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - "{{ mount_target_root_path }}"
+      - --noheadings
+      - --output
+      - SOURCE,FSTYPE,OPTIONS
+  register: mount_target_root_findmnt
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Validate existing root mount
+  ansible.builtin.assert:
+    that:
+      - mount_target_root_findmnt.stdout is search(filesystem_root_target.source | regex_escape)
+      - mount_target_root_findmnt.stdout is search(install_plan_filesystem)
+      - install_plan_filesystem != 'btrfs' or mount_target_root_findmnt.stdout is search('subvol=/@|subvol=@')
+    fail_msg: "MOUNT_UNSAFE: target root is already mounted but does not match the approved plan: {{ mount_target_root_findmnt.stdout }}"
+    success_msg: "Target root mount already matches the approved plan."
+  when: mount_target_root_findmnt.rc == 0
+
+- name: Create target root mountpoint
+  ansible.builtin.file:
+    path: "{{ mount_target_root_path }}"
+    state: directory
+    mode: "0755"
+  when:
+    - not ansible_check_mode
+    - mount_target_root_findmnt.rc != 0
+
+- name: Mount ext4 target root
+  ansible.builtin.command:
+    argv:
+      - mount
+      - -t
+      - ext4
+      - -o
+      - defaults
+      - "{{ filesystem_root_target.source }}"
+      - "{{ mount_target_root_path }}"
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - install_plan_filesystem == 'ext4'
+    - mount_target_root_findmnt.rc != 0
+
+- name: Mount Btrfs target root
+  ansible.builtin.command:
+    argv:
+      - mount
+      - -t
+      - btrfs
+      - -o
+      - noatime,compress=zstd,subvol=@
+      - "{{ filesystem_root_target.source }}"
+      - "{{ mount_target_root_path }}"
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - install_plan_filesystem == 'btrfs'
+    - mount_target_root_findmnt.rc != 0
+
+- name: Mount approved Btrfs subvolumes
+  ansible.builtin.include_tasks: mount_btrfs_subvolume.yml
+  loop: "{{ mount_target_btrfs_subvolumes | rejectattr('name', 'equalto', '@') | list }}"
+  loop_control:
+    loop_var: mount_target_btrfs_entry
+    label: "{{ mount_target_btrfs_entry.name }}"
+  when: install_plan_filesystem == 'btrfs'
+
+- name: Create EFI mountpoint
+  ansible.builtin.file:
+    path: "{{ mount_target_efi_path }}"
+    state: directory
+    mode: "0755"
+  when: not ansible_check_mode
+
+- name: Check current EFI mount
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - "{{ mount_target_efi_path }}"
+      - --noheadings
+      - --output
+      - SOURCE,FSTYPE,OPTIONS
+  register: mount_target_efi_findmnt
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Validate existing EFI mount
+  ansible.builtin.assert:
+    that:
+      - mount_target_efi_findmnt.stdout is search(filesystem_efi_target.source | regex_escape)
+      - mount_target_efi_findmnt.stdout is search('vfat')
+    fail_msg: "MOUNT_UNSAFE: EFI path is already mounted but does not match the approved plan: {{ mount_target_efi_findmnt.stdout }}"
+    success_msg: "EFI mount already matches the approved plan."
+  when: mount_target_efi_findmnt.rc == 0
+
+- name: Mount EFI system partition
+  ansible.builtin.command:
+    argv:
+      - mount
+      - -t
+      - vfat
+      - -o
+      - defaults
+      - "{{ filesystem_efi_target.source }}"
+      - "{{ mount_target_efi_path }}"
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - mount_target_efi_findmnt.rc != 0
+
+- name: Read mount state after apply
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - "{{ item }}"
+      - --noheadings
+      - --output
+      - TARGET,SOURCE,FSTYPE,OPTIONS
+  loop: "{{ mount_target_expected_mountpoints }}"
+  register: mount_target_after_findmnt
+  changed_when: false
+  failed_when: mount_target_after_findmnt.rc != 0
+  check_mode: false
+  when: not ansible_check_mode
+
+- name: Record mount state after apply
+  ansible.builtin.copy:
+    dest: "{{ mount_target_log_dir }}/after.json"
+    mode: "0640"
+    content: |
+      {
+        "install_disk": {{ install_disk | to_json }},
+        "check_mode": {{ ansible_check_mode | to_json }},
+        "filesystem": {{ install_plan_filesystem | to_json }},
+        "findmnt": {{ mount_target_after_findmnt.results | map(attribute='stdout') | list | to_nice_json }}
+      }
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Build mount target report
+  ansible.builtin.set_fact:
+    mount_target_report:
+      changed: "{{ (mount_target_mounts_needed | bool) and not ansible_check_mode }}"
+      check_mode: "{{ ansible_check_mode }}"
+      install_disk: "{{ install_disk }}"
+      root_partition: "{{ filesystem_root_target.source }}"
+      efi_partition: "{{ filesystem_efi_target.source }}"
+      target_mount: "{{ mount_target_root_path }}"
+      efi_mount: "{{ mount_target_efi_path }}"
+      filesystem: "{{ install_plan_filesystem }}"
+      btrfs_root_subvolume: "{{ '@' if install_plan_filesystem == 'btrfs' else omit }}"
+      logs: "{{ mount_target_log_dir }}/"
+
+- name: Print mount target report
+  ansible.builtin.debug:
+    msg: "{{ mount_target_report }}"

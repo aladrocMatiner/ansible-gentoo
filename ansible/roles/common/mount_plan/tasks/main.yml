@@ -78,7 +78,7 @@
       directories_created: false
       filesystems_mounted: false
       confirmation_required_now: false
-      future_mount_target_requires_review: true
+      mount_target_requires_review: true
       selected_disk: "{{ partition_plan_report.selected_disk }}"
       planned_partitions:
         efi:
@@ -94,7 +94,7 @@
           options: "{{ mount_plan_root_options }}"
       btrfs_subvolumes: "{{ mount_plan_btrfs_subvolumes }}"
       path_state: "{{ mount_plan_path_states }}"
-      next_step: "Review this read-only plan before implementing any future mount-target target."
+      next_step: "Review this read-only plan before running make mount-target."
 
 - name: Print read-only mount plan
   ansible.builtin.debug:
