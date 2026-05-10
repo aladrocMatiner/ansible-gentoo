@@ -254,6 +254,7 @@ Rules:
 - `confirm_wipe_disk` must be explicitly set for destructive disk operations.
 - `init_system` must be `openrc` or `systemd`.
 - `stage3_variant` must match `init_system`.
+- Stage3 verification must follow `docs/stage3-signature-policy.md`: checksum verification is mandatory, signature verification must fail closed unless a later OpenSpec change approves an explicit override, and cached artifacts must be reverified before extraction.
 - Variant values should live in `group_vars/openrc.yml`, `group_vars/systemd.yml`, or an equivalent documented mechanism.
 - VM guest `/dev/vda` is allowed only when explicitly passed as `install_disk=/dev/vda` inside the libvirt-managed guest VM.
 - `ansible_live_host` selects an explicit network target and must not default to a VM address.

@@ -140,6 +140,7 @@ Rules:
 - `filesystem` must be `ext4` or `btrfs`.
 - Btrfs subvolume names, mountpoints, and root `subvol=@` behavior must come from the shared Btrfs policy, not from OpenRC/systemd-specific roles.
 - `stage3_variant` must match `init_system`.
+- Stage3 verification must follow `docs/stage3-signature-policy.md`: checksum verification is mandatory, signature verification must fail closed unless an approved OpenSpec change defines an explicit override, and cached artifacts must be reverified before extraction.
 - OpenRC variables belong in `group_vars/openrc.yml` or an equivalent variant file.
 - systemd variables belong in `group_vars/systemd.yml` or an equivalent variant file.
 - OpenRC workflows must not call `systemctl`.

@@ -219,7 +219,8 @@ Expected behavior:
 
 - `make bootstrap-codex`: install Codex temporarily in the live ISO using `CODEX_INSTALL_METHOD`.
 - `make prepare-live-env`: install or verify temporary live-session dependencies only.
-- `make download-stage3`: download and verify the amd64 OpenRC stage3 without extracting over existing data.
+- `make download-stage3`: download the official amd64 stage3 and verification metadata for the selected `PROFILE` without extracting over existing data.
+- `make verify-stage3`: verify checksum and signature policy from `docs/stage3-signature-policy.md` before any extraction target can run.
 - `make mount-target`: mount explicitly provided partitions to explicitly provided target paths after mount-state checks; for Btrfs it must mount root with `subvol=@` and the approved subvolumes from `docs/btrfs-layout-policy.md`.
 - `make vm-disk`: create or preserve the project-local qcow2 VM disk.
 - `make vm-define`: define the project-owned libvirt domain from reviewed project-local inputs.

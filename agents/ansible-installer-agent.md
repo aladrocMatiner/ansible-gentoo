@@ -232,6 +232,7 @@ The installer must fail closed if uncertainty exists. Required safety gates:
 - Assert target mount paths are expected and not covering unrelated live system paths.
 - Stop if any selected disk or partition is mounted unexpectedly.
 - Stop if stage3 is not amd64 or its variant does not match `init_system`.
+- Enforce `docs/stage3-signature-policy.md` before extraction: checksum verification is mandatory, signature failures stop the workflow, and missing signature tooling or trusted keys must fail closed unless a later OpenSpec change approves an explicit override.
 - Stop if a task would write into the live root when it should write into the target root.
 Shared safety gates must be implemented once and reused by OpenRC and systemd flows. Init-specific roles may consume safety facts, but must not redefine, duplicate, or weaken disk safety checks.
 
