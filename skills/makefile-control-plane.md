@@ -69,6 +69,13 @@ Required project variables:
 - `TIMEZONE`
 - `LOCALE`
 - `KEYMAP`
+- `ADMIN_USER`
+- `ADMIN_GROUPS`
+- `ADMIN_SHELL`
+- `PRIVILEGE_TOOL`
+- `ADMIN_AUTHORIZED_KEYS_FILE`
+- `ADMIN_PASSWORD_HASH_FILE`
+- `ROOT_PASSWORD_HASH_FILE`
 - `I_UNDERSTAND_THIS_WIPES_DISK`
 
 VM/libvirt variables:
@@ -108,6 +115,9 @@ Recommended defaults:
 - `TIMEZONE=UTC`
 - `LOCALE=en_US.UTF-8`
 - `KEYMAP=us`
+- `ADMIN_GROUPS=wheel`
+- `ADMIN_SHELL=/bin/bash`
+- `PRIVILEGE_TOOL=sudo`
 
 Recommended VM/libvirt defaults:
 
@@ -152,6 +162,8 @@ Rules:
 - `TIMEZONE` must be a relative target zoneinfo path such as `UTC` or `Europe/Stockholm`.
 - `LOCALE` must be a UTF-8 locale such as `en_US.UTF-8`.
 - `KEYMAP` must be a simple console keymap name such as `us`.
+- `ADMIN_USER` must have no useful default for user-creation workflows; `make configure-users` must require it explicitly.
+- `ADMIN_PASSWORD_HASH_FILE`, `ROOT_PASSWORD_HASH_FILE`, and `ADMIN_AUTHORIZED_KEYS_FILE` are local input file paths only. The Makefile may report whether they are set, but it must not print their contents.
 - Variables containing secrets must not be printed or committed.
 - `VM_DISK` must be a project-relative qcow2 path under `VM_DIR`.
 - `VM_DIR` must not be the project root, `/dev`, absolute, symlinked, or contain parent traversal.
@@ -212,7 +224,7 @@ Expected behavior:
 - `make vm-check`: read-only validation of libvirt tools, ISO resolution, UEFI firmware, network mode, and safe project-local paths.
 
 ## 7. Semi-dangerous Targets
-Semi-dangerous targets may modify the live ISO environment or prepare target paths, but they should not partition, format, wipe, overwrite disks, install bootloaders, change passwords, or create privileged users.
+Semi-dangerous and high-risk target-root targets may modify the live ISO environment or the mounted target root, but they must not partition, format, wipe, overwrite disks, install bootloaders, or reboot unless they are listed as destructive targets. User and password workflows are high-risk persistent target-root changes and require secret-safe input handling instead of disk-wipe confirmation.
 
 Semi-dangerous targets:
 
@@ -228,6 +240,7 @@ Semi-dangerous targets:
 - `make install-kernel`
 - `make install-system-packages`
 - `make install-base-packages`
+- `make configure-users`
 - `make vm-disk`
 - `make vm-define`
 - `make vm-start`
@@ -257,6 +270,7 @@ Expected behavior:
 - `make install-kernel`: require prepared `/mnt/gentoo`, prepared chroot pseudo-filesystems, mounted `/mnt/gentoo/boot/efi`, and generated fstab; install `gentoo-kernel-bin` with installkernel/dracut support; write target kernel command-line input; validate `/boot` artifacts; and avoid GRUB or EFI boot-entry changes.
 - `make install-system-packages`: require prepared `/mnt/gentoo` and chroot pseudo-filesystems; install the minimal console package set; apply conservative package USE policy; enable services through init-specific roles; and avoid users, passwords, GRUB, EFI boot entries, disk partitioning, formatting, and reboot.
 - `make install-base-packages`: compatibility alias for `make install-system-packages` when present.
+- `make configure-users`: require explicit `ADMIN_USER`, prepared `/mnt/gentoo`, installed sudo tooling, and secret-safe optional file inputs; configure the admin user, sudo policy, optional password hashes, optional authorized keys, and installed SSH root-login restrictions without printing secret values.
 - `make vm-disk`: create or preserve the project-local qcow2 VM disk.
 - `make vm-define`: define the project-owned libvirt domain from reviewed project-local inputs.
 - `make vm-start`: start the project-owned VM from the official Gentoo live ISO.
@@ -280,6 +294,8 @@ Expected behavior:
 `make configure-system` is target-mutating because it writes identity and locale files under `/mnt/gentoo`. It must refuse target roots other than `/mnt/gentoo`, validate hostname/timezone/locale/keymap inputs, avoid changing the live ISO hostname, and record evidence for final checks and install reports.
 
 `make generate-fstab` is target-mutating because it writes `/mnt/gentoo/etc/fstab`. It must require explicit `INSTALL_DISK`, refuse target roots other than `/mnt/gentoo`, validate root and EFI UUIDs, preserve a backup of an existing fstab, and keep Btrfs entries aligned with `docs/btrfs-layout-policy.md`.
+
+`make configure-users` is high-risk persistent target-root work because it creates users, changes group membership, configures sudo, may apply password hashes, and may install SSH authorized keys. It must reject missing `ADMIN_USER`, reject git-tracked secret input files, treat password and key contents as `no_log`, enforce installed SSH root-login policy when SSH is enabled, and write only non-secret audit evidence.
 
 Future destructive targets should print or call a read-only preview before accepting confirmation. Preview output must not set `I_UNDERSTAND_THIS_WIPES_DISK=yes` or any equivalent confirmation.
 

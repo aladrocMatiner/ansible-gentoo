@@ -1,0 +1,11 @@
+---
+- name: Configure target users and access
+  hosts: gentoo_live
+  gather_facts: true
+  vars_files:
+    - ../group_vars/all.yml
+    - "../group_vars/{{ profile | default('openrc') }}.yml"
+  roles:
+    - role: common/live_preflight
+    - role: common/chroot
+    - role: common/users

@@ -125,6 +125,12 @@ Expected variables:
 - `locale`: target UTF-8 locale.
 - `keymap`: target console keymap.
 - `enable_ssh`: whether to install and enable SSH.
+- `admin_user`: required for user/access configuration and must not have a useful default.
+- `admin_groups_csv`: comma-separated admin groups, defaulting to `wheel`.
+- `admin_shell`: target admin shell, defaulting to `/bin/bash`.
+- `privilege_tool`: currently `sudo`; doas requires a later OpenSpec change.
+- `admin_password_hash_file`, `root_password_hash_file`: optional controller-local gitignored files; contents must use `no_log`.
+- `admin_authorized_keys_file`: optional controller-local gitignored authorized_keys file; private key material must be rejected.
 - `target_mount: /mnt/gentoo`
 - `efi_mount: /mnt/gentoo/boot/efi`
 - `vm_guest_mode`: true only in the libvirt-managed VM guest test environment.
@@ -153,6 +159,7 @@ Rules:
 - VM guest `/dev/vda` is allowed only when explicitly passed as `install_disk=/dev/vda` inside the libvirt-managed guest VM.
 - Real network targets must use disk paths from `make detect-disks` output. VM example paths such as `/dev/vda` must not be reused as defaults for physical hosts.
 - Do not store plaintext passwords, API keys, or login tokens in variables.
+- Do not pass password hashes or SSH key contents directly as Makefile variables or inventory values; pass only approved local file paths and redact contents with `no_log`.
 - Variables that select disks or partitions must be operator-provided or generated from an approved plan.
 
 ## 7. Role Model
@@ -180,7 +187,7 @@ Shared roles:
 - `common/fstab`: generate stable UUID-based fstab entries for ext4 root or the approved Btrfs subvolume layout plus `/boot/efi`, validate UUIDs, and write only under `/mnt/gentoo`.
 - `common/kernel`: install `sys-kernel/installkernel`, `sys-kernel/dracut`, and `gentoo-kernel-bin`; derive the kernel command line from `/mnt/gentoo/etc/fstab`; write installkernel/dracut command-line input; validate kernel, initramfs, and module artifacts; and leave GRUB installation to `common/bootloader`.
 - `common/bootloader`: install and configure GRUB for UEFI through shared safety gates.
-- `common/users`: create users and credentials through secret-safe mechanisms.
+- `common/users`: require explicit `admin_user`, create or update the target admin account under `/mnt/gentoo`, manage admin group membership, configure sudo through `wheel` by default, apply optional password hashes from gitignored controller-local files with `no_log`, install optional authorized keys, enforce installed SSH root-login restrictions when SSH is enabled, and record only non-secret evidence.
 - `common/ssh`: translate `ENABLE_SSH` into optional package/service inputs without storing secrets, enabling root password login, or assuming SSH is enabled by default.
 - `common/final_checks`: read-only validation before reboot.
 

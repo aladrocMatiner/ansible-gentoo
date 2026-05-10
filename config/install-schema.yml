@@ -113,6 +113,56 @@ variables:
       - users
     notes: Optional admin account name. Passwords or private keys must not be passed through this schema.
 
+  ADMIN_GROUPS:
+    ansible_names:
+      - admin_groups_csv
+    default: wheel
+    required_for:
+      - users
+    notes: Comma-separated admin supplementary groups. The default uses sudo through the wheel group.
+
+  ADMIN_SHELL:
+    ansible_names:
+      - admin_shell
+    default: /bin/bash
+    required_for:
+      - users
+    notes: Target login shell for the admin user.
+
+  PRIVILEGE_TOOL:
+    ansible_names:
+      - privilege_tool
+    default: sudo
+    allowed:
+      - sudo
+    required_for:
+      - users
+    notes: Current implementation configures sudo only; doas requires a future OpenSpec change.
+
+  ADMIN_AUTHORIZED_KEYS_FILE:
+    ansible_names:
+      - admin_authorized_keys_file
+    default: null
+    required_for:
+      - users
+    notes: Optional controller-local, gitignored authorized_keys input file. Contents are not printed or committed.
+
+  ADMIN_PASSWORD_HASH_FILE:
+    ansible_names:
+      - admin_password_hash_file
+    default: null
+    required_for:
+      - users
+    notes: Optional controller-local, gitignored file containing one admin password hash. Hash values must not be committed or logged.
+
+  ROOT_PASSWORD_HASH_FILE:
+    ansible_names:
+      - root_password_hash_file
+    default: null
+    required_for:
+      - users
+    notes: Optional controller-local, gitignored file containing one root password hash. Root SSH login remains disabled when SSH is enabled.
+
   ENABLE_SSH:
     ansible_names:
       - enable_ssh

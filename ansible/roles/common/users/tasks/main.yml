@@ -1,0 +1,501 @@
+---
+- name: Define user access facts
+  ansible.builtin.set_fact:
+    users_target_root: "{{ target_mount | default('/mnt/gentoo') }}"
+    users_enable_ssh: "{{ (enable_ssh | default('no') | string | lower) == 'yes' }}"
+    users_admin_groups: "{{ (admin_groups_csv | default('wheel')).split(',') | reject('equalto', '') | list }}"
+    users_privilege_tool: "{{ privilege_tool | default('sudo') }}"
+    users_admin_shell: "{{ admin_shell | default('/bin/bash') }}"
+    users_admin_password_hash_file: "{{ admin_password_hash_file | default('') }}"
+    users_root_password_hash_file: "{{ root_password_hash_file | default('') }}"
+    users_admin_authorized_keys_file: "{{ admin_authorized_keys_file | default('') }}"
+
+- name: Validate user access inputs
+  ansible.builtin.assert:
+    that:
+      - profile is defined
+      - profile in ['openrc', 'systemd']
+      - init_system is defined
+      - init_system == profile
+      - users_target_root == '/mnt/gentoo'
+      - users_target_root != '/'
+      - admin_user is defined
+      - admin_user | length > 0
+      - admin_user is match('^[a-z_][a-z0-9_-]{0,31}\\$?$')
+      - users_admin_groups | length > 0
+      - users_admin_groups | reject('match', '^[a-z_][a-z0-9_-]{0,31}\\$?$') | list | length == 0
+      - users_admin_shell is match('^/[A-Za-z0-9_./+-]+$')
+      - users_admin_shell != '/'
+      - "'..' not in users_admin_shell"
+      - users_privilege_tool == 'sudo'
+      - (enable_ssh | string | lower) in ['yes', 'no']
+    fail_msg: "USERS_FAILED: admin user, groups, shell, privilege tool, target root, or init profile inputs are invalid."
+    success_msg: "User access inputs are approved."
+
+- name: Require extracted target for user configuration
+  ansible.builtin.stat:
+    path: "{{ users_target_root }}/{{ item }}"
+  loop:
+    - etc/passwd
+    - etc/group
+    - etc/shadow
+    - bin/chown
+    - usr/sbin/groupadd
+    - usr/sbin/useradd
+    - usr/sbin/usermod
+    - usr/sbin/chpasswd
+    - usr/bin/getent
+    - usr/bin/id
+    - usr/bin/sudo
+    - usr/sbin/visudo
+    - "{{ users_admin_shell | regex_replace('^/', '') }}"
+  register: users_required_paths
+
+- name: Validate target user tooling exists
+  ansible.builtin.assert:
+    that:
+      - users_required_paths.results | selectattr('stat.exists') | list | length == users_required_paths.results | length
+    fail_msg: "USERS_FAILED: target root is missing user/sudo tooling. Run stage3, chroot preparation, and system package installation first."
+    success_msg: "Target user/sudo tooling exists."
+
+- name: Check required admin groups
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ users_target_root }}"
+      - /usr/bin/getent
+      - group
+      - "{{ item }}"
+  loop: "{{ users_admin_groups }}"
+  register: users_group_state
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Create missing admin groups
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ users_target_root }}"
+      - /usr/sbin/groupadd
+      - "{{ item.item }}"
+  loop: "{{ users_group_state.results }}"
+  register: users_groupadd
+  changed_when: true
+  failed_when: users_groupadd.rc != 0
+  when:
+    - not ansible_check_mode
+    - item.rc != 0
+
+- name: Check admin user state
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ users_target_root }}"
+      - /usr/bin/getent
+      - passwd
+      - "{{ admin_user }}"
+  register: users_admin_passwd_before
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Create admin user
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ users_target_root }}"
+      - /usr/sbin/useradd
+      - -m
+      - -s
+      - "{{ users_admin_shell }}"
+      - -G
+      - "{{ users_admin_groups | join(',') }}"
+      - "{{ admin_user }}"
+  register: users_admin_create
+  changed_when: true
+  failed_when: users_admin_create.rc != 0
+  when:
+    - not ansible_check_mode
+    - users_admin_passwd_before.rc != 0
+
+- name: Recheck admin user state
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ users_target_root }}"
+      - /usr/bin/getent
+      - passwd
+      - "{{ admin_user }}"
+  register: users_admin_passwd_after
+  changed_when: false
+  failed_when: users_admin_passwd_after.rc != 0
+  check_mode: false
+
+- name: Store admin user account facts
+  ansible.builtin.set_fact:
+    users_admin_passwd_fields: "{{ users_admin_passwd_after.stdout.split(':') }}"
+    users_admin_home: "{{ users_admin_passwd_after.stdout.split(':')[5] }}"
+    users_admin_current_shell: "{{ users_admin_passwd_after.stdout.split(':')[6] }}"
+
+- name: Validate admin home path
+  ansible.builtin.assert:
+    that:
+      - users_admin_home is match('^/home/[A-Za-z0-9_.-]+$')
+      - users_admin_home != '/'
+      - "'..' not in users_admin_home"
+    fail_msg: "USERS_FAILED: admin home path is outside the supported /home layout."
+    success_msg: "Admin home path is within /home."
+
+- name: Update admin shell when needed
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ users_target_root }}"
+      - /usr/sbin/usermod
+      - -s
+      - "{{ users_admin_shell }}"
+      - "{{ admin_user }}"
+  register: users_admin_shell_update
+  changed_when: true
+  failed_when: users_admin_shell_update.rc != 0
+  when:
+    - not ansible_check_mode
+    - users_admin_current_shell != users_admin_shell
+
+- name: Check admin group membership
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ users_target_root }}"
+      - /usr/bin/id
+      - -nG
+      - "{{ admin_user }}"
+  register: users_admin_group_membership
+  changed_when: false
+  failed_when: users_admin_group_membership.rc != 0
+  check_mode: false
+
+- name: Store missing admin supplementary groups
+  ansible.builtin.set_fact:
+    users_admin_missing_groups: "{{ users_admin_groups | difference(users_admin_group_membership.stdout.split()) }}"
+
+- name: Add admin user to missing groups
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ users_target_root }}"
+      - /usr/sbin/usermod
+      - -a
+      - -G
+      - "{{ users_admin_missing_groups | join(',') }}"
+      - "{{ admin_user }}"
+  register: users_admin_group_update
+  changed_when: true
+  failed_when: users_admin_group_update.rc != 0
+  when:
+    - not ansible_check_mode
+    - users_admin_missing_groups | length > 0
+
+- name: Ensure sudoers drop-in directory exists
+  ansible.builtin.file:
+    path: "{{ users_target_root }}/etc/sudoers.d"
+    state: directory
+    mode: "0750"
+  when: not ansible_check_mode
+
+- name: Configure sudo for admin groups
+  ansible.builtin.copy:
+    dest: "{{ users_target_root }}/etc/sudoers.d/gentoo-ai-installer-admin"
+    mode: "0440"
+    content: |
+      # Managed by gentoo-ai-installer.
+      {% for group_name in users_admin_groups %}
+      %{{ group_name }} ALL=(ALL:ALL) ALL
+      {% endfor %}
+  register: users_sudoers_config
+  when: not ansible_check_mode
+
+- name: Validate sudoers drop-in syntax
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ users_target_root }}"
+      - /usr/sbin/visudo
+      - -cf
+      - /etc/sudoers.d/gentoo-ai-installer-admin
+  register: users_sudoers_validate
+  changed_when: false
+  failed_when: users_sudoers_validate.rc != 0
+  check_mode: false
+
+- name: Read admin password hash from controller file
+  ansible.builtin.set_fact:
+    users_admin_password_hash: "{{ lookup('ansible.builtin.file', users_admin_password_hash_file) | trim }}"
+  no_log: true
+  when: users_admin_password_hash_file | length > 0
+
+- name: Validate admin password hash format
+  ansible.builtin.assert:
+    that:
+      - users_admin_password_hash | length > 0
+      - users_admin_password_hash is match('^\\$[A-Za-z0-9./$]+$')
+      - users_admin_password_hash is not search('\\s')
+    fail_msg: "USERS_FAILED: admin password hash file is empty or outside the supported hash syntax."
+    success_msg: "Admin password hash input is syntactically valid."
+  no_log: true
+  when: users_admin_password_hash is defined
+
+- name: Read current admin shadow hash
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ users_target_root }}"
+      - /usr/bin/getent
+      - shadow
+      - "{{ admin_user }}"
+  register: users_admin_shadow
+  changed_when: false
+  failed_when: users_admin_shadow.rc != 0
+  check_mode: false
+  no_log: true
+  when: users_admin_password_hash is defined
+
+- name: Store current admin shadow hash
+  ansible.builtin.set_fact:
+    users_admin_current_hash: "{{ users_admin_shadow.stdout.split(':')[1] }}"
+  no_log: true
+  when: users_admin_password_hash is defined
+
+- name: Apply admin password hash
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ users_target_root }}"
+      - /usr/sbin/chpasswd
+      - -e
+    stdin: "{{ admin_user }}:{{ users_admin_password_hash }}"
+  register: users_admin_password_update
+  changed_when: true
+  failed_when: users_admin_password_update.rc != 0
+  no_log: true
+  when:
+    - not ansible_check_mode
+    - users_admin_password_hash is defined
+    - users_admin_current_hash != users_admin_password_hash
+
+- name: Read root password hash from controller file
+  ansible.builtin.set_fact:
+    users_root_password_hash: "{{ lookup('ansible.builtin.file', users_root_password_hash_file) | trim }}"
+  no_log: true
+  when: users_root_password_hash_file | length > 0
+
+- name: Validate root password hash format
+  ansible.builtin.assert:
+    that:
+      - users_root_password_hash | length > 0
+      - users_root_password_hash is match('^\\$[A-Za-z0-9./$]+$')
+      - users_root_password_hash is not search('\\s')
+    fail_msg: "USERS_FAILED: root password hash file is empty or outside the supported hash syntax."
+    success_msg: "Root password hash input is syntactically valid."
+  no_log: true
+  when: users_root_password_hash is defined
+
+- name: Read current root shadow hash
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ users_target_root }}"
+      - /usr/bin/getent
+      - shadow
+      - root
+  register: users_root_shadow
+  changed_when: false
+  failed_when: users_root_shadow.rc != 0
+  check_mode: false
+  no_log: true
+  when: users_root_password_hash is defined
+
+- name: Store current root shadow hash
+  ansible.builtin.set_fact:
+    users_root_current_hash: "{{ users_root_shadow.stdout.split(':')[1] }}"
+  no_log: true
+  when: users_root_password_hash is defined
+
+- name: Apply root password hash
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ users_target_root }}"
+      - /usr/sbin/chpasswd
+      - -e
+    stdin: "root:{{ users_root_password_hash }}"
+  register: users_root_password_update
+  changed_when: true
+  failed_when: users_root_password_update.rc != 0
+  no_log: true
+  when:
+    - not ansible_check_mode
+    - users_root_password_hash is defined
+    - users_root_current_hash != users_root_password_hash
+
+- name: Read admin authorized_keys from controller file
+  ansible.builtin.set_fact:
+    users_admin_authorized_keys_content: "{{ lookup('ansible.builtin.file', users_admin_authorized_keys_file) }}"
+  no_log: true
+  when: users_admin_authorized_keys_file | length > 0
+
+- name: Validate admin authorized_keys content
+  ansible.builtin.assert:
+    that:
+      - users_admin_authorized_keys_content | length > 0
+      - users_admin_authorized_keys_content is not search('-----BEGIN [A-Z ]*PRIVATE KEY-----')
+      - users_admin_authorized_keys_content.splitlines() | reject('match', '^\\s*(#|$)') | list | length > 0
+      - users_admin_authorized_keys_content.splitlines() | reject('match', '^\\s*(#|$)') | reject('match', '^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(256|384|521)|sk-ssh-ed25519@openssh.com|sk-ecdsa-sha2-nistp256@openssh.com)\\s+') | list | length == 0
+    fail_msg: "USERS_FAILED: authorized_keys file is empty, contains private key material, or has unsupported key lines."
+    success_msg: "Admin authorized_keys input is syntactically valid."
+  no_log: true
+  when: users_admin_authorized_keys_content is defined
+
+- name: Read admin primary group
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ users_target_root }}"
+      - /usr/bin/id
+      - -gn
+      - "{{ admin_user }}"
+  register: users_admin_primary_group
+  changed_when: false
+  failed_when: users_admin_primary_group.rc != 0
+  check_mode: false
+
+- name: Ensure admin SSH directory exists
+  ansible.builtin.file:
+    path: "{{ users_target_root }}{{ users_admin_home }}/.ssh"
+    state: directory
+    mode: "0700"
+  register: users_admin_ssh_dir
+  when:
+    - not ansible_check_mode
+    - users_admin_authorized_keys_content is defined
+
+- name: Install admin authorized_keys
+  ansible.builtin.copy:
+    dest: "{{ users_target_root }}{{ users_admin_home }}/.ssh/authorized_keys"
+    mode: "0600"
+    content: "{{ users_admin_authorized_keys_content | trim }}\n"
+  register: users_admin_authorized_keys_copy
+  no_log: true
+  when:
+    - not ansible_check_mode
+    - users_admin_authorized_keys_content is defined
+
+- name: Set target ownership for admin SSH files
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ users_target_root }}"
+      - /bin/chown
+      - -R
+      - "{{ admin_user }}:{{ users_admin_primary_group.stdout }}"
+      - "{{ users_admin_home }}/.ssh"
+  register: users_admin_ssh_chown
+  changed_when: false
+  failed_when: users_admin_ssh_chown.rc != 0
+  when:
+    - not ansible_check_mode
+    - users_admin_authorized_keys_content is defined
+
+- name: Require OpenSSH tooling when installed SSH is enabled
+  ansible.builtin.stat:
+    path: "{{ users_target_root }}/usr/sbin/sshd"
+  register: users_sshd_binary
+  when: users_enable_ssh
+
+- name: Validate installed SSH tooling
+  ansible.builtin.assert:
+    that:
+      - users_sshd_binary.stat.exists
+    fail_msg: "USERS_FAILED: ENABLE_SSH=yes requires OpenSSH to be installed first with make install-system-packages ENABLE_SSH=yes."
+    success_msg: "OpenSSH tooling exists for installed target SSH policy."
+  when: users_enable_ssh
+
+- name: Enforce installed SSH root login policy
+  ansible.builtin.blockinfile:
+    path: "{{ users_target_root }}/etc/ssh/sshd_config"
+    create: false
+    mode: "0600"
+    marker: "# {mark} gentoo-ai-installer installed SSH policy"
+    block: |
+      PermitRootLogin no
+      PubkeyAuthentication yes
+  register: users_sshd_policy
+  when:
+    - not ansible_check_mode
+    - users_enable_ssh
+
+- name: Define user access audit run id
+  ansible.builtin.set_fact:
+    users_run_id: "{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}"
+
+- name: Define user access audit log path
+  ansible.builtin.set_fact:
+    users_log_dir: "{{ project_root | default(lookup('ansible.builtin.env', 'PWD'), true) }}/logs/install-runs/{{ users_run_id }}/users"
+
+- name: Create local user access log directory
+  ansible.builtin.file:
+    path: "{{ users_log_dir }}"
+    state: directory
+    mode: "0750"
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Record non-secret user access evidence
+  ansible.builtin.copy:
+    dest: "{{ users_log_dir }}/users-access.json"
+    mode: "0640"
+    content: |
+      {
+        "profile": {{ profile | to_json }},
+        "init_system": {{ init_system | to_json }},
+        "admin_user": {{ admin_user | to_json }},
+        "admin_groups": {{ users_admin_groups | to_nice_json }},
+        "admin_shell": {{ users_admin_shell | to_json }},
+        "privilege_tool": {{ users_privilege_tool | to_json }},
+        "admin_created": {{ (users_admin_create is defined and users_admin_create is changed) | to_json }},
+        "groups_changed": {{ ((users_groupadd.results | default([]) | selectattr('changed') | list | length > 0) or (users_admin_group_update is defined and users_admin_group_update is changed)) | to_json }},
+        "sudoers_changed": {{ (users_sudoers_config is defined and users_sudoers_config is changed) | to_json }},
+        "admin_password_hash_applied": {{ (users_admin_password_update is defined and users_admin_password_update is changed) | to_json }},
+        "root_password_hash_applied": {{ (users_root_password_update is defined and users_root_password_update is changed) | to_json }},
+        "authorized_keys_installed": {{ (users_admin_authorized_keys_copy is defined) | to_json }},
+        "ssh_root_login_restricted": {{ (users_sshd_policy is defined and users_enable_ssh) | to_json }},
+        "final_checks_input": true,
+        "install_report_input": true
+      }
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Build user access report
+  ansible.builtin.set_fact:
+    users_access_report:
+      changed: "{{ (not ansible_check_mode) and ((users_admin_create is defined and users_admin_create is changed) or (users_groupadd.results | default([]) | selectattr('changed') | list | length > 0) or (users_admin_shell_update is defined and users_admin_shell_update is changed) or (users_admin_group_update is defined and users_admin_group_update is changed) or (users_sudoers_config is defined and users_sudoers_config is changed) or (users_admin_password_update is defined and users_admin_password_update is changed) or (users_root_password_update is defined and users_root_password_update is changed) or (users_admin_authorized_keys_copy is defined and users_admin_authorized_keys_copy is changed) or (users_sshd_policy is defined and users_sshd_policy is changed)) }}"
+      admin_user: "{{ admin_user }}"
+      admin_groups: "{{ users_admin_groups }}"
+      privilege_tool: "{{ users_privilege_tool }}"
+      enable_ssh: "{{ users_enable_ssh }}"
+      authorized_keys_installed: "{{ users_admin_authorized_keys_content is defined }}"
+      admin_password_hash_file_used: "{{ users_admin_password_hash is defined }}"
+      root_password_hash_file_used: "{{ users_root_password_hash is defined }}"
+      root_ssh_login: "{{ 'disabled' if users_enable_ssh else 'not_configured' }}"
+      final_checks_input: true
+      install_report_input: true
+      logs: "{{ users_log_dir }}/"
+
+- name: Print user access report
+  ansible.builtin.debug:
+    msg: "{{ users_access_report }}"

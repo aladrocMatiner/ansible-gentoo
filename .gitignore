@@ -6,6 +6,7 @@ gentoo.iso
 .env
 .env.*
 !.env.example
+var/secrets/
 
 # Runtime logs and temporary files.
 logs/

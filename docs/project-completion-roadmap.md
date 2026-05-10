@@ -153,7 +153,7 @@ Install minimal console packages and enable required services. Keep OpenRC and s
 Install `sys-fs/dosfstools` for EFI/vfat and `sys-fs/btrfs-progs` when `FILESYSTEM=btrfs`.
 
 ### 31. `implement-ansible-users-and-access`
-Create admin access safely without committing secrets. Configure sudo or doas and optional SSH authorized keys.
+Create admin access safely without committing secrets. Configure sudo through the shared users role, optional password hashes from gitignored local files, optional SSH authorized keys, and installed SSH root-login restrictions when SSH is enabled.
 
 ### 32. `implement-ansible-bootloader-grub`
 Install GRUB for UEFI and generate configuration. This is high-risk because it can modify persistent EFI boot state.

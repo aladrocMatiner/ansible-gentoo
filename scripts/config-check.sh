@@ -87,6 +87,36 @@ validate_username() {
   [[ "$value" =~ ^[a-z_][a-z0-9_-]{0,31}\$?$ ]] || add_error CONFIG_INVALID "${label} must be a conservative local username"
 }
 
+validate_group_list() {
+  local label=$1
+  local value=$2
+
+  [[ -z "$value" ]] && return
+  [[ "$value" =~ ^[a-z_][a-z0-9_-]{0,31}(\,[a-z_][a-z0-9_-]{0,31})*$ ]] || add_error CONFIG_INVALID "${label} must be a comma-separated list of conservative group names"
+}
+
+validate_shell_path() {
+  local label=$1
+  local value=$2
+
+  [[ -z "$value" ]] && return
+  [[ "$value" == /* ]] || add_error CONFIG_INVALID "${label} must be an absolute target path"
+  [[ "$value" != "/" ]] || add_error CONFIG_INVALID "${label} must not be /"
+  [[ "$value" != *".."* ]] || add_error CONFIG_INVALID "${label} must not contain parent traversal"
+  ! has_unsafe_chars "$value" || add_error CONFIG_INVALID "${label} contains unsafe characters"
+  ! has_glob_chars "$value" || add_error CONFIG_INVALID "${label} must not contain glob characters"
+}
+
+validate_local_input_path_if_set() {
+  local label=$1
+  local value=$2
+
+  [[ -z "$value" ]] && return
+  [[ "$value" != *".."* ]] || add_error CONFIG_INVALID "${label} must not contain parent traversal"
+  ! has_unsafe_chars "$value" || add_error CONFIG_INVALID "${label} contains unsafe characters"
+  ! has_glob_chars "$value" || add_error CONFIG_INVALID "${label} must not contain glob characters"
+}
+
 validate_mount_path() {
   local label=$1
   local value=$2
@@ -150,6 +180,12 @@ timezone=${TIMEZONE:-UTC}
 locale=${LOCALE:-en_US.UTF-8}
 keymap=${KEYMAP:-us}
 admin_user=${ADMIN_USER:-}
+admin_groups=${ADMIN_GROUPS:-wheel}
+admin_shell=${ADMIN_SHELL:-/bin/bash}
+privilege_tool=${PRIVILEGE_TOOL:-sudo}
+admin_authorized_keys_file=${ADMIN_AUTHORIZED_KEYS_FILE:-}
+admin_password_hash_file=${ADMIN_PASSWORD_HASH_FILE:-}
+root_password_hash_file=${ROOT_PASSWORD_HASH_FILE:-}
 enable_ssh=${ENABLE_SSH:-no}
 target_mount=${TARGET_MOUNT:-/mnt/gentoo}
 efi_mount=${EFI_MOUNT:-${target_mount}/boot/efi}
@@ -188,6 +224,15 @@ validate_timezone "$timezone"
 validate_locale "$locale"
 validate_keymap "$keymap"
 validate_username ADMIN_USER "$admin_user"
+validate_group_list ADMIN_GROUPS "$admin_groups"
+validate_shell_path ADMIN_SHELL "$admin_shell"
+case "$privilege_tool" in
+  sudo) ;;
+  *) add_error CONFIG_INVALID "PRIVILEGE_TOOL must be sudo" ;;
+esac
+validate_local_input_path_if_set ADMIN_AUTHORIZED_KEYS_FILE "$admin_authorized_keys_file"
+validate_local_input_path_if_set ADMIN_PASSWORD_HASH_FILE "$admin_password_hash_file"
+validate_local_input_path_if_set ROOT_PASSWORD_HASH_FILE "$root_password_hash_file"
 validate_mount_path TARGET_MOUNT "$target_mount"
 validate_mount_path EFI_MOUNT "$efi_mount"
 validate_mount_path STAGE3_CACHE_DIR "$stage3_cache_dir"
@@ -234,6 +279,12 @@ printf '  TIMEZONE: %s\n' "$timezone"
 printf '  LOCALE: %s\n' "$locale"
 printf '  KEYMAP: %s\n' "$keymap"
 printf '  ADMIN_USER: %s\n' "${admin_user:-<unset>}"
+printf '  ADMIN_GROUPS: %s\n' "$admin_groups"
+printf '  ADMIN_SHELL: %s\n' "$admin_shell"
+printf '  PRIVILEGE_TOOL: %s\n' "$privilege_tool"
+printf '  ADMIN_AUTHORIZED_KEYS_FILE: %s\n' "$([[ -n "$admin_authorized_keys_file" ]] && printf '<set>' || printf '<unset>')"
+printf '  ADMIN_PASSWORD_HASH_FILE: %s\n' "$([[ -n "$admin_password_hash_file" ]] && printf '<set>' || printf '<unset>')"
+printf '  ROOT_PASSWORD_HASH_FILE: %s\n' "$([[ -n "$root_password_hash_file" ]] && printf '<set>' || printf '<unset>')"
 printf '  ENABLE_SSH: %s\n' "$enable_ssh"
 printf '  TARGET_MOUNT: %s\n' "$target_mount"
 printf '  EFI_MOUNT: %s\n' "$efi_mount"

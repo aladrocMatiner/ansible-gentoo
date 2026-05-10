@@ -130,7 +130,7 @@ Install only the base packages needed for v1:
 - `dosfstools` for the FAT32 EFI system partition
 - `btrfs-progs` when `FILESYSTEM=btrfs`
 - `e2fsprogs` verified or installed for ext4 tooling
-- `sudo` or `doas`
+- `sudo` for v1 admin privilege escalation; `doas` requires a later approved change.
 - `vim` or `nano`
 - Syslog package
 - Cron package
@@ -164,6 +164,8 @@ Target expectations:
 - `make install-base-packages`: compatibility alias for `make install-system-packages` when present.
 
 The operator should not be asked to run raw `emerge`, `eselect profile`, or repository commands when Makefile targets exist.
+
+User creation and sudo policy are handled later by `make configure-users`; `make install-system-packages` installs the privilege package but must not create users or set passwords.
 
 ## 14. Failure Modes
 - Wrong profile selected for the requested init system.

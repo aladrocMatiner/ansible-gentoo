@@ -47,6 +47,12 @@ make config-check CONFIG_DESTRUCTIVE=yes INSTALL_DISK=/dev/vda I_UNDERSTAND_THIS
 | `LOCALE` | `en_US.UTF-8` | Must be a UTF-8 locale generated inside the target. |
 | `KEYMAP` | `us` | Must be a simple console keymap name available in target `/usr/share/keymaps`. |
 | `ADMIN_USER` | unset | Optional; must be a conservative local username when set. |
+| `ADMIN_GROUPS` | `wheel` | Comma-separated target groups for the admin user. |
+| `ADMIN_SHELL` | `/bin/bash` | Absolute target shell path for the admin user. |
+| `PRIVILEGE_TOOL` | `sudo` | Current implementation supports `sudo`; doas requires a later change. |
+| `ADMIN_AUTHORIZED_KEYS_FILE` | unset | Optional local gitignored file used by `make configure-users`; the path is reported as set/unset only. |
+| `ADMIN_PASSWORD_HASH_FILE` | unset | Optional local gitignored file containing one encrypted admin password hash. |
+| `ROOT_PASSWORD_HASH_FILE` | unset | Optional local gitignored file containing one encrypted root password hash. |
 | `ENABLE_SSH` | `no` | Must be `yes` or `no`. |
 | `TARGET_MOUNT` | `/mnt/gentoo` | Must be an absolute path and must not be `/`. |
 | `EFI_MOUNT` | `/mnt/gentoo/boot/efi` | Must be below `TARGET_MOUNT`. |

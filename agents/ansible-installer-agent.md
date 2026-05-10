@@ -119,7 +119,7 @@ Shared roles:
 - `common/fstab`: generate UUID-based fstab entries for ext4 root or the approved Btrfs subvolume layout plus `/boot/efi`.
 - `common/kernel`: install `sys-kernel/installkernel`, `sys-kernel/dracut`, and `gentoo-kernel-bin`; derive boot command-line input from target fstab; validate kernel/initramfs/module artifacts; and defer GRUB and EFI changes to the bootloader role.
 - `common/bootloader`: install and configure GRUB for UEFI with shared confirmation gates.
-- `common/users`: create configured users and credentials through explicit confirmation and secret-safe input.
+- `common/users`: require explicit `admin_user`, create or update the target admin account, manage admin group membership, configure sudo, apply optional password hashes from gitignored controller-local files with `no_log`, install optional authorized keys, enforce installed SSH root-login restrictions when SSH is enabled, and record only non-secret evidence.
 - `common/ssh`: translate `ENABLE_SSH` into optional package/service inputs without storing secrets or enabling unsafe root SSH defaults.
 - `common/final_checks`: validate fstab, bootloader, kernel, users, services, mounts, and recovery notes.
 
@@ -159,7 +159,9 @@ The variable model must make risk explicit. Required or expected variables inclu
 - `ansible_live_host`: network target address for the booted official Gentoo live ISO.
 - `ansible_live_port`: SSH port for the live ISO target.
 - `ansible_live_user`: SSH user for the live ISO target.
-- `admin_users`: target user definitions without plaintext passwords.
+- `admin_user`: explicit target admin username; no useful default for user creation.
+- `admin_groups_csv`: comma-separated target admin groups, defaulting to `wheel`.
+- `admin_password_hash_file`, `root_password_hash_file`, `admin_authorized_keys_file`: controller-local input file paths only; contents must not be committed, printed, or logged.
 - `confirm_wipe_disk`: required value is `yes` for destructive disk tasks. It may be populated from the Makefile `I_UNDERSTAND_THIS_WIPES_DISK` variable.
 - `bootloader_confirmation`: required for GRUB and EFI changes.
 - `user_confirmation`: required for privileged user and password changes.

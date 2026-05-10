@@ -25,6 +25,12 @@ TIMEZONE ?= UTC
 LOCALE ?= en_US.UTF-8
 KEYMAP ?= us
 ADMIN_USER ?=
+ADMIN_GROUPS ?= wheel
+ADMIN_SHELL ?= /bin/bash
+PRIVILEGE_TOOL ?= sudo
+ADMIN_AUTHORIZED_KEYS_FILE ?=
+ADMIN_PASSWORD_HASH_FILE ?=
+ROOT_PASSWORD_HASH_FILE ?=
 ENABLE_SSH ?= no
 TARGET_MOUNT ?= /mnt/gentoo
 EFI_MOUNT ?= $(TARGET_MOUNT)/boot/efi
@@ -61,6 +67,12 @@ export TIMEZONE
 export LOCALE
 export KEYMAP
 export ADMIN_USER
+export ADMIN_GROUPS
+export ADMIN_SHELL
+export PRIVILEGE_TOOL
+export ADMIN_AUTHORIZED_KEYS_FILE
+export ADMIN_PASSWORD_HASH_FILE
+export ROOT_PASSWORD_HASH_FILE
 export ENABLE_SSH
 export TARGET_MOUNT
 export EFI_MOUNT
@@ -75,7 +87,7 @@ export INSTALL_DISK
 
 .PHONY: help \
 	vm-check vm-disk vm-define vm-start vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
-	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages \
+	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -113,6 +125,7 @@ help:
 		'  make generate-fstab Generate UUID-based target /etc/fstab' \
 		'  make install-kernel  Install gentoo-kernel-bin and validate /boot artifacts' \
 		'  make install-system-packages Install console packages and enable target services' \
+		'  make configure-users Configure target admin user, sudo policy, and optional SSH keys' \
 		'  make vm-shutdown     Request clean guest shutdown' \
 		'  make vm-destroy      Stop the configured VM without deleting artifacts' \
 		'  make vm-clean        Undefine VM and delete generated artifacts after confirmation' \
@@ -151,6 +164,12 @@ help:
 		'  LOCALE=$(LOCALE)' \
 		'  KEYMAP=$(KEYMAP)' \
 		'  ADMIN_USER=$(ADMIN_USER)' \
+		'  ADMIN_GROUPS=$(ADMIN_GROUPS)' \
+		'  ADMIN_SHELL=$(ADMIN_SHELL)' \
+		'  PRIVILEGE_TOOL=$(PRIVILEGE_TOOL)' \
+		'  ADMIN_AUTHORIZED_KEYS_FILE is optional and not printed' \
+		'  ADMIN_PASSWORD_HASH_FILE is optional and not printed' \
+		'  ROOT_PASSWORD_HASH_FILE is optional and not printed' \
 		'  ENABLE_SSH=$(ENABLE_SSH)' \
 		'  TARGET_MOUNT=$(TARGET_MOUNT)' \
 		'  EFI_MOUNT=$(EFI_MOUNT)' \
@@ -259,6 +278,9 @@ install-system-packages:
 	@scripts/ansible-install-system-packages.sh
 
 install-base-packages: install-system-packages
+
+configure-users:
+	@scripts/ansible-configure-users.sh
 
 vm-shutdown:
 	@scripts/vm-shutdown.sh

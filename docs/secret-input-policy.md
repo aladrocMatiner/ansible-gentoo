@@ -13,6 +13,14 @@ Approved channels for future workflows:
 
 `.env.example` may document variable names only. Values in `.env.example` must remain empty.
 
+User/access configuration may read these optional controller-local files:
+
+- `ADMIN_PASSWORD_HASH_FILE`
+- `ROOT_PASSWORD_HASH_FILE`
+- `ADMIN_AUTHORIZED_KEYS_FILE`
+
+Store real local inputs under `var/secrets/` or outside the repository. `var/secrets/` is gitignored. The workflow must reject git-tracked input files and must never print password hashes or authorized key contents.
+
 ## Forbidden Storage
 
 Never store these in git, logs, state, audit bundles, docs, examples, or commit messages:
