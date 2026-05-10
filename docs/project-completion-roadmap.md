@@ -43,6 +43,8 @@ Implemented infrastructure and installer workflow layers:
 15. UUID-based fstab generation.
 16. `gentoo-kernel-bin` installation with installkernel/dracut command-line input and `/boot` artifact validation.
 17. Minimal console package installation and init-specific service enablement.
+18. GRUB UEFI bootloader installation with root UUID validation.
+19. Read-only reboot readiness final checks.
 
 Read-only planning targets do not mutate the live ISO target. Destructive and target-mutating targets are exposed through Makefile targets and are gated by explicit variables, shared safety checks, or target-root assertions depending on the risk level.
 
@@ -163,6 +165,8 @@ Require explicit `INSTALL_DISK` and `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`.
 
 ### 33. `implement-ansible-final-checks-and-reboot-readiness`
 Run read-only final checks for fstab, kernel, GRUB, EFI files, networking, users, and target state. Do not reboot automatically.
+
+Implemented target: `make final-checks ADMIN_USER=<name>`.
 
 ### 34. `implement-basic-console-install-orchestration`
 Wire approved roles into thin OpenRC/systemd entrypoints over a shared install flow.

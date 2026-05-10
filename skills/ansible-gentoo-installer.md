@@ -190,7 +190,7 @@ Shared roles:
 - `common/bootloader`: require explicit `install_disk` plus bootloader confirmation, show current EFI entries before changes, install `sys-boot/grub` and `sys-boot/efibootmgr`, run guarded UEFI `grub-install`, generate `grub.cfg`, validate root UUID and Btrfs `rootflags=subvol=@`, and record bootloader evidence.
 - `common/users`: require explicit `admin_user`, create or update the target admin account under `/mnt/gentoo`, manage admin group membership, configure sudo through `wheel` by default, apply optional password hashes from gitignored controller-local files with `no_log`, install optional authorized keys, enforce installed SSH root-login restrictions when SSH is enabled, and record only non-secret evidence.
 - `common/ssh`: translate `ENABLE_SSH` into optional package/service inputs without storing secrets, enabling root password login, or assuming SSH is enabled by default.
-- `common/final_checks`: read-only validation before reboot.
+- `common/final_checks`: require explicit `admin_user`, run read-only reboot readiness validation for target mounts, chroot mounts, fstab, Btrfs subvolumes, kernel/initramfs, GRUB/EFI files, services, users, target identity, Portage baseline, SSH policy, and secret-safe report inputs.
 
 Init-specific roles:
 
@@ -396,7 +396,7 @@ Target expectations:
 - `make install-openrc`: execute the approved OpenRC install with required confirmations.
 - `make install-systemd`: execute the approved systemd install with required confirmations.
 - `make partition`: destructive target that applies only the approved GPT ESP/root layout after shared disk safety gates and explicit wipe confirmation.
-- `make final-checks`: run read-only validation before reboot.
+- `make final-checks`: run read-only validation before manual reboot; require `ADMIN_USER` so the installed admin account and sudo policy can be checked.
 
 Operators should not run `ansible-playbook` directly.
 Makefile targets should pass init-specific variables into shared Ansible flows where practical.

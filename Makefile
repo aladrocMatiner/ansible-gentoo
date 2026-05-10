@@ -89,7 +89,7 @@ export INSTALL_DISK
 
 .PHONY: help \
 	vm-check vm-disk vm-define vm-start vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
-	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader \
+	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -129,6 +129,7 @@ help:
 		'  make install-system-packages Install console packages and enable target services' \
 		'  make configure-users Configure target admin user, sudo policy, and optional SSH keys' \
 		'  make install-bootloader HIGH-RISK: install GRUB for UEFI (requires confirmation)' \
+		'  make final-checks    Run read-only reboot readiness checks before manual reboot' \
 		'  make vm-shutdown     Request clean guest shutdown' \
 		'  make vm-destroy      Stop the configured VM without deleting artifacts' \
 		'  make vm-clean        Undefine VM and delete generated artifacts after confirmation' \
@@ -288,6 +289,9 @@ configure-users:
 
 install-bootloader:
 	@scripts/ansible-install-bootloader.sh
+
+final-checks:
+	@scripts/ansible-final-checks.sh
 
 vm-shutdown:
 	@scripts/vm-shutdown.sh

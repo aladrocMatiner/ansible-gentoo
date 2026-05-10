@@ -121,7 +121,7 @@ Shared roles:
 - `common/bootloader`: install and configure GRUB for UEFI with explicit `install_disk`, `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`, EFI entry preview, generated GRUB config validation, and non-secret evidence logs.
 - `common/users`: require explicit `admin_user`, create or update the target admin account, manage admin group membership, configure sudo, apply optional password hashes from gitignored controller-local files with `no_log`, install optional authorized keys, enforce installed SSH root-login restrictions when SSH is enabled, and record only non-secret evidence.
 - `common/ssh`: translate `ENABLE_SSH` into optional package/service inputs without storing secrets or enabling unsafe root SSH defaults.
-- `common/final_checks`: validate fstab, bootloader, kernel, users, services, mounts, and recovery notes.
+- `common/final_checks`: require explicit `admin_user`, validate fstab, bootloader, kernel, users, services, mounts, target baseline, Portage status, SSH policy, secret-check status, and reboot readiness without mutating the target or rebooting.
 
 Init-specific roles:
 

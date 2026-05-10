@@ -130,7 +130,7 @@ Expectations:
 Use:
 
 ```text
-make final-boot-checks
+make final-checks ADMIN_USER=<admin-user>
 ```
 
 Validation should check:
@@ -145,6 +145,8 @@ Validation should check:
 - Target root is still mounted at `/mnt/gentoo` during checks.
 - No BIOS-only boot assumptions are present.
 - Logs of bootloader changes exist.
+- Admin user and sudo policy are present.
+- Portage baseline and pending config-update status are reported.
 
 Do not recommend reboot until final boot checks pass or the operator has accepted a documented recovery plan.
 
@@ -156,14 +158,14 @@ These targets define the expected control-plane contract for kernel and bootload
 - `make install-kernel`
 - `make install-bootloader`
 - `make configure-grub`
-- `make final-boot-checks`
+- `make final-checks`
 
 Target expectations:
 
 - `make install-kernel`: install `sys-kernel/installkernel`, `sys-kernel/dracut`, and `sys-kernel/gentoo-kernel-bin`; write target command-line input; validate `/boot` kernel/initramfs artifacts; and record non-secret evidence. It must not install GRUB or alter EFI boot entries.
 - `make install-bootloader`: install GRUB for UEFI only after explicit `INSTALL_DISK`, mounted-descendant-aware disk safety checks, EFI entry preview, and `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`; validate generated root UUID and Btrfs root flags.
 - `make configure-grub`: generate and review GRUB configuration.
-- `make final-boot-checks`: validate kernel, GRUB, EFI files, fstab, UUIDs, and NetworkManager.
+- `make final-checks`: run read-only reboot readiness validation for kernel, GRUB, EFI files, fstab, UUIDs, NetworkManager, admin user, target identity, Portage status, optional SSH policy, and secret-safe report inputs.
 
 The operator should not be asked to run raw `grub-install`, `efibootmgr`, GRUB config, kernel install, or service enablement commands when Makefile targets exist.
 
@@ -220,7 +222,7 @@ When kernel, initramfs, GRUB, UEFI, EFI mount, or boot validation behavior chang
 
 - If the kernel package, initramfs policy, GRUB package, UEFI assumptions, EFI mount point, or boot validation checks change, update this skill and the relevant manual install documentation under `docs/`.
 - If bootloader installation behavior changes, update `agents/safety-review-agent.md` and safety documentation because GRUB and EFI changes are high risk.
-- If Makefile targets such as `make install-kernel`, `make install-bootloader`, `make configure-grub`, or `make final-boot-checks` change, update this skill and `skills/makefile-control-plane.md`.
+- If Makefile targets such as `make install-kernel`, `make install-bootloader`, `make configure-grub`, or `make final-checks` change, update this skill and `skills/makefile-control-plane.md`.
 - If validation now checks different kernel files, GRUB config paths, EFI files, fstab entries, UUIDs, or NetworkManager enablement, update output artifacts, failure modes, and recovery advice here.
 - If boot command line behavior changes, update the boot kernel command line policy, GRUB proposal, final checks, and this skill together.
 - If Ansible later automates bootloader work, update `skills/ansible-gentoo-installer.md` and the active OpenSpec `tasks.md` with the same safety gates.

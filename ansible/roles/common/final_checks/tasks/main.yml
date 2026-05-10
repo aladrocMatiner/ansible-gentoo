@@ -1,0 +1,643 @@
+---
+- name: Define final check facts
+  ansible.builtin.set_fact:
+    final_checks_target_root: "{{ target_mount | default('/mnt/gentoo') }}"
+    final_checks_efi_mount: "{{ efi_mount | default('/mnt/gentoo/boot/efi') }}"
+    final_checks_enable_ssh: "{{ (enable_ssh | default('no') | string | lower) == 'yes' }}"
+    final_checks_admin_groups: "{{ (admin_groups_csv | default('wheel')).split(',') | reject('equalto', '') | list }}"
+    final_checks_admin_shell: "{{ admin_shell | default('/bin/bash') }}"
+    final_checks_controller_secret_check: "{{ controller_secret_check | default('unknown') }}"
+    final_checks_kernel_packages:
+      - sys-kernel/installkernel
+      - sys-kernel/dracut
+      - sys-kernel/gentoo-kernel-bin
+    final_checks_bootloader_packages:
+      - sys-boot/grub
+      - sys-boot/efibootmgr
+    final_checks_btrfs_subvolumes:
+      - name: "@"
+        mountpoint: /
+        live_mountpoint: /mnt/gentoo
+      - name: "@home"
+        mountpoint: /home
+        live_mountpoint: /mnt/gentoo/home
+      - name: "@var"
+        mountpoint: /var
+        live_mountpoint: /mnt/gentoo/var
+      - name: "@var_log"
+        mountpoint: /var/log
+        live_mountpoint: /mnt/gentoo/var/log
+      - name: "@var_cache"
+        mountpoint: /var/cache
+        live_mountpoint: /mnt/gentoo/var/cache
+      - name: "@snapshots"
+        mountpoint: /.snapshots
+        live_mountpoint: /mnt/gentoo/.snapshots
+
+- name: Validate final check inputs
+  ansible.builtin.assert:
+    that:
+      - profile is defined
+      - profile in ['openrc', 'systemd']
+      - init_system is defined
+      - init_system == profile
+      - filesystem is defined
+      - filesystem in ['ext4', 'btrfs']
+      - boot_mode | default('uefi') == 'uefi'
+      - final_checks_target_root == '/mnt/gentoo'
+      - final_checks_target_root != '/'
+      - final_checks_efi_mount == '/mnt/gentoo/boot/efi'
+      - hostname is defined
+      - hostname is match('^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$')
+      - timezone is defined
+      - timezone is match('^[A-Za-z0-9_+.-]+(/[A-Za-z0-9_+.-]+)*$')
+      - locale is defined
+      - locale is match('^[A-Za-z][A-Za-z0-9_@.-]*\\.UTF-8$')
+      - keymap is defined
+      - keymap is match('^[A-Za-z0-9_-]+$')
+      - admin_user is defined
+      - admin_user | length > 0
+      - admin_user is match('^[a-z_][a-z0-9_-]{0,31}\\$?$')
+      - final_checks_admin_groups | length > 0
+      - final_checks_admin_groups | reject('match', '^[a-z_][a-z0-9_-]{0,31}\\$?$') | list | length == 0
+      - final_checks_admin_shell is match('^/[A-Za-z0-9_./+-]+$')
+      - (enable_ssh | string | lower) in ['yes', 'no']
+      - final_checks_controller_secret_check == 'passed'
+    fail_msg: "FINAL_CHECKS_FAILED: final check inputs or controller secret check status are invalid."
+    success_msg: "Final check inputs are approved."
+
+- name: Build expected final package and service lists
+  ansible.builtin.set_fact:
+    final_checks_expected_packages: >-
+      {{
+        (
+          base_console_common_packages
+          + base_console_variant_packages
+          + (btrfs_console_packages if filesystem == 'btrfs' else [])
+          + (installed_ssh_packages if final_checks_enable_ssh else [])
+          + final_checks_kernel_packages
+          + final_checks_bootloader_packages
+        ) | unique | list
+      }}
+    final_checks_expected_services: "{{ (base_console_services + (installed_ssh_services if final_checks_enable_ssh else [])) | unique | list }}"
+
+- name: Verify target root and EFI mounts
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - "{{ item }}"
+      - --noheadings
+      - --output
+      - TARGET,SOURCE,FSTYPE,OPTIONS
+  loop:
+    - "{{ final_checks_target_root }}"
+    - "{{ final_checks_efi_mount }}"
+  register: final_checks_required_mounts
+  changed_when: false
+  failed_when: final_checks_required_mounts.rc != 0
+  check_mode: false
+
+- name: Validate target root and EFI mount types
+  ansible.builtin.assert:
+    that:
+      - final_checks_required_mounts.results[0].stdout is search(filesystem)
+      - final_checks_required_mounts.results[1].stdout is search('vfat')
+    fail_msg: "FINAL_CHECKS_FAILED: target root or EFI mount does not match the requested filesystem policy."
+    success_msg: "Target root and EFI mounts match the requested policy."
+
+- name: Verify chroot pseudo-filesystem mounts
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - "{{ item }}"
+      - --noheadings
+      - --output
+      - TARGET,FSTYPE
+  loop:
+    - "{{ final_checks_target_root }}/proc"
+    - "{{ final_checks_target_root }}/sys"
+    - "{{ final_checks_target_root }}/dev"
+    - "{{ final_checks_target_root }}/run"
+    - "{{ final_checks_target_root }}/dev/pts"
+  register: final_checks_chroot_mounts
+  changed_when: false
+  failed_when: final_checks_chroot_mounts.rc != 0
+  check_mode: false
+
+- name: Verify required target files
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ final_checks_target_root }}/etc/fstab"
+    - "{{ final_checks_target_root }}/etc/hostname"
+    - "{{ final_checks_target_root }}/etc/localtime"
+    - "{{ final_checks_target_root }}/etc/locale.gen"
+    - "{{ final_checks_target_root }}/etc/env.d/02locale"
+    - "{{ final_checks_target_root }}/etc/portage/make.conf"
+    - "{{ final_checks_target_root }}/etc/kernel/cmdline"
+    - "{{ final_checks_target_root }}/etc/cmdline.d/00-gentoo-ai-installer.conf"
+    - "{{ final_checks_target_root }}/etc/sudoers.d/gentoo-ai-installer-admin"
+    - "{{ final_checks_target_root }}/boot/grub/grub.cfg"
+    - "{{ final_checks_efi_mount }}/EFI/Gentoo/grubx64.efi"
+  register: final_checks_required_files
+
+- name: Require final target files
+  ansible.builtin.assert:
+    that:
+      - final_checks_required_files.results | selectattr('stat.exists') | list | length == final_checks_required_files.results | length
+    fail_msg: "FINAL_CHECKS_FAILED: required fstab, identity, sudoers, kernel command-line, GRUB, or EFI files are missing."
+    success_msg: "Required target files exist."
+
+- name: Verify init-specific target files
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: "{{ ['/mnt/gentoo/etc/conf.d/hostname', '/mnt/gentoo/etc/conf.d/keymaps'] if profile == 'openrc' else ['/mnt/gentoo/etc/vconsole.conf'] }}"
+  register: final_checks_init_files
+
+- name: Require init-specific target files
+  ansible.builtin.assert:
+    that:
+      - final_checks_init_files.results | selectattr('stat.exists') | list | length == final_checks_init_files.results | length
+    fail_msg: "FINAL_CHECKS_FAILED: init-specific hostname/keymap files are missing."
+    success_msg: "Init-specific target files exist."
+
+- name: Read final target configuration files
+  ansible.builtin.slurp:
+    src: "{{ item }}"
+  loop:
+    - "{{ final_checks_target_root }}/etc/fstab"
+    - "{{ final_checks_target_root }}/etc/kernel/cmdline"
+    - "{{ final_checks_target_root }}/etc/cmdline.d/00-gentoo-ai-installer.conf"
+    - "{{ final_checks_target_root }}/boot/grub/grub.cfg"
+    - "{{ final_checks_target_root }}/etc/hostname"
+    - "{{ final_checks_target_root }}/etc/locale.gen"
+    - "{{ final_checks_target_root }}/etc/env.d/02locale"
+    - "{{ final_checks_target_root }}/etc/portage/make.conf"
+    - "{{ final_checks_target_root }}/etc/sudoers.d/gentoo-ai-installer-admin"
+  register: final_checks_slurped_files
+
+- name: Store final target configuration text
+  ansible.builtin.set_fact:
+    final_checks_fstab_text: "{{ final_checks_slurped_files.results[0].content | b64decode }}"
+    final_checks_kernel_cmdline: "{{ final_checks_slurped_files.results[1].content | b64decode | trim }}"
+    final_checks_installkernel_cmdline: "{{ final_checks_slurped_files.results[2].content | b64decode | trim }}"
+    final_checks_grub_config_text: "{{ final_checks_slurped_files.results[3].content | b64decode }}"
+    final_checks_hostname_text: "{{ final_checks_slurped_files.results[4].content | b64decode | trim }}"
+    final_checks_locale_gen_text: "{{ final_checks_slurped_files.results[5].content | b64decode }}"
+    final_checks_locale_env_text: "{{ final_checks_slurped_files.results[6].content | b64decode }}"
+    final_checks_make_conf_text: "{{ final_checks_slurped_files.results[7].content | b64decode }}"
+    final_checks_sudoers_text: "{{ final_checks_slurped_files.results[8].content | b64decode }}"
+
+- name: Extract root fstab entry
+  ansible.builtin.command:
+    argv:
+      - awk
+      - '($1 ~ /^UUID=/ && $2 == "/") { print $1 " " $2 " " $3 " " $4; found=1 } END { exit found ? 0 : 1 }'
+      - "{{ final_checks_target_root }}/etc/fstab"
+  register: final_checks_root_fstab_entry
+  changed_when: false
+  check_mode: false
+
+- name: Extract EFI fstab entry
+  ansible.builtin.command:
+    argv:
+      - awk
+      - '($1 ~ /^UUID=/ && $2 == "/boot/efi") { print $1 " " $2 " " $3 " " $4; found=1 } END { exit found ? 0 : 1 }'
+      - "{{ final_checks_target_root }}/etc/fstab"
+  register: final_checks_efi_fstab_entry
+  changed_when: false
+  check_mode: false
+
+- name: Store fstab root and EFI fields
+  ansible.builtin.set_fact:
+    final_checks_root_fields: "{{ final_checks_root_fstab_entry.stdout.split() }}"
+    final_checks_efi_fields: "{{ final_checks_efi_fstab_entry.stdout.split() }}"
+
+- name: Store fstab root UUID and options
+  ansible.builtin.set_fact:
+    final_checks_root_uuid: "{{ final_checks_root_fields[0] | regex_replace('^UUID=', '') }}"
+    final_checks_root_fstype: "{{ final_checks_root_fields[2] }}"
+    final_checks_root_options: "{{ final_checks_root_fields[3] }}"
+    final_checks_efi_fstype: "{{ final_checks_efi_fields[2] }}"
+
+- name: Validate fstab, kernel command line, and GRUB boot policy
+  ansible.builtin.assert:
+    that:
+      - final_checks_root_uuid is match('^[0-9A-Fa-f-]+$')
+      - final_checks_root_fstype == filesystem
+      - final_checks_efi_fstype == 'vfat'
+      - final_checks_fstab_text is not search('/dev/')
+      - final_checks_kernel_cmdline == final_checks_installkernel_cmdline
+      - final_checks_kernel_cmdline is search('(^|\\s)root=UUID=' ~ (final_checks_root_uuid | regex_escape) ~ '(\\s|$)')
+      - final_checks_kernel_cmdline is not search('/dev/')
+      - final_checks_kernel_cmdline is not search('(^|\\s)(crypt|doluks|rd\\.luks|luks|resume)=')
+      - filesystem != 'btrfs' or final_checks_root_options is search('(^|,)subvol=@(,|$)')
+      - filesystem != 'btrfs' or final_checks_kernel_cmdline is search('(^|\\s)rootflags=subvol=@(\\s|$)')
+      - final_checks_grub_config_text is search('root=UUID=' ~ (final_checks_root_uuid | regex_escape))
+      - final_checks_grub_config_text is not search('/dev/')
+      - filesystem != 'btrfs' or final_checks_grub_config_text is search('rootflags=subvol=@')
+    fail_msg: "FINAL_CHECKS_FAILED: fstab, kernel command line, or GRUB config violates the approved boot policy."
+    success_msg: "Fstab, kernel command line, and GRUB config match the approved boot policy."
+
+- name: Validate Btrfs fstab subvolume entries
+  ansible.builtin.command:
+    argv:
+      - awk
+      - -v
+      - "mp={{ item.mountpoint }}"
+      - -v
+      - "subvol={{ item.name }}"
+      - '($1 ~ /^UUID=/ && $2 == mp && $3 == "btrfs" && $4 ~ ("(^|,)subvol=" subvol "(,|$)")) { found=1 } END { exit found ? 0 : 1 }'
+      - "{{ final_checks_target_root }}/etc/fstab"
+  loop: "{{ final_checks_btrfs_subvolumes }}"
+  changed_when: false
+  check_mode: false
+  when: filesystem == 'btrfs'
+
+- name: Validate mounted Btrfs subvolumes
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - "{{ item.live_mountpoint }}"
+      - --noheadings
+      - --output
+      - FSTYPE,OPTIONS
+  loop: "{{ final_checks_btrfs_subvolumes }}"
+  register: final_checks_btrfs_mounts
+  changed_when: false
+  check_mode: false
+  when: filesystem == 'btrfs'
+
+- name: Require mounted Btrfs subvolume policy
+  ansible.builtin.assert:
+    that:
+      - item.stdout is search('btrfs')
+      - item.stdout is search('subvol=/?' ~ (item.item.name | regex_escape) ~ '(,|\\s|$)')
+    fail_msg: "FINAL_CHECKS_FAILED: mounted Btrfs subvolume {{ item.item.name }} does not match the approved layout."
+    success_msg: "Mounted Btrfs subvolume {{ item.item.name }} matches the approved layout."
+  loop: "{{ final_checks_btrfs_mounts.results | default([]) }}"
+  when: filesystem == 'btrfs'
+
+- name: Find target kernel and initramfs artifacts
+  ansible.builtin.find:
+    paths: "{{ final_checks_target_root }}/boot"
+    file_type: file
+    patterns:
+      - "vmlinuz-*"
+      - "kernel-*"
+      - "initramfs-*"
+      - "initrd*"
+  register: final_checks_boot_artifacts
+
+- name: List target kernel module directories
+  ansible.builtin.find:
+    paths: "{{ final_checks_target_root }}/lib/modules"
+    file_type: directory
+    depth: 1
+  register: final_checks_module_dirs
+
+- name: Validate kernel and initramfs artifacts
+  ansible.builtin.assert:
+    that:
+      - final_checks_boot_artifacts.files | selectattr('path', 'search', '/(vmlinuz|kernel)-') | list | length > 0
+      - final_checks_boot_artifacts.files | selectattr('path', 'search', '/(initramfs|initrd)') | list | length > 0
+      - final_checks_module_dirs.files | length > 0
+    fail_msg: "FINAL_CHECKS_FAILED: kernel, initramfs, or module artifacts are missing."
+    success_msg: "Kernel, initramfs, and module artifacts exist."
+
+- name: Check expected target packages
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ final_checks_target_root }}"
+      - /usr/bin/portageq
+      - has_version
+      - /
+      - "{{ item }}"
+  loop: "{{ final_checks_expected_packages }}"
+  register: final_checks_package_state
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Store missing final check packages
+  ansible.builtin.set_fact:
+    final_checks_missing_packages: "{{ final_checks_package_state.results | selectattr('rc', 'ne', 0) | map(attribute='item') | list }}"
+
+- name: Require expected target packages
+  ansible.builtin.assert:
+    that:
+      - final_checks_missing_packages | length == 0
+    fail_msg: "FINAL_CHECKS_FAILED: required packages are missing: {{ final_checks_missing_packages | join(', ') }}"
+    success_msg: "Required target packages are installed."
+
+- name: Read OpenRC service runlevels
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ final_checks_target_root }}"
+      - /sbin/rc-update
+      - show
+      - "{{ item.runlevel | default('default') }}"
+  loop: "{{ final_checks_expected_services }}"
+  register: final_checks_openrc_services
+  changed_when: false
+  check_mode: false
+  when: profile == 'openrc'
+
+- name: Require OpenRC services
+  ansible.builtin.assert:
+    that:
+      - item.stdout is search('(^|\\n)\\s*' ~ (item.item.name | regex_escape) ~ '\\s')
+    fail_msg: "FINAL_CHECKS_FAILED: OpenRC service {{ item.item.name }} is not enabled."
+    success_msg: "OpenRC service {{ item.item.name }} is enabled."
+  loop: "{{ final_checks_openrc_services.results | default([]) }}"
+  when: profile == 'openrc'
+
+- name: Read systemd service enablement
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ final_checks_target_root }}"
+      - /usr/bin/systemctl
+      - is-enabled
+      - "{{ item.name }}"
+  loop: "{{ final_checks_expected_services }}"
+  register: final_checks_systemd_services
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: profile == 'systemd'
+
+- name: Require systemd services
+  ansible.builtin.assert:
+    that:
+      - item.stdout | trim == 'enabled'
+    fail_msg: "FINAL_CHECKS_FAILED: systemd service {{ item.item.name }} is not enabled."
+    success_msg: "systemd service {{ item.item.name }} is enabled."
+  loop: "{{ final_checks_systemd_services.results | default([]) }}"
+  when: profile == 'systemd'
+
+- name: Read target admin account
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ final_checks_target_root }}"
+      - /usr/bin/getent
+      - passwd
+      - "{{ admin_user }}"
+  register: final_checks_admin_passwd
+  changed_when: false
+  check_mode: false
+
+- name: Read target admin group membership
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ final_checks_target_root }}"
+      - /usr/bin/id
+      - -nG
+      - "{{ admin_user }}"
+  register: final_checks_admin_groups_state
+  changed_when: false
+  check_mode: false
+
+- name: Validate target sudoers drop-in
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ final_checks_target_root }}"
+      - /usr/sbin/visudo
+      - -cf
+      - /etc/sudoers.d/gentoo-ai-installer-admin
+  register: final_checks_sudoers_validate
+  changed_when: false
+  check_mode: false
+
+- name: Validate admin user and sudo policy
+  ansible.builtin.assert:
+    that:
+      - final_checks_admin_passwd.stdout.split(':')[6] == final_checks_admin_shell
+      - final_checks_admin_groups | difference(final_checks_admin_groups_state.stdout.split()) | length == 0
+      - final_checks_sudoers_validate.rc == 0
+      - final_checks_sudoers_text is search('%' ~ (final_checks_admin_groups[0] | regex_escape) ~ '\\s+ALL=')
+    fail_msg: "FINAL_CHECKS_FAILED: admin user, group membership, shell, or sudoers policy is incomplete."
+    success_msg: "Admin user and sudo policy are ready."
+
+- name: Read target hostname and localtime
+  ansible.builtin.command:
+    argv:
+      - readlink
+      - "{{ final_checks_target_root }}/etc/localtime"
+  register: final_checks_localtime_link
+  changed_when: false
+  check_mode: false
+
+- name: Validate target identity baseline
+  ansible.builtin.assert:
+    that:
+      - final_checks_hostname_text == hostname
+      - final_checks_localtime_link.stdout == '/usr/share/zoneinfo/' ~ timezone
+      - final_checks_locale_gen_text is search('(^|\\n)' ~ (locale | regex_escape) ~ '\\s+UTF-8')
+      - final_checks_locale_env_text is search('LANG="' ~ (locale | regex_escape) ~ '"')
+      - profile != 'openrc' or final_checks_fstab_text is search('UUID=')
+    fail_msg: "FINAL_CHECKS_FAILED: hostname, timezone, locale, or base identity files do not match requested values."
+    success_msg: "Target hostname, timezone, and locale match requested values."
+
+- name: Read OpenRC keymap configuration
+  ansible.builtin.slurp:
+    src: "{{ final_checks_target_root }}/etc/conf.d/keymaps"
+  register: final_checks_openrc_keymap
+  when: profile == 'openrc'
+
+- name: Validate OpenRC keymap
+  ansible.builtin.assert:
+    that:
+      - (final_checks_openrc_keymap.content | b64decode) is search('keymap="' ~ (keymap | regex_escape) ~ '"')
+    fail_msg: "FINAL_CHECKS_FAILED: OpenRC keymap does not match requested value."
+    success_msg: "OpenRC keymap matches requested value."
+  when: profile == 'openrc'
+
+- name: Read systemd vconsole configuration
+  ansible.builtin.slurp:
+    src: "{{ final_checks_target_root }}/etc/vconsole.conf"
+  register: final_checks_systemd_keymap
+  when: profile == 'systemd'
+
+- name: Validate systemd keymap
+  ansible.builtin.assert:
+    that:
+      - (final_checks_systemd_keymap.content | b64decode) is search('KEYMAP=' ~ (keymap | regex_escape))
+    fail_msg: "FINAL_CHECKS_FAILED: systemd vconsole keymap does not match requested value."
+    success_msg: "systemd keymap matches requested value."
+  when: profile == 'systemd'
+
+- name: Read selected Portage profile
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ final_checks_target_root }}"
+      - /usr/bin/readlink
+      - -f
+      - /etc/portage/make.profile
+  register: final_checks_portage_profile
+  changed_when: false
+  check_mode: false
+
+- name: Find pending Portage config updates
+  ansible.builtin.command:
+    argv:
+      - find
+      - "{{ final_checks_target_root }}/etc"
+      - -name
+      - ._cfg????_*
+      - -type
+      - f
+      - -print
+  register: final_checks_pending_config_files
+  changed_when: false
+  check_mode: false
+
+- name: Validate Portage baseline
+  ansible.builtin.assert:
+    that:
+      - final_checks_portage_profile.stdout is regex('/profiles/' ~ (portage_profile_path | regex_escape) ~ '$')
+      - final_checks_make_conf_text is search('COMMON_FLAGS="-O2 -pipe"')
+      - final_checks_make_conf_text is search('MAKEOPTS="-j[0-9]+"')
+      - final_checks_make_conf_text is search('ACCEPT_LICENSE="' ~ (portage_accept_license | regex_escape) ~ '"')
+      - final_checks_make_conf_text is search('GENTOO_MIRRORS="' ~ (portage_gentoo_mirrors | default('https://distfiles.gentoo.org') | regex_escape) ~ '"')
+      - final_checks_make_conf_text is search('GRUB_PLATFORMS="efi-64"')
+    fail_msg: "FINAL_CHECKS_FAILED: Portage profile or make.conf baseline is incomplete."
+    success_msg: "Portage profile and make.conf baseline are ready."
+
+- name: Verify GURU repository remains disabled
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ final_checks_target_root }}/etc/portage/repos.conf/guru.conf"
+    - "{{ final_checks_target_root }}/var/db/repos/guru"
+  register: final_checks_guru_paths
+
+- name: Require no target GURU repository
+  ansible.builtin.assert:
+    that:
+      - final_checks_guru_paths.results | selectattr('stat.exists') | list | length == 0
+    fail_msg: "FINAL_CHECKS_FAILED: GURU repository is enabled in the target system."
+    success_msg: "Target GURU repository is disabled."
+
+- name: Read SSH server configuration
+  ansible.builtin.slurp:
+    src: "{{ final_checks_target_root }}/etc/ssh/sshd_config"
+  register: final_checks_sshd_config
+  when: final_checks_enable_ssh
+
+- name: Verify admin authorized keys when configured
+  ansible.builtin.stat:
+    path: "{{ final_checks_target_root }}/home/{{ admin_user }}/.ssh/authorized_keys"
+  register: final_checks_admin_authorized_keys
+  when: (admin_authorized_keys_file | default('')) | length > 0
+
+- name: Validate installed SSH policy
+  ansible.builtin.assert:
+    that:
+      - not final_checks_enable_ssh or ((final_checks_sshd_config.content | b64decode) is search('PermitRootLogin no'))
+      - not final_checks_enable_ssh or ((final_checks_sshd_config.content | b64decode) is search('PubkeyAuthentication yes'))
+      - ((admin_authorized_keys_file | default('')) | length == 0) or final_checks_admin_authorized_keys.stat.exists
+    fail_msg: "FINAL_CHECKS_FAILED: installed SSH policy or admin authorized_keys is incomplete."
+    success_msg: "Installed SSH policy matches requested state."
+
+- name: Validate secret-safe target text
+  ansible.builtin.assert:
+    that:
+      - final_checks_fstab_text is not search('-----BEGIN [A-Z ]*PRIVATE KEY-----')
+      - final_checks_grub_config_text is not search('-----BEGIN [A-Z ]*PRIVATE KEY-----')
+      - final_checks_make_conf_text is not search('-----BEGIN [A-Z ]*PRIVATE KEY-----')
+      - final_checks_sudoers_text is not search('-----BEGIN [A-Z ]*PRIVATE KEY-----')
+      - final_checks_make_conf_text is not search('(^|[^A-Za-z0-9_])sk-[A-Za-z0-9_-]{30,}')
+    fail_msg: "FINAL_CHECKS_FAILED: high-risk secret-like material was found in target configuration text."
+    success_msg: "Final check target text is secret-safe."
+
+- name: Define final checks audit run id
+  ansible.builtin.set_fact:
+    final_checks_run_id: "{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}"
+
+- name: Define final checks log paths
+  ansible.builtin.set_fact:
+    final_checks_log_dir: "{{ project_root | default(lookup('ansible.builtin.env', 'PWD'), true) }}/logs/install-runs/{{ final_checks_run_id }}/final-checks"
+    final_checks_audit_bundle_path: "{{ project_root | default(lookup('ansible.builtin.env', 'PWD'), true) }}/logs/install-runs/{{ final_checks_run_id }}/audit-bundle"
+
+- name: Create local final checks log directory
+  ansible.builtin.file:
+    path: "{{ final_checks_log_dir }}"
+    state: directory
+    mode: "0750"
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Record final reboot readiness evidence
+  ansible.builtin.copy:
+    dest: "{{ final_checks_log_dir }}/reboot-readiness.json"
+    mode: "0640"
+    content: |
+      {
+        "status": "PASS",
+        "profile": {{ profile | to_json }},
+        "filesystem": {{ filesystem | to_json }},
+        "hostname": {{ hostname | to_json }},
+        "timezone": {{ timezone | to_json }},
+        "locale": {{ locale | to_json }},
+        "keymap": {{ keymap | to_json }},
+        "admin_user": {{ admin_user | to_json }},
+        "admin_groups": {{ final_checks_admin_groups | to_nice_json }},
+        "enable_ssh": {{ final_checks_enable_ssh | to_json }},
+        "root_uuid": {{ final_checks_root_uuid | to_json }},
+        "kernel_cmdline": {{ final_checks_kernel_cmdline | to_json }},
+        "kernel_artifacts": {{ final_checks_boot_artifacts.files | map(attribute='path') | map('basename') | list | to_nice_json }},
+        "module_directories": {{ final_checks_module_dirs.files | map(attribute='path') | map('basename') | list | to_nice_json }},
+        "packages": {{ final_checks_expected_packages | to_nice_json }},
+        "services": {{ final_checks_expected_services | to_nice_json }},
+        "time_sync": {{ ('chrony' if profile == 'openrc' else 'systemd-timesyncd') | to_json }},
+        "ssh_policy_checked": {{ final_checks_enable_ssh | to_json }},
+        "portage_profile": {{ final_checks_portage_profile.stdout | to_json }},
+        "pending_portage_config_updates": {{ final_checks_pending_config_files.stdout_lines | default([]) | to_nice_json }},
+        "controller_secret_check": {{ final_checks_controller_secret_check | to_json }},
+        "audit_bundle_path": {{ final_checks_audit_bundle_path | to_json }},
+        "audit_bundle_status": "referenced; implement-install-audit-bundle owns bundle generation",
+        "install_report_input": true
+      }
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Build final reboot readiness report
+  ansible.builtin.set_fact:
+    final_checks_report:
+      status: PASS
+      changed: false
+      profile: "{{ profile }}"
+      filesystem: "{{ filesystem }}"
+      hostname: "{{ hostname }}"
+      admin_user: "{{ admin_user }}"
+      enable_ssh: "{{ final_checks_enable_ssh }}"
+      root_uuid: "{{ final_checks_root_uuid }}"
+      kernel_cmdline: "{{ final_checks_kernel_cmdline }}"
+      kernel_artifacts: "{{ final_checks_boot_artifacts.files | map(attribute='path') | map('basename') | list }}"
+      module_directories: "{{ final_checks_module_dirs.files | map(attribute='path') | map('basename') | list }}"
+      services: "{{ final_checks_expected_services }}"
+      time_sync: "{{ 'chrony' if profile == 'openrc' else 'systemd-timesyncd' }}"
+      pending_portage_config_updates: "{{ final_checks_pending_config_files.stdout_lines | default([]) }}"
+      audit_bundle_path: "{{ final_checks_audit_bundle_path }}"
+      audit_bundle_status: referenced
+      install_report_input: true
+      reboot_automatically: false
+      logs: "{{ final_checks_log_dir }}/"
+
+- name: Print final reboot readiness report
+  ansible.builtin.debug:
+    msg: "{{ final_checks_report }}"

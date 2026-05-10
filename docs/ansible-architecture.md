@@ -195,7 +195,7 @@ Shared roles live under `roles/common/` or an equivalent shared structure.
 - `bootloader`: GRUB UEFI package installation, EFI/NVRAM preview, `grub-install`, `grub.cfg` generation, and boot command-line validation.
 - `users`: admin user creation, sudo policy, optional password hash application, optional authorized_keys installation, and non-secret access evidence.
 - `ssh`: optional installed SSH package/service policy and init-specific enablement dispatch.
-- `final_checks`: read-only validation before reboot.
+- `final_checks`: read-only reboot readiness validation for mounts, fstab, kernel/initramfs, GRUB/EFI files, users, services, target baseline, Portage status, SSH policy, and secret-safe report inputs.
 
 Currently implemented shared roles and workflows:
 
@@ -217,6 +217,7 @@ Currently implemented shared roles and workflows:
 - `common/package_install`: installs the shared console package set, OpenRC/systemd variant packages, Btrfs tooling when selected, optional OpenSSH, and records package/service evidence for final checks and install reports.
 - `common/users`: creates or updates the target admin user, configures sudo through `wheel` by default, applies optional password hashes from gitignored controller-local files with `no_log`, installs optional admin authorized keys, enforces installed SSH root-login restrictions when SSH is enabled, and records non-secret evidence.
 - `common/bootloader`: requires explicit `install_disk` and `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`, shows EFI entries before GRUB actions, installs `sys-boot/grub` and `sys-boot/efibootmgr`, runs guarded UEFI `grub-install`, generates `grub.cfg`, validates the approved root command line, and records bootloader evidence.
+- `common/final_checks`: runs read-only reboot readiness checks, requires `ADMIN_USER`, validates fstab, kernel/initramfs, GRUB/EFI files, Btrfs subvolumes, services, users, target identity, Portage baseline, SSH policy, and writes a secret-safe readiness report.
 - `init/openrc`: enables target services with `rc-update` only.
 - `init/systemd`: enables target services with `systemctl` only.
 
@@ -305,6 +306,7 @@ make filesystem-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda
 make filesystem-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda
 make configure-users PROFILE=openrc ADMIN_USER=gentoo
 make install-bootloader PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda I_UNDERSTAND_BOOTLOADER_CHANGES=yes
+make final-checks PROFILE=openrc FILESYSTEM=btrfs ADMIN_USER=gentoo
 make install-openrc
 make install-systemd
 ```

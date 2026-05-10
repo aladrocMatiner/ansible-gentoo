@@ -46,7 +46,7 @@ make config-check CONFIG_DESTRUCTIVE=yes INSTALL_DISK=/dev/vda I_UNDERSTAND_THIS
 | `TIMEZONE` | `UTC` | Must be a relative path under target `/usr/share/zoneinfo`, such as `UTC` or `Europe/Stockholm`. |
 | `LOCALE` | `en_US.UTF-8` | Must be a UTF-8 locale generated inside the target. |
 | `KEYMAP` | `us` | Must be a simple console keymap name available in target `/usr/share/keymaps`. |
-| `ADMIN_USER` | unset | Optional; must be a conservative local username when set. |
+| `ADMIN_USER` | unset | Optional globally, but required by `make configure-users` and `make final-checks`; must be a conservative local username when set. |
 | `ADMIN_GROUPS` | `wheel` | Comma-separated target groups for the admin user. |
 | `ADMIN_SHELL` | `/bin/bash` | Absolute target shell path for the admin user. |
 | `PRIVILEGE_TOOL` | `sudo` | Current implementation supports `sudo`; doas requires a later change. |
