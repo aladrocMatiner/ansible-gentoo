@@ -81,6 +81,7 @@ Before creating filesystems:
 - Formatting must be classified as `DESTRUCTIVE`.
 - Confirmation must identify the exact partition paths to be formatted.
 - Root filesystem must be explicitly planned as `ext4` or `btrfs`; Btrfs subvolume behavior must be documented and must not run without the same destructive confirmations as other filesystem operations.
+- Read-only `partition-plan` may report a destructive future layout, but it must not run partitioning, formatting, wiping, mounting, or Btrfs subvolume commands.
 - EFI filesystem must match UEFI boot requirements.
 - The task must stop if the partition is mounted unexpectedly.
 - The task must stop if the partition path is empty, `/`, a whole disk when a partition is expected, or not under the approved disk.

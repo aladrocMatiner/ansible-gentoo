@@ -52,7 +52,7 @@ The install plan proves high-level intent, but it is not precise enough to be us
 - The workflow must not require or consume `I_UNDERSTAND_THIS_WIPES_DISK` because it is read-only.
 - The workflow must not run destructive commands such as `parted`, `sgdisk`, `fdisk`, `wipefs`, `mkfs.*`, `mount`, `umount`, `chroot`, `passwd`, `useradd`, `usermod`, `grub-install`, or `efibootmgr`.
 - VM guest `/dev/vda` is allowed only when explicitly passed as `INSTALL_DISK=/dev/vda` inside the guest VM.
-- If mounted partitions exist on the selected disk, the plan must fail closed.
+- If mounted partitions or nested descendants exist on the selected disk, the plan must fail closed.
 - If the selected disk cannot be matched exactly to one detected disk, the plan must fail closed.
 
 ## Acceptance Criteria
@@ -60,7 +60,7 @@ The install plan proves high-level intent, but it is not precise enough to be us
 - `make partition-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda` prints a read-only Btrfs partition and subvolume plan.
 - `make partition-plan PROFILE=systemd FILESYSTEM=btrfs INSTALL_DISK=/dev/vda` prints a read-only systemd/Btrfs plan through shared logic.
 - `make partition-plan` fails when `INSTALL_DISK` is missing.
-- The partition plan reports selected disk path, type, size, model, serial when available, current filesystems, current mountpoints, and current children.
+- The partition plan reports selected disk path, type, size, model, serial when available, current filesystems, current mountpoints, current children, and nested descendants.
 - The partition plan reports what would be destroyed by a future destructive apply step.
 - The partition plan reports GPT layout:
   - partition 1: EFI system partition, 512 MiB, FAT32, mounted at `/boot/efi`;

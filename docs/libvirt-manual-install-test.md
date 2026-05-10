@@ -69,6 +69,7 @@ make ansible-live-ping
 make ansible-live-preflight
 make detect-disks
 make install-plan PROFILE=openrc
+make partition-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda
 ```
 
 The default network mode is the libvirt managed `default` network. `make vm-ip` discovers the live ISO address from libvirt DHCP leases. The project does not commit passwords, tokens, or private keys.
@@ -82,6 +83,15 @@ make install-plan PROFILE=openrc INSTALL_DISK=/dev/vda
 ```
 
 This matches `/dev/vda` against live ISO disk inventory only; it does not write to the qcow2 disk.
+
+The next read-only checkpoint is the partition plan:
+
+```sh
+make partition-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda
+make partition-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda
+```
+
+These targets report the exact GPT layout a future destructive target would apply. They do not partition or format the qcow2 disk.
 
 Stop or clean the VM:
 

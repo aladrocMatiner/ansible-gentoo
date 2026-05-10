@@ -23,8 +23,8 @@ The project SHALL provide a Makefile-mediated Ansible partition planning workflo
 - **AND** the planned Btrfs root mount options SHALL include `subvol=@`
 - **AND** it SHALL NOT create a Btrfs filesystem or subvolumes
 
-#### Scenario: Fail on mounted selected disk
-- **WHEN** the selected `INSTALL_DISK` or any child partition has mountpoints
+#### Scenario: Fail on mounted selected disk descendants
+- **WHEN** the selected `INSTALL_DISK`, any child partition, or any nested descendant has mountpoints
 - **THEN** the workflow SHALL fail closed
 - **AND** it SHALL report the mounted paths that must be reviewed before destructive work is considered
 

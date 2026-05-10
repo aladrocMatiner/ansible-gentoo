@@ -96,6 +96,7 @@ Before any partitioning target runs:
 - `INSTALL_DISK` must not come from a default value.
 - Disk path, model, serial, size, current partition table, current filesystems, and current mountpoints must be displayed.
 - Any mounted partition on the selected disk must be shown.
+- Any mounted nested descendant under the selected disk, such as mapped LUKS/LVM devices, must be shown and must stop planning before destructive work.
 - The proposed partition plan must be displayed.
 - The operator must confirm `I_UNDERSTAND_THIS_WIPES_DISK=yes`.
 - A safety confirmation script must run when implemented.
@@ -171,7 +172,8 @@ Target expectations:
 - `make install-plan PROFILE=systemd`: read-only systemd plan; reports no selected disk unless `INSTALL_DISK` is explicitly provided.
 - `make install-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda`: VM-only example that reports the Btrfs subvolume plan for the explicitly provided guest disk.
 - `make install-plan PROFILE=openrc INSTALL_DISK=/dev/vda`: VM-only example that matches the explicitly provided guest disk for read-only planning.
-- `make partition-plan INSTALL_DISK=...`: show proposed v1 layout and current disk state without writing.
+- `make partition-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=...`: show proposed ext4 GPT layout and current disk state without writing.
+- `make partition-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=...`: show proposed Btrfs GPT layout, subvolumes, and current disk state without writing.
 - `make partition INSTALL_DISK=... I_UNDERSTAND_THIS_WIPES_DISK=yes`: partition only after safety checks and confirmation.
 - `make format INSTALL_DISK=... I_UNDERSTAND_THIS_WIPES_DISK=yes`: format only approved partitions after mount checks and confirmation.
 
@@ -192,7 +194,7 @@ The operator should not be asked to run raw `parted`, `sgdisk`, `fdisk`, `wipefs
 ## 12. Recovery Advice
 - Re-run `make detect-disks` before destructive work.
 - Use `make install-plan PROFILE=... INSTALL_DISK=...` to confirm read-only disk identity before any future destructive plan.
-- Re-run `make partition-plan INSTALL_DISK=...` if disk state changes.
+- Re-run `make partition-plan PROFILE=... FILESYSTEM=... INSTALL_DISK=...` if disk state changes.
 - Stop if disk identity is ambiguous.
 - Reboot in UEFI mode if `/sys/firmware/efi` is missing.
 - Unmount only after reviewing current mountpoints and using documented targets.
@@ -205,6 +207,7 @@ This skill should produce or request:
 
 - Disk inventory from `make detect-disks`.
 - Read-only install-plan output from `make install-plan PROFILE=...`.
+- Read-only partition-plan output from `make partition-plan PROFILE=... FILESYSTEM=... INSTALL_DISK=...`.
 - UEFI verification result.
 - Operator-provided `INSTALL_DISK`.
 - v1 partition plan.

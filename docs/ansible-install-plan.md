@@ -114,3 +114,10 @@ make install-plan PROFILE=openrc INSTALL_DISK=/dev/vda
 ```
 
 Do not run disk commands manually to fix a planning failure. Fix connectivity, profile selection, or explicit disk input first.
+
+After the install plan is correct, continue with the read-only partition plan:
+
+```sh
+make partition-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda
+make partition-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda
+```

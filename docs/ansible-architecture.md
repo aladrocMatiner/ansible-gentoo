@@ -103,6 +103,7 @@ Currently implemented read-only planning roles:
 - `common/live_preflight`: validates the live ISO environment over SSH.
 - `common/disk_detection`: reports visible block devices without selecting or modifying a disk.
 - `common/install_plan`: prints a profile-aware OpenRC or systemd plan without defaulting `install_disk`; it supports `FILESYSTEM=ext4` and `FILESYSTEM=btrfs` as read-only plan variants.
+- `common/partition_plan`: requires explicit `INSTALL_DISK` and prints the exact read-only GPT plan for ext4 or Btrfs without writing.
 
 ## Init-specific Roles
 Init-specific roles must be thin and explicit.
@@ -161,6 +162,8 @@ make ansible-dry-run PROFILE=openrc
 make ansible-dry-run PROFILE=systemd
 make install-plan PROFILE=openrc
 make install-plan PROFILE=systemd
+make partition-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda
+make partition-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda
 make install-openrc
 make install-systemd
 ```

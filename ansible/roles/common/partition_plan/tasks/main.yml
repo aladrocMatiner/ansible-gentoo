@@ -1,0 +1,122 @@
+---
+- name: Require explicit install disk for partition plan
+  ansible.builtin.assert:
+    that:
+      - install_disk is defined
+      - install_disk | string | length > 0
+    fail_msg: "INSTALL_DISK/install_disk is required for partition-plan and has no default."
+    success_msg: "INSTALL_DISK was provided explicitly."
+
+- name: Match selected disk for partition plan
+  ansible.builtin.set_fact:
+    partition_plan_matching_disks: >-
+      {{
+        disk_detection_report.blockdevices
+        | selectattr('path', 'equalto', install_disk)
+        | list
+      }}
+
+- name: Require selected disk to match exactly one detected disk
+  ansible.builtin.assert:
+    that:
+      - partition_plan_matching_disks | length == 1
+    fail_msg: "INSTALL_DISK={{ install_disk }} must match exactly one detected disk."
+    success_msg: "INSTALL_DISK={{ install_disk }} matched exactly one detected disk."
+
+- name: Store selected disk identity
+  ansible.builtin.set_fact:
+    partition_plan_disk: "{{ partition_plan_matching_disks | first }}"
+
+- name: Require selected path to be a disk
+  ansible.builtin.assert:
+    that:
+      - partition_plan_disk.type == "disk"
+    fail_msg: "INSTALL_DISK={{ install_disk }} is type {{ partition_plan_disk.type | default('unknown') }}, expected disk."
+    success_msg: "Selected install disk is a disk."
+
+- name: Collect selected disk child partitions
+  ansible.builtin.set_fact:
+    partition_plan_children: "{{ partition_plan_disk.children | default([]) }}"
+
+- name: Collect selected disk mountpoints
+  ansible.builtin.set_fact:
+    partition_plan_disk_mountpoints: "{{ partition_plan_disk.mountpoints | default([]) | select('string') | list }}"
+
+- name: Fail if selected disk has mountpoints
+  ansible.builtin.assert:
+    that:
+      - partition_plan_disk_mountpoints | length == 0
+    fail_msg: "Selected disk has mountpoints: {{ partition_plan_disk_mountpoints }}"
+    success_msg: "Selected disk itself has no mountpoints."
+
+- name: Read selected disk descendants as a flat inventory
+  ansible.builtin.command:
+    argv:
+      - lsblk
+      - --json
+      - --list
+      - --bytes
+      - --output
+      - NAME,PATH,TYPE,SIZE,MODEL,SERIAL,FSTYPE,MOUNTPOINTS,UUID,PARTTYPENAME
+      - "{{ install_disk }}"
+  register: partition_plan_lsblk_flat
+  changed_when: false
+
+- name: Parse selected disk flat inventory
+  ansible.builtin.set_fact:
+    partition_plan_flat_report: "{{ partition_plan_lsblk_flat.stdout | from_json }}"
+
+- name: Collect selected disk descendants
+  ansible.builtin.set_fact:
+    partition_plan_all_descendants: >-
+      {{
+        partition_plan_flat_report.blockdevices
+        | rejectattr('path', 'equalto', install_disk)
+        | list
+      }}
+    partition_plan_mounted_descendants: []
+
+- name: Add mounted selected disk descendants
+  ansible.builtin.set_fact:
+    partition_plan_mounted_descendants: "{{ partition_plan_mounted_descendants + [item] }}"
+  loop: "{{ partition_plan_all_descendants }}"
+  when: item.mountpoints | default([]) | select('string') | list | length > 0
+
+- name: Fail if selected disk has mounted descendants
+  ansible.builtin.assert:
+    that:
+      - partition_plan_mounted_descendants | length == 0
+    fail_msg: "Selected disk has mounted descendants: {{ partition_plan_mounted_descendants }}"
+    success_msg: "Selected disk has no mounted descendants."
+
+- name: Derive read-only partition plan
+  ansible.builtin.set_fact:
+    partition_plan_report:
+      read_only: true
+      destructive_commands_run: false
+      confirmation_required_now: false
+      future_apply_requires_confirmation: true
+      selected_disk: "{{ partition_plan_disk }}"
+      existing_children: "{{ partition_plan_children }}"
+      existing_descendants: "{{ partition_plan_all_descendants }}"
+      would_destroy_existing_data: "{{ (partition_plan_children | length > 0) or (partition_plan_disk.fstype is defined and partition_plan_disk.fstype not in [none, '']) }}"
+      partition_table: gpt
+      planned_partitions:
+        - number: 1
+          purpose: efi_system_partition
+          size: 512MiB
+          filesystem: FAT32
+          mountpoint: /boot/efi
+        - number: 2
+          purpose: root_filesystem
+          size: remaining disk
+          filesystem: "{{ install_plan_filesystem }}"
+          mountpoint: /mnt/gentoo
+          btrfs_mount_options: "{{ ['noatime', 'compress=zstd', 'subvol=@'] if install_plan_filesystem == 'btrfs' else [] }}"
+          btrfs_subvolumes: "{{ [{'name': '@', 'mountpoint': '/mnt/gentoo'}, {'name': '@home', 'mountpoint': '/mnt/gentoo/home'}, {'name': '@var', 'mountpoint': '/mnt/gentoo/var'}, {'name': '@var/log', 'mountpoint': '/mnt/gentoo/var/log'}, {'name': '@var/cache', 'mountpoint': '/mnt/gentoo/var/cache'}, {'name': '@snapshots', 'mountpoint': '/mnt/gentoo/.snapshots'}] if install_plan_filesystem == 'btrfs' else [] }}"
+      swap_partition: false
+      next_step: "Review this output before any future destructive partition or format target is implemented."
+
+- name: Print read-only partition plan
+  ansible.builtin.debug:
+    msg: "{{ partition_plan_report }}"

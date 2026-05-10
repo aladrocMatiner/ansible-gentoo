@@ -52,6 +52,7 @@ ansible/
       preflight/
       disk_detection/
       install_plan/
+      partition_plan/
       disk_safety/
       partitioning/
       filesystem/
@@ -139,6 +140,7 @@ Shared roles:
 - `common/preflight`: verify live ISO, amd64, UEFI, network, time, tools, and root privileges.
 - `common/disk_detection`: read-only disk identity and partition reporting.
 - `common/install_plan`: profile-aware read-only plan output that follows the official Gentoo AMD64 Handbook baseline and does not select a disk by default.
+- `common/partition_plan`: read-only GPT partition plan that requires explicit `install_disk` and reports ext4 or Btrfs root layout without writing.
 - `common/disk_safety`: shared assertions for `install_disk`, confirmation variables, disk identity, VM guest mode, and fail-closed behavior.
 - `common/partitioning`: partition only after shared safety gates pass.
 - `common/filesystem`: format approved partitions only after shared confirmation.
@@ -286,6 +288,7 @@ These targets define the expected control-plane contract for future Ansible inst
 - `make ansible-dry-run PROFILE=openrc`
 - `make ansible-dry-run PROFILE=systemd`
 - `make install-plan`
+- `make partition-plan INSTALL_DISK=...`
 - `make install-plan PROFILE=openrc`
 - `make install-plan PROFILE=systemd`
 - `make install-openrc`
@@ -301,6 +304,7 @@ Target expectations:
 - `make ansible-dry-run PROFILE=openrc`: run the supported OpenRC check-mode workflow through the shared flow.
 - `make ansible-dry-run PROFILE=systemd`: run the supported systemd check-mode workflow through the shared flow.
 - `make install-plan`: default to `PROFILE=openrc` and `FILESYSTEM=ext4`, and produce a read-only plan without defaulting `INSTALL_DISK`.
+- `make partition-plan INSTALL_DISK=...`: require an explicit disk and produce a read-only GPT partition plan without partitioning.
 - `make install-plan PROFILE=openrc`: gather facts and create an operator-readable OpenRC install plan.
 - `make install-plan PROFILE=systemd`: gather facts and create an operator-readable systemd install plan.
 - `make install-openrc`: execute the approved OpenRC install with required confirmations.
@@ -312,6 +316,7 @@ Makefile targets should pass init-specific variables into shared Ansible flows w
 
 `make ansible-live-preflight` is not an installer target. It must not set `install_disk`, consume destructive confirmation variables, or mutate target filesystems.
 `make detect-disks` and `make install-plan` are also read-only at this stage. `INSTALL_DISK` may be passed for identity matching only, and the playbook must explicitly report when it is omitted. `FILESYSTEM=btrfs` may report planned subvolumes, but must not create a Btrfs filesystem or subvolumes until a later destructive change is approved.
+`make partition-plan` is read-only but stricter than `install-plan`: it requires `INSTALL_DISK`, fails if selected disk children are mounted, and reports the exact GPT layout that a future destructive target would apply.
 
 ## 15. Failure Modes
 - No approved OpenSpec change for Ansible work.
@@ -365,6 +370,7 @@ When phase 2 Ansible behavior changes, documentation must change in the same imp
 
 - If the Ansible layout, inventory model, variable model, roles, playbooks, safety gates, dry-run behavior, idempotency rules, or log locations change, update this skill and the relevant Ansible documentation under `docs/`.
 - If disk detection or install-plan behavior changes, update `docs/ansible-install-plan.md`, `skills/gentoo-disk-planning.md`, and the active OpenSpec `tasks.md`.
+- If partition-plan behavior changes, update `docs/ansible-partition-plan.md`, `skills/gentoo-disk-planning.md`, `skills/makefile-control-plane.md`, and active OpenSpec tasks.
 - If filesystem plan options change, document `FILESYSTEM`, defaults, Btrfs subvolumes, and ext4 behavior in docs and skills together.
 - If a role or playbook intentionally differs from the official Gentoo AMD64 Handbook flow, document the reason in the relevant OpenSpec change and `docs/ansible-architecture.md`.
 - If the live ISO preflight role, inventory, SSH targeting, checks, or Makefile targets change, update `docs/ansible-live-preflight.md`, `docs/libvirt-manual-install-test.md`, and the active OpenSpec `tasks.md`.

@@ -64,7 +64,7 @@ This keeps OpenRC and systemd behavior shared. Init-specific roles must not part
 - require `install_disk`,
 - require the selected disk to match exactly one detected disk,
 - require the selected path type to be `disk`,
-- fail if the selected disk or any child partition has mountpoints,
+- fail if the selected disk, child partition, or nested descendant has mountpoints,
 - report existing filesystems and child partitions,
 - report whether current data would be destroyed by a later apply step,
 - report the planned GPT partition table,
@@ -114,7 +114,7 @@ For `FILESYSTEM=btrfs`:
 - No service or user changes.
 - No default `INSTALL_DISK`.
 - No wildcard disk matching.
-- Fail closed if selected disk has any mounted partition.
+- Fail closed if selected disk has any mounted partition or nested mounted descendant.
 - Fail closed if selected disk identity is ambiguous.
 
 ## Documentation
@@ -132,7 +132,7 @@ Documentation must distinguish `partition-plan` from future destructive `partiti
 - Is `INSTALL_DISK` required and never defaulted?
 - Are ext4 and Btrfs handled through shared logic?
 - Does Btrfs root include `subvol=@`?
-- Does the plan fail on mounted selected disk children?
+- Does the plan fail on mounted selected disk children and nested descendants?
 - Are destructive commands absent?
 - Does the plan report what would be destroyed?
 - Are all operator actions exposed through Makefile targets?
