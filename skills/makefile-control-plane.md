@@ -209,6 +209,7 @@ Semi-dangerous targets:
 - `make download-stage3`
 - `make mount-target`
 - `make stage3-install`
+- `make prepare-chroot`
 - `make vm-disk`
 - `make vm-define`
 - `make vm-start`
@@ -231,6 +232,7 @@ Expected behavior:
 - `make verify-stage3`: verify checksum and signature policy from `docs/stage3-signature-policy.md` before any extraction target can run.
 - `make stage3-install`: use `STAGE3_MIRROR` and `STAGE3_CACHE_DIR`, verify official metadata and SHA512/signatures, then extract only into mounted `/mnt/gentoo`.
 - `make mount-target`: mount explicitly provided partitions to explicitly provided target paths after mount-state checks; for Btrfs it must mount root with `subvol=@` and the approved subvolumes from `docs/btrfs-layout-policy.md`.
+- `make prepare-chroot`: require mounted `/mnt/gentoo` with extracted stage3 markers, mount or verify pseudo-filesystems only under `/mnt/gentoo`, prepare target DNS, validate DNS with a read-only chroot lookup, and print before/after mount state.
 - `make vm-disk`: create or preserve the project-local qcow2 VM disk.
 - `make vm-define`: define the project-owned libvirt domain from reviewed project-local inputs.
 - `make vm-start`: start the project-owned VM from the official Gentoo live ISO.
@@ -246,6 +248,8 @@ Expected behavior:
 - `make vm-clean`: undefine the project-owned domain and delete generated VM artifacts only after typing `DELETE`.
 
 `make mount-target` is destructive-adjacent because mounting over a wrong path can hide data. It must print current mounts, refuse unrelated existing mounts, remain idempotent for already-correct mounts, and fail closed when ambiguity exists.
+
+`make prepare-chroot` is destructive-adjacent because it creates bind/pseudo-filesystem mounts and writes target resolver configuration under `/mnt/gentoo`. It must refuse target roots other than `/mnt/gentoo`, never mount outside the target root, avoid arbitrary chroot execution, and remain idempotent for already-correct mounts.
 
 Future destructive targets should print or call a read-only preview before accepting confirmation. Preview output must not set `I_UNDERSTAND_THIS_WIPES_DISK=yes` or any equivalent confirmation.
 

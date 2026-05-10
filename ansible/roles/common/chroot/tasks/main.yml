@@ -1,0 +1,286 @@
+---
+- name: Define chroot target facts
+  ansible.builtin.set_fact:
+    chroot_target_root: "{{ target_mount | default('/mnt/gentoo') }}"
+    chroot_dns_test_host: distfiles.gentoo.org
+
+- name: Validate chroot target root path
+  ansible.builtin.assert:
+    that:
+      - chroot_target_root == '/mnt/gentoo'
+      - chroot_target_root != '/'
+      - chroot_target_root is match('^/mnt/gentoo$')
+    fail_msg: "CHROOT_NOT_READY: target root must be the approved /mnt/gentoo path."
+    success_msg: "Chroot target root path is approved."
+
+- name: Read current target root mount
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - "{{ chroot_target_root }}"
+      - --noheadings
+      - --output
+      - TARGET,SOURCE,FSTYPE,OPTIONS
+  register: chroot_target_findmnt
+  changed_when: false
+  failed_when: chroot_target_findmnt.rc != 0
+  check_mode: false
+
+- name: Require extracted stage3 markers before chroot preparation
+  ansible.builtin.stat:
+    path: "{{ chroot_target_root }}/{{ item }}"
+  loop:
+    - etc
+    - usr
+    - var
+    - root
+  register: chroot_stage3_markers
+
+- name: Validate extracted stage3 markers
+  ansible.builtin.assert:
+    that:
+      - chroot_stage3_markers.results | selectattr('stat.exists') | list | length == chroot_stage3_markers.results | length
+    fail_msg: "CHROOT_NOT_READY: expected stage3 directories are missing under /mnt/gentoo."
+    success_msg: "Expected stage3 directories exist under /mnt/gentoo."
+
+- name: Define chroot pseudo-filesystem mount plan
+  ansible.builtin.set_fact:
+    chroot_mount_plan:
+      - mountpoint: "{{ chroot_target_root }}/proc"
+        source: proc
+        fstype: proc
+        command:
+          - mount
+          - -t
+          - proc
+          - proc
+          - "{{ chroot_target_root }}/proc"
+      - mountpoint: "{{ chroot_target_root }}/sys"
+        source: /sys
+        fstype: sysfs
+        command:
+          - mount
+          - --rbind
+          - /sys
+          - "{{ chroot_target_root }}/sys"
+        propagation:
+          - mount
+          - --make-rslave
+          - "{{ chroot_target_root }}/sys"
+      - mountpoint: "{{ chroot_target_root }}/dev"
+        source: /dev
+        fstype: devtmpfs
+        command:
+          - mount
+          - --rbind
+          - /dev
+          - "{{ chroot_target_root }}/dev"
+        propagation:
+          - mount
+          - --make-rslave
+          - "{{ chroot_target_root }}/dev"
+      - mountpoint: "{{ chroot_target_root }}/run"
+        source: /run
+        fstype: tmpfs
+        command:
+          - mount
+          - --bind
+          - /run
+          - "{{ chroot_target_root }}/run"
+        propagation:
+          - mount
+          - --make-slave
+          - "{{ chroot_target_root }}/run"
+
+- name: Define chroot mountpoint inspection list
+  ansible.builtin.set_fact:
+    chroot_mountpoints: "{{ chroot_mount_plan | map(attribute='mountpoint') | list + [chroot_target_root ~ '/dev/pts'] }}"
+
+- name: Read chroot mount state before apply
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - "{{ item }}"
+      - --noheadings
+      - --output
+      - TARGET,SOURCE,FSTYPE,OPTIONS
+  loop: "{{ chroot_mountpoints }}"
+  register: chroot_before_findmnt
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Determine whether chroot mount actions are needed
+  ansible.builtin.set_fact:
+    chroot_mounts_needed: "{{ chroot_before_findmnt.results | selectattr('rc', 'ne', 0) | list | length > 0 }}"
+
+- name: Inspect planned chroot mountpoint
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - "{{ item.mountpoint }}"
+      - --noheadings
+      - --output
+      - SOURCE,FSTYPE,OPTIONS
+  loop: "{{ chroot_mount_plan }}"
+  register: chroot_mount_findmnt
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Build current chroot mount state
+  ansible.builtin.set_fact:
+    chroot_current_mounts: "{{ chroot_current_mounts | default({}) | combine({item.item.mountpoint: item}) }}"
+  loop: "{{ chroot_mount_findmnt.results }}"
+
+- name: Validate existing chroot pseudo-filesystem mounts
+  ansible.builtin.assert:
+    that:
+      - item.rc != 0 or item.stdout is search(item.item.fstype)
+    fail_msg: "CHROOT_NOT_READY: {{ item.item.mountpoint }} is mounted but does not look like {{ item.item.fstype }}: {{ item.stdout }}"
+    success_msg: "Existing chroot mount is acceptable: {{ item.item.mountpoint }}"
+  loop: "{{ chroot_mount_findmnt.results }}"
+
+- name: Create missing chroot mount directories
+  ansible.builtin.file:
+    path: "{{ item.mountpoint }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ chroot_mount_plan }}"
+  when:
+    - not ansible_check_mode
+    - chroot_current_mounts[item.mountpoint].rc != 0
+
+- name: Apply missing chroot pseudo-filesystem mounts
+  ansible.builtin.command:
+    argv: "{{ item.command }}"
+  loop: "{{ chroot_mount_plan }}"
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - chroot_current_mounts[item.mountpoint].rc != 0
+
+- name: Apply propagation mode for newly mounted recursive chroot mounts
+  ansible.builtin.command:
+    argv: "{{ item.propagation }}"
+  loop: "{{ chroot_mount_plan }}"
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - item.propagation is defined
+    - chroot_current_mounts[item.mountpoint].rc != 0
+
+- name: Read live ISO resolver configuration
+  ansible.builtin.slurp:
+    src: /etc/resolv.conf
+  register: chroot_live_resolv
+  no_log: true
+
+- name: Stat target resolver configuration
+  ansible.builtin.stat:
+    path: "{{ chroot_target_root }}/etc/resolv.conf"
+  register: chroot_target_resolv_stat
+
+- name: Backup existing target resolver configuration once
+  ansible.builtin.copy:
+    src: "{{ chroot_target_root }}/etc/resolv.conf"
+    dest: "{{ chroot_target_root }}/etc/resolv.conf.gentoo-ai-installer.bak"
+    remote_src: true
+    mode: "0644"
+    force: false
+  when:
+    - not ansible_check_mode
+    - chroot_target_resolv_stat.stat.exists
+
+- name: Install target resolver configuration for chroot DNS
+  ansible.builtin.copy:
+    dest: "{{ chroot_target_root }}/etc/resolv.conf"
+    content: "{{ chroot_live_resolv.content | b64decode }}"
+    mode: "0644"
+  no_log: true
+  when: not ansible_check_mode
+
+- name: Validate DNS from prepared target chroot
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ chroot_target_root }}"
+      - getent
+      - hosts
+      - "{{ chroot_dns_test_host }}"
+  register: chroot_dns_check
+  changed_when: false
+  failed_when: chroot_dns_check.rc != 0
+  check_mode: false
+  when: not ansible_check_mode
+
+- name: Read chroot mount state after apply
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - "{{ item }}"
+      - --noheadings
+      - --output
+      - TARGET,SOURCE,FSTYPE,OPTIONS
+  loop: "{{ chroot_mountpoints }}"
+  register: chroot_after_findmnt
+  changed_when: false
+  failed_when: chroot_after_findmnt.rc != 0
+  check_mode: false
+  when: not ansible_check_mode
+
+- name: Define chroot audit run id
+  ansible.builtin.set_fact:
+    chroot_run_id: "{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}"
+
+- name: Define chroot audit log path
+  ansible.builtin.set_fact:
+    chroot_log_dir: "{{ project_root | default(lookup('ansible.builtin.env', 'PWD'), true) }}/logs/install-runs/{{ chroot_run_id }}/chroot"
+
+- name: Create local chroot log directory
+  ansible.builtin.file:
+    path: "{{ chroot_log_dir }}"
+    state: directory
+    mode: "0750"
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Record chroot preparation evidence
+  ansible.builtin.copy:
+    dest: "{{ chroot_log_dir }}/prepare.json"
+    mode: "0640"
+    content: |
+      {
+        "target_root": {{ chroot_target_root | to_json }},
+        "target_mount": {{ chroot_target_findmnt.stdout | to_json }},
+        "mounts_needed": {{ (chroot_mounts_needed | bool) | to_json }},
+        "before": {{ chroot_before_findmnt.results | map(attribute='stdout') | list | to_nice_json }},
+        "after": {{ chroot_after_findmnt.results | map(attribute='stdout') | list | to_nice_json }},
+        "dns_test_host": {{ chroot_dns_test_host | to_json }},
+        "dns_ready": {{ (chroot_dns_check.rc == 0) | to_json }}
+      }
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Build chroot preparation report
+  ansible.builtin.set_fact:
+    chroot_report:
+      changed: "{{ (chroot_mounts_needed | bool) and not ansible_check_mode }}"
+      target_root: "{{ chroot_target_root }}"
+      mounts:
+        before: "{{ chroot_before_findmnt.results | map(attribute='stdout') | list }}"
+        after: "{{ chroot_after_findmnt.results | default([]) | map(attribute='stdout') | list if not ansible_check_mode else [] }}"
+      dns_ready: "{{ (not ansible_check_mode) and chroot_dns_check.rc == 0 }}"
+      logs: "{{ chroot_log_dir }}/"
+
+- name: Print chroot preparation report
+  ansible.builtin.debug:
+    msg: "{{ chroot_report }}"

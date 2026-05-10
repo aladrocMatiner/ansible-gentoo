@@ -93,7 +93,7 @@ Preserve logs of downloaded file names, checksums, verification status, and time
 
 Manual validation commands may include checksum verification and signature verification tools available in the live ISO. Future automation must fail closed on verification mismatch.
 
-The detailed policy is documented in `docs/stage3-signature-policy.md`. Future implementation must follow that document before extraction.
+The detailed policy is documented in `docs/stage3-signature-policy.md`. The implemented `make stage3-install` target must follow that document before extraction.
 
 ## 7. Extraction Procedure
 Use:
@@ -129,16 +129,16 @@ Use:
 make prepare-chroot
 ```
 
-Chroot mount preparation should:
+The implemented `make prepare-chroot` target should:
 
 - Confirm `/mnt/gentoo` is mounted.
 - Confirm required target directories exist after stage3 extraction.
-- Prepare required pseudo-filesystem mounts for chroot.
+- Prepare `/mnt/gentoo/proc`, `/mnt/gentoo/sys`, `/mnt/gentoo/dev`, `/mnt/gentoo/dev/pts`, and `/mnt/gentoo/run` for chroot.
 - Ensure bind mounts are scoped under `/mnt/gentoo`.
 - Avoid mounting over unrelated live ISO paths.
 - Show current mounts before and after preparation.
 
-Future automation must be idempotent: if required mounts already exist and point to the expected sources, it should not duplicate them.
+The target must be idempotent: if required mounts already exist and point to the expected sources, it must not duplicate them.
 
 ## 9. DNS Preparation
 DNS preparation should:
@@ -147,8 +147,9 @@ DNS preparation should:
 - Ensure resolver configuration is available inside `/mnt/gentoo` by a documented and reversible method.
 - Avoid overwriting target resolver configuration without review.
 - Record what DNS files or links were placed into the target.
+- Validate target DNS with a read-only `chroot /mnt/gentoo getent hosts distfiles.gentoo.org` check before Portage or package operations.
 
-Manual validation may test name resolution before and after chroot entry. Future automation should fail if DNS cannot be proven available for package operations.
+Manual validation may test name resolution before and after chroot entry. The implemented automation must fail if DNS cannot be proven available for package operations.
 
 ## 10. Chroot Entry Expectations
 Use:
@@ -187,7 +188,7 @@ Target expectations:
 - `make verify-stage3`: verify checksums, signatures, architecture, and selected init variant according to `docs/stage3-signature-policy.md`.
 - `make extract-stage3`: extract only verified stage3 into confirmed `/mnt/gentoo`.
 - `make stage3-install`: implemented combined workflow that downloads, verifies, and extracts the selected official stage3 into verified `/mnt/gentoo`.
-- `make prepare-chroot`: prepare pseudo-filesystems and DNS for chroot.
+- `make prepare-chroot`: implemented combined workflow that prepares Handbook-aligned pseudo-filesystems and DNS for later chroot-based tasks without running Portage, package, kernel, user, service, or bootloader operations.
 - `make enter-chroot`: enter target chroot after readiness checks.
 - `make mount-plan`: read-only prerequisite check that reports the intended target mount layout before `make mount-target`.
 - `make mount-target`: mount the approved root, Btrfs subvolumes when selected, and ESP before stage3 extraction.

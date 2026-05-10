@@ -1,0 +1,7 @@
+---
+- name: Prepare Gentoo target root for chroot tasks
+  hosts: gentoo_live
+  gather_facts: true
+  roles:
+    - role: common/live_preflight
+    - role: common/chroot

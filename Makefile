@@ -67,7 +67,7 @@ export INSTALL_DISK
 
 .PHONY: help \
 	vm-check vm-disk vm-define vm-start vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
-	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install \
+	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install prepare-chroot \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -99,6 +99,7 @@ help:
 		'  make format         DESTRUCTIVE: create ESP/root filesystems (requires confirmation)' \
 		'  make mount-target   Mount formatted target root/ESP for stage3 extraction' \
 		'  make stage3-install Download, verify, and extract official Gentoo stage3' \
+		'  make prepare-chroot Mount pseudo-filesystems and prepare DNS for chroot tasks' \
 		'  make vm-shutdown     Request clean guest shutdown' \
 		'  make vm-destroy      Stop the configured VM without deleting artifacts' \
 		'  make vm-clean        Undefine VM and delete generated artifacts after confirmation' \
@@ -221,6 +222,9 @@ mount-target:
 
 stage3-install:
 	@scripts/ansible-stage3-install.sh
+
+prepare-chroot:
+	@scripts/ansible-prepare-chroot.sh
 
 vm-shutdown:
 	@scripts/vm-shutdown.sh

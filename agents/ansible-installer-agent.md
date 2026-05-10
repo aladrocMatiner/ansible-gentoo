@@ -112,7 +112,7 @@ Shared roles:
 - `common/filesystem`: create filesystems only after partition confirmation gates pass.
 - `common/mount_target`: mount target root and EFI partitions with path assertions, idempotent existing-mount validation, and Btrfs `subvol=@` handling.
 - `common/stage3`: provide shared download, checksum, signature, architecture, variant validation, and guarded extraction into verified `/mnt/gentoo`.
-- `common/chroot`: prepare chroot bind mounts and guard target-mutating operations.
+- `common/chroot`: prepare Handbook-aligned pseudo-filesystem mounts under `/mnt/gentoo`, copy resolver configuration safely, validate DNS with a read-only chroot lookup, report before/after mount state, and guard later target-mutating operations.
 - `common/portage`: configure conservative Portage baseline shared by both variants.
 - `common/package_install`: install packages from shared or variant package lists.
 - `common/fstab`: generate UUID-based fstab entries.
