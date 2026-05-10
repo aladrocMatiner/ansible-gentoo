@@ -30,7 +30,7 @@ Shared behavior includes:
 - SSH package installation framework
 - final validation checks
 - logging
-- QEMU validation flow
+- libvirt VM validation flow
 
 Do not duplicate OpenRC and systemd logic unless the behavior genuinely differs. If duplication is necessary, the implementing OpenSpec change must explain why shared roles, variables, handlers, templates, or includes cannot express the behavior.
 
@@ -79,7 +79,7 @@ Shared roles live under `roles/common/` or an equivalent shared structure.
 
 - `preflight`: live ISO, root privilege, amd64, UEFI, network, time, and tool checks.
 - `disk_detection`: read-only disk inventory and identity reporting.
-- `disk_safety`: required variables, confirmations, disk identity, QEMU mode, and fail-closed behavior.
+- `disk_safety`: required variables, confirmations, disk identity, libvirt VM guest mode, and fail-closed behavior.
 - `partitioning`: partition planning and approved execution.
 - `filesystem`: filesystem checks and approved formatting.
 - `mount_target`: target root and EFI mount preparation.
@@ -129,7 +129,7 @@ Shared variables have one meaning across both flows:
 - `confirm_wipe_disk`
 - `target_mount`
 - `efi_mount`
-- `qemu_mode`
+- `vm_guest_mode`
 
 Rules:
 
@@ -138,7 +138,7 @@ Rules:
 - `init_system` must be `openrc` or `systemd`.
 - `stage3_variant` must match `init_system`.
 - Variant values should live in `group_vars/openrc.yml`, `group_vars/systemd.yml`, or an equivalent documented mechanism.
-- QEMU `/dev/vda` is allowed only when explicitly passed as `install_disk=/dev/vda` inside the guest VM.
+- VM guest `/dev/vda` is allowed only when explicitly passed as `install_disk=/dev/vda` inside the libvirt-managed guest VM.
 
 ## Makefile Integration
 The Makefile remains the operator-facing control plane.
@@ -170,16 +170,18 @@ Required shared gates:
 - `confirm_wipe_disk=yes` is required before destructive disk operations.
 - Destructive tasks fail closed on ambiguity.
 - Init-specific roles cannot partition, format, wipe, select disks, or redefine disk safety.
-- QEMU mode does not disable confirmations or disk identity checks.
+- VM guest mode does not disable confirmations or disk identity checks.
 
-## QEMU Testing Expectations
-QEMU is the first safe test environment for OpenRC and systemd install plans.
+## VM Testing Expectations
+libvirt/virsh is the first safe test environment for OpenRC and systemd install plans.
 
 - Boot the official Gentoo live ISO from `./gentoo.iso`.
-- Use qcow2 disks under `./var/qemu/`.
+- Use qcow2 disks under `./var/libvirt/`.
+- Use the libvirt managed `default` network for IP discovery when validating Ansible connectivity.
 - Do not touch host block devices.
 - Use `/dev/vda` only inside the guest VM and only when explicitly passed as `install_disk=/dev/vda`.
-- Validate OpenRC and systemd install plans in QEMU before real hardware testing.
+- Validate OpenRC and systemd install plans in the libvirt-managed VM before real hardware testing.
+- Use `make vm-bootstrap-ssh` and `make vm-ansible-ping` only to validate access to the live ISO; installer playbooks remain separate approved work.
 
 ## Acceptable Reuse
 Acceptable patterns:
@@ -212,5 +214,5 @@ Before approving future Ansible implementation:
 - Do systemd tasks avoid `rc-update` and `rc-service`?
 - Do Makefile targets call shared Ansible flows where practical?
 - Are handlers, templates, validation tasks, and logs reused?
-- Is QEMU `/dev/vda` limited to explicit guest-mode use?
+- Is VM guest `/dev/vda` limited to explicit guest-mode use?
 - Does documentation distinguish implemented behavior from planned behavior?

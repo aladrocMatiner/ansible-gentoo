@@ -11,6 +11,18 @@ gentoo.iso
 logs/
 tmp/
 
-# Local QEMU test VM artifacts.
+# Legacy local QEMU test VM artifacts.
 var/qemu/*.qcow2
 var/qemu/*.fd
+
+# Local libvirt test VM artifacts.
+var/libvirt/*.qcow2
+var/libvirt/*.xml
+var/libvirt/*-gentoo-kernel
+var/libvirt/*-gentoo-initrd
+var/libvirt/nvram/
+logs/libvirt/
+
+# Python bytecode generated during local validation.
+__pycache__/
+*.pyc

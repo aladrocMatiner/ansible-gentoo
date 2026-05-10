@@ -24,7 +24,7 @@ Use this checklist before finishing any behavior-changing task.
 - Makefile change: update `README.md` or `docs/`; update `skills/makefile-control-plane.md` for reusable behavior.
 - Script change: update `docs/` or relevant `skills/` with arguments, environment variables, safety checks, examples, and failure modes.
 - Ansible change: update Ansible docs with variables, inventory, safety gates, and execution target.
-- QEMU change: update QEMU docs with ISO path, disk path, ports or forwarding when implemented, and cleanup behavior.
+- VM/libvirt change: update VM docs with ISO path, qcow2 path, libvirt URI, network mode, ports or forwarding when implemented, guest `/dev/vda`, and cleanup behavior.
 - Codex bootstrap change: update Codex bootstrap docs with install method, token handling, validation, and cleanup.
 - Safety change: update safety docs and relevant agent or skill files.
 - OpenSpec workflow change: update OpenSpec workflow docs.

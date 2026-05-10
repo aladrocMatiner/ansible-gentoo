@@ -138,7 +138,7 @@ When this agent changes or reviews safety-sensitive behavior, it must enforce do
 - If the safety policy, risk classification, high-risk command list, required confirmations, destructive target rules, or secret handling rules change, update `AGENTS.md`, this file, relevant safety sections in `skills/`, and the applicable documentation under `docs/`.
 - If Makefile safety behavior changes, verify `README.md` or `docs/` and `skills/makefile-control-plane.md` document required variables, confirmation variables, disk identity output, and forbidden defaults.
 - If Ansible safety behavior changes, verify Ansible documentation describes required variables, confirmation gates, local execution target, dry-run limits, and fail-closed behavior.
-- If QEMU safety behavior changes, verify QEMU documentation states that VM disks are files under `./var/qemu/` or the configured `QEMU_DIR`, that host block devices are forbidden, and that cleanup requires explicit confirmation.
+- If VM/libvirt safety behavior changes, verify VM documentation states that disks are qcow2 files under `./var/libvirt/` or the configured project-local `VM_DIR`, that host block devices are forbidden, that domains must be project-owned before replacement or cleanup, and that cleanup requires typing `DELETE`.
 - A safety review must check that safety-sensitive implementation changes include documentation updates and OpenSpec documentation tasks when behavior changes.
 - The agent must reject or require changes for any dangerous behavior change that lacks matching documentation.
 - Before finishing, check `README.md`, `docs/`, `skills/`, `agents/`, and active OpenSpec tasks for stale safety rules, stale command examples, or missing recovery guidance.
@@ -157,6 +157,9 @@ The Makefile is the public control plane. Safety review must verify:
 - Plan targets must exist before apply targets, such as `partition-plan` before `partition`.
 - Destructive targets must fail closed when required variables are missing.
 - Cleanup targets must validate paths before deletion.
+- VM/libvirt targets must reject `/dev/*`, absolute VM disk paths, parent traversal, wildcard paths, symlinked artifact paths, project-root artifact directories, and non-qcow2 existing disk files.
+- VM/libvirt targets must not invoke `sudo` by default.
+- VM cleanup targets must delete only generated artifacts for the configured project-owned domain and must not delete ISO files, libvirt networks, pools, volumes, unrelated domains, or secrets.
 
 ## 13. Ansible Safety Requirements
 For Ansible playbooks, roles, and tasks:

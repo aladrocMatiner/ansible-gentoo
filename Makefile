@@ -1,156 +1,136 @@
 SHELL := /usr/bin/env bash
 
-QEMU_ISO ?= gentoo.iso
-QEMU_DIR ?= var/qemu
-QEMU_DISK ?= $(QEMU_DIR)/gentoo-test.qcow2
-QEMU_DISK_SIZE ?= 40G
-QEMU_RAM ?= 4096
-QEMU_CPUS ?= 2
-QEMU_BOOT_MODE ?= uefi
-QEMU_OVMF_CODE ?=
-QEMU_OVMF_VARS ?=
+LIBVIRT_URI ?= qemu:///system
+VM_NET_MODE ?= network
+VM_NAME ?= gentoo-ai-installer
+VM_ISO ?= gentoo.iso
+VM_DIR ?= var/libvirt
+VM_DISK ?= $(VM_DIR)/gentoo-ai-installer.qcow2
+VM_DISK_SIZE ?= 40G
+VM_RAM ?= 4096
+VM_CPUS ?= 2
+VM_NETWORK ?= default
+VM_SSH_HOST ?= 127.0.0.1
+VM_SSH_HOST_PORT ?= 2222
+VM_SSH_GUEST_PORT ?= 22
+VM_SSH_USER ?= root
+VM_BOOT_MODE ?= uefi
+VM_KERNEL_ARGS ?= dokeymap nodhcp root=live:CDLABEL=Gentoo-amd64-20260426 rd.live.dir=/ rd.live.squashimg=image.squashfs cdroot console=tty0 console=ttyS0,115200n8
 
-export QEMU_ISO
-export QEMU_DIR
-export QEMU_DISK
-export QEMU_DISK_SIZE
-export QEMU_RAM
-export QEMU_CPUS
-export QEMU_BOOT_MODE
-export QEMU_OVMF_CODE
-export QEMU_OVMF_VARS
+export LIBVIRT_URI
+export VM_NET_MODE
+export VM_NAME
+export VM_ISO
+export VM_DIR
+export VM_DISK
+export VM_DISK_SIZE
+export VM_RAM
+export VM_CPUS
+export VM_NETWORK
+export VM_SSH_HOST
+export VM_SSH_HOST_PORT
+export VM_SSH_GUEST_PORT
+export VM_SSH_USER
+export VM_BOOT_MODE
+export VM_KERNEL_ARGS
 
-.PHONY: help qemu-check qemu-disk qemu-boot qemu-clean
+.PHONY: help \
+	vm-check vm-disk vm-define vm-start vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
+	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
 	@printf '%s\n' \
 		'gentoo-ai-installer targets:' \
-		'  make qemu-check      Verify QEMU tools, ISO, boot mode, and safe paths' \
-		'  make qemu-disk       Create the qcow2 test disk if missing' \
-		'  make qemu-boot       Boot the official Gentoo live ISO in QEMU' \
-		'  make qemu-clean      Delete generated QEMU artifacts after confirmation' \
+		'  make vm-check        Verify libvirt tools, ISO, UEFI, network mode, and safe paths' \
+		'  make vm-disk         Create the project-local qcow2 VM disk if missing' \
+		'  make vm-define       Generate and define the libvirt domain' \
+		'  make vm-start        Start the libvirt VM from the official Gentoo ISO' \
+		'  make vm-console      Attach to virsh console for the VM' \
+		'  make vm-viewer       Open graphical access with virt-viewer' \
+		'  make vm-ip           Discover guest IP when managed networking supports it' \
+		'  make vm-bootstrap-ssh Configure SSH authorized_keys and start sshd via serial console' \
+		'  make vm-ssh          SSH to the live ISO after SSH is enabled in the guest' \
+		'  make vm-rsync        Copy non-secret project files to the guest over SSH' \
+		'  make vm-ansible-ping Validate Ansible connectivity to the live ISO over SSH' \
+		'  make vm-shutdown     Request clean guest shutdown' \
+		'  make vm-destroy      Stop the configured VM without deleting artifacts' \
+		'  make vm-clean        Undefine VM and delete generated artifacts after confirmation' \
 		'' \
-		'QEMU variables:' \
-		'  QEMU_ISO=$(QEMU_ISO)' \
-		'  QEMU_DIR=$(QEMU_DIR)' \
-		'  QEMU_DISK=$(QEMU_DISK)' \
-		'  QEMU_DISK_SIZE=$(QEMU_DISK_SIZE)' \
-		'  QEMU_RAM=$(QEMU_RAM)' \
-		'  QEMU_CPUS=$(QEMU_CPUS)' \
-		'  QEMU_BOOT_MODE=$(QEMU_BOOT_MODE)'
+		'Compatibility aliases:' \
+		'  make qemu-check      Alias for vm-check' \
+		'  make qemu-disk       Alias for vm-disk' \
+		'  make qemu-boot       Alias for vm-start' \
+		'  make qemu-clean      Alias for vm-clean' \
+		'' \
+		'VM variables:' \
+		'  LIBVIRT_URI=$(LIBVIRT_URI)' \
+		'  VM_NET_MODE=$(VM_NET_MODE)' \
+		'  VM_NAME=$(VM_NAME)' \
+		'  VM_ISO=$(VM_ISO)' \
+		'  VM_DIR=$(VM_DIR)' \
+		'  VM_DISK=$(VM_DISK)' \
+		'  VM_DISK_SIZE=$(VM_DISK_SIZE)' \
+		'  VM_RAM=$(VM_RAM)' \
+		'  VM_CPUS=$(VM_CPUS)' \
+		'  VM_NETWORK=$(VM_NETWORK)' \
+		'  VM_SSH_HOST=$(VM_SSH_HOST)' \
+		'  VM_SSH_HOST_PORT=$(VM_SSH_HOST_PORT)' \
+		'  VM_SSH_GUEST_PORT=$(VM_SSH_GUEST_PORT)' \
+		'  VM_SSH_USER=$(VM_SSH_USER)' \
+		'  VM_BOOT_MODE=$(VM_BOOT_MODE)' \
+		'  VM_KERNEL_ARGS=$(VM_KERNEL_ARGS)'
 
-qemu-check:
-	@QEMU_CHECK_ONLY=1 scripts/qemu-boot-gentoo-iso.sh
+vm-check:
+	@scripts/vm-check-libvirt.sh
 
-qemu-disk:
-	@scripts/qemu-create-disk.sh
+vm-disk:
+	@scripts/vm-create-disk.sh
 
-qemu-boot: qemu-disk
-	@scripts/qemu-boot-gentoo-iso.sh
+vm-define: vm-disk
+	@scripts/vm-define-libvirt-domain.sh
 
-qemu-clean:
-	@bash -euo pipefail -c '\
-		qemu_dir="$${QEMU_DIR}"; \
-		qemu_disk="$${QEMU_DISK}"; \
-		normalize_relative_dir() { \
-			local path="$$1"; \
-			while [[ "$$path" == ./* ]]; do path="$${path#./}"; done; \
-			while [[ "$$path" == *"/./"* ]]; do path="$${path//\/.\//\/}"; done; \
-			while [[ "$$path" == *"//"* ]]; do path="$${path//\/\//\/}"; done; \
-			while [[ "$$path" != "/" && "$$path" == */. ]]; do path="$${path%/.}"; done; \
-			while [[ "$$path" != "." && "$$path" == */ ]]; do path="$${path%/}"; done; \
-			if [[ -z "$$path" || "$$path" == "/" ]]; then path="."; fi; \
-			printf "%s\n" "$$path"; \
-		}; \
-		normalize_project_path() { \
-			local path="$$1"; \
-			if [[ "$$path" = /* ]]; then \
-				:; \
-			else \
-				path="$$PWD/$$path"; \
-			fi; \
-			while [[ "$$path" == *"/./"* ]]; do path="$${path//\/.\//\/}"; done; \
-			while [[ "$$path" == *"//"* ]]; do path="$${path//\/\//\/}"; done; \
-			while [[ "$$path" != "/" && "$$path" == */. ]]; do path="$${path%/.}"; done; \
-			while [[ "$$path" != "/" && "$$path" == */ ]]; do path="$${path%/}"; done; \
-			printf "%s\n" "$$path"; \
-		}; \
-		reject_symlink_components() { \
-			local path="$$1"; \
-			local current=""; \
-			local component; \
-			IFS=/ read -ra components <<< "$$path"; \
-			for component in "$${components[@]}"; do \
-				[[ -n "$$component" && "$$component" != "." ]] || continue; \
-				if [[ -z "$$current" ]]; then current="$$component"; else current="$$current/$$component"; fi; \
-				if [[ -L "$$current" ]]; then \
-					printf "Refusing symlink path component: %s\n" "$$current" >&2; exit 1; \
-				fi; \
-			done; \
-		}; \
-		assert_qcow2_image() { \
-			local disk="$$1"; \
-			local line; \
-			while IFS= read -r line; do \
-				if [[ "$$line" == "file format: qcow2" ]]; then return 0; fi; \
-			done < <(qemu-img info -- "$$disk" 2>/dev/null); \
-			printf "Refusing non-qcow2 QEMU_DISK during cleanup: %s\n" "$$disk" >&2; exit 1; \
-		}; \
-		validate_qemu_disk() { \
-			local disk="$$1"; \
-			local disk_parent; \
-			local abs_dir; \
-			local abs_disk; \
-			case "$$disk" in ""|/*|*".."*|"/dev"|"/dev/"*|*"*"*|*"?"*|*"["*|*","*) \
-				printf "Refusing unsafe QEMU_DISK: %s\n" "$$disk" >&2; exit 1 ;; \
-			esac; \
-			case "$$disk" in *.qcow2) ;; *) printf "Refusing non-qcow2 QEMU_DISK: %s\n" "$$disk" >&2; exit 1 ;; esac; \
-			disk_parent=$$(dirname -- "$$disk"); \
-			reject_symlink_components "$$disk_parent"; \
-			if [[ -L "$$disk" ]]; then \
-				printf "Refusing symlink QEMU_DISK: %s\n" "$$disk" >&2; exit 1; \
-			fi; \
-			abs_dir=$$(normalize_project_path "$$qemu_dir"); \
-			abs_disk=$$(normalize_project_path "$$disk"); \
-			case "$$abs_disk" in "$$abs_dir"/*) ;; \
-				*) printf "Refusing QEMU_DISK outside QEMU_DIR: %s\n" "$$disk" >&2; exit 1 ;; \
-			esac; \
-		}; \
-		case "$$qemu_dir" in ""|"."|"/"|/*|*".."*|"/dev"|"/dev/"*|*"*"*|*"?"*|*"["*|*","*) \
-			printf "Refusing unsafe QEMU_DIR: %s\n" "$$qemu_dir" >&2; exit 1 ;; \
-		esac; \
-		qemu_dir=$$(normalize_relative_dir "$$qemu_dir"); \
-		case "$$qemu_dir" in ""|"."|"/") \
-			printf "Refusing project-root QEMU_DIR: %s\n" "$${QEMU_DIR}" >&2; exit 1 ;; \
-		esac; \
-		if [[ -L "$$qemu_dir" ]]; then \
-			printf "Refusing symlink QEMU_DIR: %s\n" "$$qemu_dir" >&2; exit 1; \
-		fi; \
-		reject_symlink_components "$$qemu_dir"; \
-		validate_qemu_disk "$$qemu_disk"; \
-		if [[ ! -d "$$qemu_dir" ]]; then \
-			printf "No QEMU directory to clean: %s\n" "$$qemu_dir"; exit 0; \
-		fi; \
-		files=(); \
-		if [[ -f "$$qemu_disk" ]]; then assert_qcow2_image "$$qemu_disk"; files+=("$$qemu_disk"); fi; \
-		ovmf_vars="$$qemu_dir/gentoo-test-OVMF_VARS.fd"; \
-		if [[ -L "$$ovmf_vars" ]]; then \
-			printf "Refusing symlink per-VM OVMF vars file: %s\n" "$$ovmf_vars" >&2; exit 1; \
-		fi; \
-		if [[ -e "$$ovmf_vars" && ! -f "$$ovmf_vars" ]]; then \
-			printf "Refusing non-regular per-VM OVMF vars path: %s\n" "$$ovmf_vars" >&2; exit 1; \
-		fi; \
-		if [[ -f "$$ovmf_vars" ]]; then files+=("$$ovmf_vars"); fi; \
-		if (( $${#files[@]} == 0 )); then \
-			printf "No generated QEMU disk or firmware variable files found under %s\n" "$$qemu_dir"; exit 0; \
-		fi; \
-		printf "qemu-clean will delete only these files under %s:\n" "$$qemu_dir"; \
-		printf "  %s\n" "$${files[@]}"; \
-		printf "Type DELETE to remove these files: "; \
-		read -r confirmation; \
-		if [[ "$$confirmation" != "DELETE" ]]; then \
-			printf "qemu-clean cancelled.\n"; exit 1; \
-		fi; \
-		rm -f -- "$${files[@]}"; \
-		printf "Removed %s generated QEMU artifact(s).\n" "$${#files[@]}"; \
-	'
+vm-start: vm-disk
+	@if ! virsh --connect "$(LIBVIRT_URI)" dominfo "$(VM_NAME)" >/dev/null 2>&1; then scripts/vm-define-libvirt-domain.sh; fi
+	@scripts/vm-start.sh
+
+vm-console:
+	@scripts/vm-console.sh
+
+vm-viewer:
+	@scripts/vm-viewer.sh
+
+vm-ip:
+	@scripts/vm-ip.sh
+
+vm-bootstrap-ssh:
+	@scripts/vm-bootstrap-live-ssh.py
+
+vm-ssh:
+	@scripts/vm-ssh.sh
+
+vm-rsync:
+	@scripts/vm-rsync.sh
+
+vm-ansible-ping:
+	@scripts/vm-ansible-ping.sh
+
+vm-shutdown:
+	@scripts/vm-shutdown.sh
+
+vm-destroy:
+	@scripts/vm-destroy.sh
+
+vm-clean:
+	@scripts/vm-clean.sh
+
+qemu-check: vm-check
+	@printf '%s\n' 'qemu-check is a compatibility alias; libvirt/virsh vm-check is the active workflow.'
+
+qemu-disk: vm-disk
+	@printf '%s\n' 'qemu-disk is a compatibility alias; libvirt/virsh vm-disk is the active workflow.'
+
+qemu-boot: vm-start
+	@printf '%s\n' 'qemu-boot is a compatibility alias; libvirt/virsh vm-start is the active workflow.'
+
+qemu-clean: vm-clean
+	@printf '%s\n' 'qemu-clean is a compatibility alias; libvirt/virsh vm-clean is the active workflow.'

@@ -102,7 +102,7 @@ Expected variables:
 - `enable_ssh`: whether to install and enable SSH.
 - `target_mount: /mnt/gentoo`
 - `efi_mount: /mnt/gentoo/boot/efi`
-- `qemu_mode`: true only in the QEMU guest test environment.
+- `vm_guest_mode`: true only in the libvirt-managed VM guest test environment.
 - `install_disk`: required for destructive tasks, no default.
 - `efi_partition`: set only after approved plan.
 - `root_partition`: set only after approved plan.
@@ -119,7 +119,7 @@ Rules:
 - systemd variables belong in `group_vars/systemd.yml` or an equivalent variant file.
 - OpenRC workflows must not call `systemctl`.
 - systemd workflows must not call `rc-update` or `rc-service`.
-- QEMU `/dev/vda` is allowed only when explicitly passed as `install_disk=/dev/vda` inside the guest VM.
+- VM guest `/dev/vda` is allowed only when explicitly passed as `install_disk=/dev/vda` inside the libvirt-managed guest VM.
 - Do not store plaintext passwords, API keys, or login tokens in variables.
 - Variables that select disks or partitions must be operator-provided or generated from an approved plan.
 
@@ -130,7 +130,7 @@ Shared roles:
 
 - `common/preflight`: verify live ISO, amd64, UEFI, network, time, tools, and root privileges.
 - `common/disk_detection`: read-only disk identity and partition reporting.
-- `common/disk_safety`: shared assertions for `install_disk`, confirmation variables, disk identity, QEMU mode, and fail-closed behavior.
+- `common/disk_safety`: shared assertions for `install_disk`, confirmation variables, disk identity, VM guest mode, and fail-closed behavior.
 - `common/partitioning`: partition only after shared safety gates pass.
 - `common/filesystem`: format approved partitions only after shared confirmation.
 - `common/mount_target`: mount root and EFI partitions with path assertions.

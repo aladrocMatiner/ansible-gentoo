@@ -3,7 +3,7 @@
 ## 1. Project Overview
 Project name: `gentoo-ai-installer`.
 
-v1 uses the official Gentoo live ISO and installs Codex temporarily in the live environment. The Makefile is the operator-facing control plane. OpenSpec controls project changes. Ansible is used for reproducible installation in phase 2. QEMU is used to test manual installation flows safely before real hardware. QEMU tests must avoid touching host disks.
+v1 uses the official Gentoo live ISO and installs Codex temporarily in the live environment. The Makefile is the operator-facing control plane. OpenSpec controls project changes. Ansible is used for reproducible installation in phase 2. libvirt/virsh is used to test manual installation flows safely before real hardware. VM tests must avoid touching host disks.
 
 ## 2. Control Plane Rule
 All operator-facing workflows must be exposed through Makefile targets.
@@ -19,7 +19,7 @@ Agents must check documentation before finishing, correct stale documentation th
 - Makefile target added, changed, or removed: update `README.md` or `docs/`, and update `skills/makefile-control-plane.md` if the behavior is reusable.
 - Script added or changed: update `docs/` or relevant `skills/`; document arguments, environment variables, safety checks, examples, and failure modes.
 - Ansible playbook or role added or changed: update Ansible documentation; document variables, required inventory, safety gates, and execution target.
-- QEMU workflow changed: update QEMU docs; document ISO path, disk path, SSH forwarding, ports, cleanup behavior, and whether behavior is implemented or planned.
+- VM/libvirt workflow changed: update VM docs; document ISO path, disk path, libvirt URI, network mode, serial console behavior, SSH bootstrap, cleanup behavior, and whether behavior is implemented or planned.
 - Codex bootstrap changed: update Codex bootstrap docs; document install method, token handling, validation, and cleanup.
 - Safety rule changed: update safety docs and relevant agent or skill files.
 - OpenSpec workflow changed: update OpenSpec workflow docs.
@@ -79,20 +79,25 @@ Future Ansible implementation must reuse shared roles, tasks, variables, handler
 - Makefile targets should call shared Ansible flows where practical and pass `PROFILE=openrc` or `PROFILE=systemd` into the shared flow.
 - Documentation must describe shared behavior once and call out init-specific behavior clearly.
 
-## 12. QEMU Documentation Rule
-QEMU docs must explain:
+## 12. VM/libvirt Documentation Rule
+VM docs must explain:
 
 - `./gentoo.iso`.
-- `./var/qemu/`.
+- `./var/libvirt/`.
 - qcow2 disk safety.
-- SSH forwarding and ports when implemented.
-- `make qemu-boot`.
-- `make qemu-ssh` when implemented.
-- `make qemu-rsync` when implemented.
-- `make qemu-clean`.
+- libvirt URI and network mode.
+- managed-network IP discovery or SSH forwarding behavior.
+- `make vm-bootstrap-ssh`.
+- `make vm-ansible-ping`.
+- `make vm-start`.
+- `make vm-console`.
+- `make vm-viewer`.
+- `make vm-ssh`.
+- `make vm-rsync`.
+- `make vm-clean`.
 - That `/dev/vda` is the expected guest virtual disk inside the VM.
 
-Planned QEMU behavior must be clearly labeled as planned and not documented as available.
+Compatibility `qemu-*` targets may exist only as aliases to the libvirt workflow. Planned VM behavior must be clearly labeled as planned and not documented as available.
 
 ## 13. Codex Bootstrap Documentation Rule
 Codex bootstrap docs must explain:

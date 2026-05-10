@@ -101,7 +101,7 @@ Shared roles:
 
 - `common/preflight`: verify live ISO, amd64, UEFI, network, time, tools, and mount state.
 - `common/disk_detection`: collect disk model, size, serial, stable paths, and current partition table without modifying disks.
-- `common/disk_safety`: validate required disk variables, confirmations, QEMU mode assumptions, and fail-closed behavior.
+- `common/disk_safety`: validate required disk variables, confirmations, libvirt VM guest-mode assumptions, and fail-closed behavior.
 - `common/partitioning`: perform partition changes only after shared disk and confirmation gates pass.
 - `common/filesystem`: create filesystems only after partition confirmation gates pass.
 - `common/mount_target`: mount target root and EFI partitions with path assertions.
@@ -148,7 +148,7 @@ The variable model must make risk explicit. Required or expected variables inclu
 - `timezone`: target timezone.
 - `locale`: target locale.
 - `enable_ssh`: whether to install and enable SSH.
-- `qemu_mode`: true only when running inside the QEMU test VM.
+- `vm_guest_mode`: true only when running inside the libvirt-managed test VM.
 - `admin_users`: target user definitions without plaintext passwords.
 - `confirm_wipe_disk`: required value is `yes` for destructive disk tasks. It may be populated from the Makefile `I_UNDERSTAND_THIS_WIPES_DISK` variable.
 - `bootloader_confirmation`: required for GRUB and EFI changes.
@@ -161,7 +161,7 @@ Rules:
 - Defaults must not choose a disk.
 - The Makefile variable `INSTALL_DISK` must never have a default value, and Ansible must not introduce one in inventory or `group_vars`.
 - `stage3_variant` must match `init_system`.
-- QEMU `/dev/vda` is allowed only when explicitly passed as `install_disk=/dev/vda` inside the guest VM.
+- VM guest `/dev/vda` is allowed only when explicitly passed as `install_disk=/dev/vda` inside the libvirt-managed guest VM.
 - Passwords and tokens must not be stored in `group_vars/all.yml`.
 - Values discovered at runtime must be logged as evidence before tasks mutate state.
 

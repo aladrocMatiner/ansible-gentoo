@@ -184,7 +184,7 @@ When this agent creates, updates, reviews, or archives OpenSpec changes, it must
 - Every implementation change that modifies operator behavior must include documentation tasks in `openspec/changes/<change>/tasks.md`; those tasks must name the affected documentation area instead of saying only "update docs".
 - Documentation tasks must remain unchecked until the relevant files are actually updated and reviewed.
 - If an OpenSpec workflow changes, update `skills/openspec-workflow.md`, this file, and `README.md` or `docs/` where operators invoke the workflow.
-- If a change affects Makefile targets, scripts, Ansible, QEMU, Codex bootstrap, disk safety, or manual install flow, ensure the proposal and tasks identify the required documentation updates for that behavior.
+- If a change affects Makefile targets, scripts, Ansible, VM/libvirt testing, Codex bootstrap, disk safety, or manual install flow, ensure the proposal and tasks identify the required documentation updates for that behavior.
 - If a change affects Ansible OpenRC or systemd behavior, require reuse analysis that identifies shared behavior, init-specific behavior, safety gates, and any justified duplication.
 - For Ansible architecture changes, ensure `tasks.md` includes documentation updates for `docs/ansible-architecture.md`, `agents/ansible-installer-agent.md`, and `skills/ansible-gentoo-installer.md`.
 - If a project-wide agent rule changes, update `AGENTS.md` and any affected agent or skill file in the same change.

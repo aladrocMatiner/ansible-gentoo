@@ -14,6 +14,7 @@ Use this skill when:
 - Adding Codex bootstrap behavior.
 - Adding OpenSpec maintenance commands.
 - Adding scripts that an operator might run.
+- Adding or changing VM/libvirt manual-install test targets.
 - Adding Ansible playbooks or roles.
 - Adding disk, filesystem, mount, stage3, chroot, bootloader, user, password, or cleanup operations.
 - Reviewing whether documentation should mention raw commands or make targets.
@@ -39,6 +40,7 @@ Use this skill when:
 - Route Codex bootstrap through make targets.
 - Route Ansible through make targets.
 - Route scripts through make targets.
+- Route VM/libvirt operations through make targets.
 - Do not require the operator to run scripts directly.
 - For OpenRC and systemd Ansible flows, prefer parameterized shared Makefile targets or thin variant targets that pass variables into a shared Ansible flow.
 - Avoid separate duplicated command chains when `PROFILE=openrc` or `PROFILE=systemd` can select the variant safely.
@@ -57,6 +59,24 @@ Required project variables:
 - `CODEX_INSTALL_METHOD`
 - `I_UNDERSTAND_THIS_WIPES_DISK`
 
+VM/libvirt variables:
+
+- `LIBVIRT_URI`
+- `VM_NET_MODE`
+- `VM_NAME`
+- `VM_ISO`
+- `VM_DIR`
+- `VM_DISK`
+- `VM_DISK_SIZE`
+- `VM_RAM`
+- `VM_CPUS`
+- `VM_NETWORK`
+- `VM_SSH_HOST`
+- `VM_SSH_HOST_PORT`
+- `VM_SSH_GUEST_PORT`
+- `VM_SSH_USER`
+- `VM_BOOT_MODE`
+
 Recommended defaults:
 
 - `HOSTNAME=gentoo`
@@ -64,6 +84,24 @@ Recommended defaults:
 - `FILESYSTEM=ext4`
 - `BOOT_MODE=uefi`
 - `CODEX_INSTALL_METHOD=npm`
+
+Recommended VM/libvirt defaults:
+
+- `LIBVIRT_URI=qemu:///system`
+- `VM_NET_MODE=network`
+- `VM_NAME=gentoo-ai-installer`
+- `VM_ISO=gentoo.iso`
+- `VM_DIR=var/libvirt`
+- `VM_DISK=$(VM_DIR)/gentoo-ai-installer.qcow2`
+- `VM_DISK_SIZE=40G`
+- `VM_RAM=4096`
+- `VM_CPUS=2`
+- `VM_NETWORK=default`
+- `VM_SSH_HOST=127.0.0.1`
+- `VM_SSH_HOST_PORT=2222`
+- `VM_SSH_GUEST_PORT=22`
+- `VM_SSH_USER=root`
+- `VM_BOOT_MODE=uefi`
 
 Rules:
 
@@ -77,6 +115,12 @@ Rules:
 - `PROFILE=openrc` should map to Ansible `init_system=openrc`.
 - `PROFILE=systemd` should map to Ansible `init_system=systemd`.
 - Variables containing secrets must not be printed or committed.
+- `VM_DISK` must be a project-relative qcow2 path under `VM_DIR`.
+- `VM_DIR` must not be the project root, `/dev`, absolute, symlinked, or contain parent traversal.
+- `VM_BOOT_MODE=bios` must be rejected in v1.
+- `VM_NETWORK` is required only when `VM_NET_MODE=network`.
+- `VM_RAM`, `VM_CPUS`, ports, and `VM_DISK_SIZE` must be validated before generated XML or disk creation uses them.
+- VM definitions should pass serial console kernel args so `make vm-console` is usable with the official live ISO.
 
 ## 6. Safe Targets
 Safe targets are read-only or validation-only. They must not modify disks, target root, boot entries, users, passwords, or services.
@@ -94,6 +138,7 @@ Required safe targets:
 - `make install-plan`
 - `make install-plan PROFILE=openrc`
 - `make install-plan PROFILE=systemd`
+- `make vm-check`
 
 Expected behavior:
 
@@ -106,6 +151,7 @@ Expected behavior:
 - `make install-plan`: summarize intended install flow without making changes.
 - `make install-plan PROFILE=openrc`: summarize the planned OpenRC flow through the shared Ansible install path.
 - `make install-plan PROFILE=systemd`: summarize the planned systemd flow through the shared Ansible install path.
+- `make vm-check`: read-only validation of libvirt tools, ISO resolution, UEFI firmware, network mode, and safe project-local paths.
 
 ## 7. Semi-dangerous Targets
 Semi-dangerous targets may modify the live ISO environment or prepare target paths, but they should not partition, format, wipe, overwrite disks, install bootloaders, change passwords, or create privileged users.
@@ -116,6 +162,19 @@ Semi-dangerous targets:
 - `make prepare-live-env`
 - `make download-stage3`
 - `make mount-target`
+- `make vm-disk`
+- `make vm-define`
+- `make vm-start`
+- `make vm-console`
+- `make vm-viewer`
+- `make vm-ip`
+- `make vm-bootstrap-ssh`
+- `make vm-ssh`
+- `make vm-rsync`
+- `make vm-ansible-ping`
+- `make vm-shutdown`
+- `make vm-destroy`
+- `make vm-clean`
 
 Expected behavior:
 
@@ -123,8 +182,23 @@ Expected behavior:
 - `make prepare-live-env`: install or verify temporary live-session dependencies only.
 - `make download-stage3`: download and verify the amd64 OpenRC stage3 without extracting over existing data.
 - `make mount-target`: mount explicitly provided partitions to explicitly provided target paths after mount-state checks.
+- `make vm-disk`: create or preserve the project-local qcow2 VM disk.
+- `make vm-define`: define the project-owned libvirt domain from reviewed project-local inputs.
+- `make vm-start`: start the project-owned VM from the official Gentoo live ISO.
+- `make vm-console`: attach to `virsh console`; it may fail if the ISO does not expose a serial login.
+- `make vm-viewer`: open graphical access through a libvirt viewer.
+- `make vm-ip`: discover the guest IP only when the configured network mode supports discovery.
+- `make vm-bootstrap-ssh`: use the serial console to install a public SSH key into the temporary live ISO and start `sshd`.
+- `make vm-ssh`: connect after the operator enables SSH inside the live ISO.
+- `make vm-rsync`: copy non-secret project files after SSH is available.
+- `make vm-ansible-ping`: validate Ansible SSH connectivity to the live ISO without configuring Gentoo.
+- `make vm-shutdown`: request guest shutdown.
+- `make vm-destroy`: stop the configured project-owned domain without deleting artifacts.
+- `make vm-clean`: undefine the project-owned domain and delete generated VM artifacts only after typing `DELETE`.
 
 `make mount-target` must become destructive-adjacent if it can mount over an existing path. It must print current mounts and require confirmation when ambiguity exists.
+
+VM targets are not allowed to touch host block devices. They must reject `/dev/*`, absolute VM disk paths, parent traversal, wildcard paths, symlinked artifact directories, non-qcow2 existing disk files, and project-root artifact directories. Legacy `qemu-*` targets may exist only as compatibility aliases to `vm-*` targets.
 
 ## 8. Destructive Targets
 Destructive targets can destroy data, alter boot behavior, or perform broad persistent changes. They require strict gates.
@@ -197,6 +271,11 @@ Rules:
 - `make ansible-check`
 - `make ansible-dry-run PROFILE=openrc`
 - `make ansible-dry-run PROFILE=systemd`
+- `make vm-check`
+- `make vm-disk`
+- `make vm-start`
+- `make vm-ssh`
+- `make vm-clean`
 - `make final-checks`
 
 ## 12. Examples of Bad Targets
@@ -210,6 +289,8 @@ Rules:
 - `make clean` that runs broad recursive deletion without path validation.
 - `make bootstrap-codex` that writes secrets into the repository.
 - `make ansible-run` that hides which playbook and tags will run.
+- `make qemu-boot` that invokes `qemu-system-x86_64` directly instead of aliasing the active libvirt workflow.
+- `make vm-clean` that deletes every `.qcow2` or `.fd` file under an artifact directory instead of only generated files for the configured domain.
 - Separate long `make install-openrc` and `make install-systemd` recipes that duplicate the same Ansible command chain instead of passing variant variables into a shared flow.
 
 ## 13. Failure Modes
@@ -223,6 +304,10 @@ Rules:
 - A cleanup target deletes an unchecked path.
 - An Ansible target runs without showing check/plan output first.
 - Codex bootstrap stores tokens in tracked files.
+- A VM target defines, destroys, or cleans an unrelated libvirt domain with the same name.
+- `vm-check` creates artifact directories even though it is documented as read-only.
+- `vm-disk` creates a disk outside `VM_DIR`.
+- `vm-clean` deletes operator-provided ISO, firmware, qcow2, or secret files.
 
 ## 14. Recovery Advice
 - Replace raw command instructions with make targets.
@@ -235,6 +320,9 @@ Rules:
 - Stop and rerun safe inventory targets if disk identity changes.
 - Review dangerous targets with `agents/safety-review-agent.md` before use.
 - If secrets are written to project files, remove them immediately and keep them out of commits.
+- If a VM/libvirt target fails, run `make vm-check` first and verify `virsh`, `qemu-img`, UEFI firmware, ISO location, `LIBVIRT_URI`, and network mode.
+- If `vm-ssh` fails, verify SSH has been enabled inside the official live ISO and that the configured forwarded port is reachable.
+- If cleanup is needed, use `make vm-clean` and confirm that the printed generated artifact list contains only the configured disk, XML, NVRAM, and logs.
 
 ## Documentation maintenance
 When Makefile behavior changes, documentation must change in the same commit or OpenSpec implementation step.
@@ -245,4 +333,5 @@ When Makefile behavior changes, documentation must change in the same commit or 
 - Destructive targets must document required confirmation variables, the safety confirmation script, disk summary output, forbidden defaults, and forbidden wildcard disk matching.
 - Semi-dangerous targets must document what paths or live-environment state they may change.
 - If target names, variable names, defaults, or confirmation values change, update this skill, `README.md` or `docs/`, and the active OpenSpec `tasks.md`.
+- If VM/libvirt targets change, update `docs/libvirt-manual-install-test.md`, any QEMU migration note, and active OpenSpec tasks. Document ISO path, qcow2 path, libvirt URI, network mode, serial console, SSH bootstrap, guest `/dev/vda`, Ansible connectivity validation, and cleanup behavior.
 - If failure modes or recovery behavior changes in implementation, update the `Failure Modes` and `Recovery Advice` sections here before finishing.
