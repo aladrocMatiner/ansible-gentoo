@@ -80,9 +80,17 @@
   ansible.builtin.debug:
     msg: "{{ partitioning_preview }}"
 
+- name: Define partition audit run id
+  ansible.builtin.set_fact:
+    partitioning_run_id: "{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}"
+
+- name: Define partition audit log path
+  ansible.builtin.set_fact:
+    partitioning_log_dir: "{{ project_root | default(lookup('ansible.builtin.env', 'PWD'), true) }}/logs/install-runs/{{ partitioning_run_id }}/partition"
+
 - name: Create local install run log directory
   ansible.builtin.file:
-    path: "logs/install-runs/{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}/partition"
+    path: "{{ partitioning_log_dir }}"
     state: directory
     mode: "0750"
   delegate_to: localhost
@@ -91,7 +99,7 @@
 
 - name: Record partition state before apply
   ansible.builtin.copy:
-    dest: "logs/install-runs/{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}/partition/before.json"
+    dest: "{{ partitioning_log_dir }}/before.json"
     mode: "0640"
     content: |
       {
@@ -167,7 +175,7 @@
 
 - name: Record partition state after apply
   ansible.builtin.copy:
-    dest: "logs/install-runs/{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}/partition/after.json"
+    dest: "{{ partitioning_log_dir }}/after.json"
     mode: "0640"
     content: |
       {
@@ -190,7 +198,7 @@
       root_partition: "{{ install_disk }}{{ partitioning_partition_suffix }}2"
       formatted_filesystems: false
       mounted_filesystems: false
-      logs: "logs/install-runs/{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}/partition/"
+      logs: "{{ partitioning_log_dir }}/"
 
 - name: Print partition apply report
   ansible.builtin.debug:

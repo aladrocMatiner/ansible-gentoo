@@ -25,18 +25,30 @@ case "$filesystem" in
 esac
 
 confirm_wipe_disk=${I_UNDERSTAND_THIS_WIPES_DISK:-}
+project_root=$(pwd -P)
+inventory_file=$(mktemp --suffix=.yml)
+trap 'rm -f "$inventory_file"' EXIT
+
+cat >"$inventory_file" <<EOF
+all:
+  hosts:
+    gentoo_live:
+      ansible_connection: ssh
+      ansible_host: ${ANSIBLE_LIVE_HOST}
+      ansible_port: ${ANSIBLE_LIVE_PORT}
+      ansible_user: ${ANSIBLE_LIVE_USER}
+      ansible_python_interpreter: auto_silent
+EOF
 
 printf 'Applying GPT partition layout for %s/%s to %s on %s@%s port %s\n' "$profile" "$filesystem" "$INSTALL_DISK" "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$ANSIBLE_LIVE_PORT"
 printf '%s\n' 'This target partitions only. It does not format, mount, chroot, install packages, or install a bootloader.'
 
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
-  -i ansible/inventory/live.yml \
-  -u "$ANSIBLE_LIVE_USER" \
+  -i "$inventory_file" \
   --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10" \
-  -e "ansible_host=${ANSIBLE_LIVE_HOST}" \
-  -e "ansible_port=${ANSIBLE_LIVE_PORT}" \
   -e "profile=${profile}" \
   -e "filesystem=${filesystem}" \
   -e "install_disk=${INSTALL_DISK}" \
   -e "confirm_wipe_disk=${confirm_wipe_disk}" \
+  -e "project_root=${project_root}" \
   ansible/playbooks/partition-apply.yml

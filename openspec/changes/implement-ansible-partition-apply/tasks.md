@@ -15,4 +15,4 @@
 - [x] Apply GPT ESP/root layout only.
 - [x] Record install-state checkpoint and audit evidence.
 - [x] Update docs and skills.
-- [ ] Validate inside libvirt VM only.
+- [x] Validate inside libvirt VM only.
