@@ -36,7 +36,7 @@ make secret-check
 
 Secret handling rules are documented in `docs/secret-input-policy.md`.
 
-The first destructive targets are `make partition` and `make format`; read `docs/ansible-partition-apply.md` and `docs/ansible-filesystem-apply.md` before using them. After formatting, `make mount-target` mounts the approved target root and ESP for stage3 extraction; see `docs/ansible-mount-target.md`. Stage3 verification policy is documented in `docs/stage3-signature-policy.md`.
+The first destructive targets are `make partition` and `make format`; read `docs/ansible-partition-apply.md` and `docs/ansible-filesystem-apply.md` before using them. After formatting, `make mount-target` mounts the approved target root and ESP for stage3 extraction; see `docs/ansible-mount-target.md`. `make stage3-install` then downloads, verifies, and extracts the official stage3; see `docs/ansible-stage3-install.md` and `docs/stage3-signature-policy.md`.
 
 Current Ansible planning targets run from the operator machine over SSH into a booted official Gentoo live ISO. For a real network target, pass `ANSIBLE_LIVE_HOST=<address>` and optionally `ANSIBLE_LIVE_USER=root ANSIBLE_LIVE_PORT=22`. When `ANSIBLE_LIVE_HOST` is empty, the wrapper targets discover the local libvirt VM as the test target.
 

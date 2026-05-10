@@ -66,6 +66,16 @@ validate_mount_path() {
   ! has_glob_chars "$value" || add_error CONFIG_INVALID "${label} must not contain glob characters"
 }
 
+validate_url() {
+  local label=$1
+  local value=$2
+
+  [[ "$value" == https://* ]] || add_error CONFIG_INVALID "${label} must be an https:// URL"
+  [[ "$value" != *".."* ]] || add_error CONFIG_INVALID "${label} must not contain parent traversal"
+  ! has_unsafe_chars "$value" || add_error CONFIG_INVALID "${label} contains unsafe characters"
+  ! has_glob_chars "$value" || add_error CONFIG_INVALID "${label} must not contain glob characters"
+}
+
 validate_install_disk_if_set() {
   local value=$1
 
@@ -81,7 +91,7 @@ validate_install_disk_if_set() {
 validate_no_secret_like_values() {
   local label value
 
-  for label in HOSTNAME ADMIN_USER TARGET_MOUNT EFI_MOUNT INSTALL_DISK; do
+  for label in HOSTNAME ADMIN_USER TARGET_MOUNT EFI_MOUNT INSTALL_DISK STAGE3_MIRROR STAGE3_CACHE_DIR; do
     value=${!label:-}
     [[ -z "$value" ]] && continue
     if [[ "$value" == *"-----BEGIN "* || "$value" == sk-* || "$value" == *" API KEY "* ]]; then
@@ -110,6 +120,8 @@ target_mount=${TARGET_MOUNT:-/mnt/gentoo}
 efi_mount=${EFI_MOUNT:-${target_mount}/boot/efi}
 install_disk=${INSTALL_DISK:-}
 confirm_wipe_disk=${I_UNDERSTAND_THIS_WIPES_DISK:-}
+stage3_mirror=${STAGE3_MIRROR:-https://distfiles.gentoo.org/releases/amd64/autobuilds}
+stage3_cache_dir=${STAGE3_CACHE_DIR:-/tmp/gentoo-ai-installer/stage3}
 config_requires_install_disk=${CONFIG_REQUIRE_INSTALL_DISK:-no}
 config_destructive=${CONFIG_DESTRUCTIVE:-no}
 
@@ -139,9 +151,15 @@ validate_hostname "$target_hostname"
 validate_username ADMIN_USER "$admin_user"
 validate_mount_path TARGET_MOUNT "$target_mount"
 validate_mount_path EFI_MOUNT "$efi_mount"
+validate_mount_path STAGE3_CACHE_DIR "$stage3_cache_dir"
+validate_url STAGE3_MIRROR "$stage3_mirror"
 
 if [[ "$efi_mount" != "$target_mount"/* ]]; then
   add_error CONFIG_INVALID "EFI_MOUNT must be below TARGET_MOUNT"
+fi
+
+if [[ "$stage3_cache_dir" == "$target_mount" || "$stage3_cache_dir" == "$target_mount"/* ]]; then
+  add_error CONFIG_INVALID "STAGE3_CACHE_DIR must not be inside TARGET_MOUNT"
 fi
 
 validate_install_disk_if_set "$install_disk"
@@ -167,6 +185,8 @@ printf 'Configuration validation report\n'
 printf '  schema: %s\n' "$SCHEMA_PATH"
 printf '  PROFILE: %s\n' "$profile"
 printf '  FILESYSTEM: %s\n' "$filesystem"
+printf '  STAGE3_MIRROR: %s\n' "$stage3_mirror"
+printf '  STAGE3_CACHE_DIR: %s\n' "$stage3_cache_dir"
 printf '  BOOT_MODE: %s\n' "$boot_mode"
 printf '  HOSTNAME: %s\n' "$target_hostname"
 printf '  ADMIN_USER: %s\n' "${admin_user:-<unset>}"

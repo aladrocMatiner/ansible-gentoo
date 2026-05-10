@@ -51,6 +51,7 @@ Manual validation examples may include checking filenames, release metadata, and
 Use:
 
 ```text
+make stage3-install
 make download-stage3
 ```
 
@@ -72,6 +73,7 @@ Manual validation commands may inspect downloaded filenames, timestamps, and siz
 Use:
 
 ```text
+make stage3-install
 make verify-stage3
 ```
 
@@ -97,6 +99,7 @@ The detailed policy is documented in `docs/stage3-signature-policy.md`. Future i
 Use:
 
 ```text
+make stage3-install
 make extract-stage3
 ```
 
@@ -172,6 +175,7 @@ These targets define the expected control-plane contract for stage3 and chroot w
 - `make download-stage3`
 - `make verify-stage3`
 - `make extract-stage3`
+- `make stage3-install`
 - `make prepare-chroot`
 - `make enter-chroot`
 - `make mount-plan`
@@ -182,6 +186,7 @@ Target expectations:
 - `make download-stage3`: fetch official amd64 stage3 and verification files matching `PROFILE`.
 - `make verify-stage3`: verify checksums, signatures, architecture, and selected init variant according to `docs/stage3-signature-policy.md`.
 - `make extract-stage3`: extract only verified stage3 into confirmed `/mnt/gentoo`.
+- `make stage3-install`: implemented combined workflow that downloads, verifies, and extracts the selected official stage3 into verified `/mnt/gentoo`.
 - `make prepare-chroot`: prepare pseudo-filesystems and DNS for chroot.
 - `make enter-chroot`: enter target chroot after readiness checks.
 - `make mount-plan`: read-only prerequisite check that reports the intended target mount layout before `make mount-target`.

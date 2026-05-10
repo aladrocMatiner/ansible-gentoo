@@ -207,6 +207,7 @@ Currently implemented read-only planning roles:
 - `common/partition_plan`: reuses `common/disk_safety`, requires explicit `INSTALL_DISK`, and prints the exact read-only GPT plan for ext4 or Btrfs without writing.
 - `common/mount_plan`: requires explicit `INSTALL_DISK`, reuses partition-plan safety checks, and prints the read-only target root, EFI, and Btrfs subvolume mount layout without mounting or creating directories.
 - `common/filesystem_plan`: reuses mount-plan output and prints the read-only EFI/root filesystem creation plan without running `mkfs.*`, `wipefs`, or Btrfs subvolume commands.
+- `common/stage3`: selects the official amd64 OpenRC or systemd stage3, verifies signed metadata, verifies SHA512 checksum, and extracts only into mounted `/mnt/gentoo`.
 
 ## Init-specific Roles
 Init-specific roles must be thin and explicit.

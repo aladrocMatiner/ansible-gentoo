@@ -1,0 +1,7 @@
+---
+- name: Install verified Gentoo stage3 into target root
+  hosts: gentoo_live
+  gather_facts: true
+  roles:
+    - role: common/live_preflight
+    - role: common/stage3

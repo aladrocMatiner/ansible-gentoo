@@ -15,6 +15,11 @@ Project commands should report stable error codes so failures can be reviewed wi
 | `VERIFY_FAILED` | Checksum, signature, UUID, or generated-file verification failed. |
 | `SECRET_LEAK_RISK` | A value appears to contain a secret or a forbidden secret channel is in use. |
 | `MOUNT_UNSAFE` | A mount target is missing, already mounted unexpectedly, or outside the approved path. |
+| `STAGE3_UNSAFE` | Stage3 target, cache, mirror, variant, or existing target-root state is unsafe. |
+| `STAGE3_VARIANT_MISMATCH` | Selected stage3 metadata does not match the requested profile or init variant. |
+| `STAGE3_SIGNATURE_UNAVAILABLE` | Required signature tooling or trusted Gentoo release keys are missing and no approved override exists. |
+| `STAGE3_TOOL_MISSING` | Required stage3 download, verification, or extraction tooling is missing. |
+| `STAGE3_EXTRACT_FAILED` | Stage3 extraction completed unsuccessfully or expected base paths are missing. |
 | `CHROOT_NOT_READY` | Target root pseudo-filesystems, DNS, or chroot prerequisites are incomplete. |
 | `PORTAGE_FAILED` | Portage sync, profile, package, or configuration operation failed. |
 | `BOOTLOADER_UNSAFE` | UEFI, EFI mount, GRUB, or boot entry safety checks failed. |

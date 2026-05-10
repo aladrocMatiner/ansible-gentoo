@@ -29,6 +29,22 @@ variables:
       - apply
     notes: Selects the approved root filesystem layout.
 
+  STAGE3_MIRROR:
+    ansible_names:
+      - stage3_mirror
+    default: https://distfiles.gentoo.org/releases/amd64/autobuilds
+    required_for:
+      - stage3
+    notes: Official Gentoo autobuild metadata mirror base URL. Overrides must still pass checksum and signature verification.
+
+  STAGE3_CACHE_DIR:
+    ansible_names:
+      - stage3_cache_dir
+    default: /tmp/gentoo-ai-installer/stage3
+    required_for:
+      - stage3
+    notes: Live-ISO-local cache for stage3 downloads and verification metadata. Must not be inside TARGET_MOUNT.
+
   BOOT_MODE:
     ansible_names:
       - boot_mode

@@ -63,6 +63,8 @@ Required project variables:
 - `FILESYSTEM`
 - `BOOT_MODE`
 - `CODEX_INSTALL_METHOD`
+- `STAGE3_MIRROR`
+- `STAGE3_CACHE_DIR`
 - `I_UNDERSTAND_THIS_WIPES_DISK`
 
 VM/libvirt variables:
@@ -96,6 +98,8 @@ Recommended defaults:
 - `FILESYSTEM=ext4`
 - `BOOT_MODE=uefi`
 - `CODEX_INSTALL_METHOD=npm`
+- `STAGE3_MIRROR=https://distfiles.gentoo.org/releases/amd64/autobuilds`
+- `STAGE3_CACHE_DIR=/tmp/gentoo-ai-installer/stage3`
 
 Recommended VM/libvirt defaults:
 
@@ -134,6 +138,8 @@ Rules:
 - `PROFILE=systemd` should map to Ansible `init_system=systemd`.
 - `FILESYSTEM=ext4` should map to the ext4 root layout.
 - `FILESYSTEM=btrfs` should map to the Btrfs root layout with planned subvolumes; it must not create a filesystem or subvolumes in read-only planning targets.
+- `STAGE3_MIRROR` must be an HTTPS Gentoo stage3 metadata base URL; mirror overrides must not bypass verification.
+- `STAGE3_CACHE_DIR` must be a live-ISO-local absolute path outside `TARGET_MOUNT`.
 - Variables containing secrets must not be printed or committed.
 - `VM_DISK` must be a project-relative qcow2 path under `VM_DIR`.
 - `VM_DIR` must not be the project root, `/dev`, absolute, symlinked, or contain parent traversal.
@@ -188,6 +194,7 @@ Expected behavior:
 - `make destructive-safety-check`: require explicit `INSTALL_DISK` and `I_UNDERSTAND_THIS_WIPES_DISK=yes`, then run the shared read-only disk safety role without mutating disks.
 - `make format`: require explicit `INSTALL_DISK` and `I_UNDERSTAND_THIS_WIPES_DISK=yes`, then create only the approved ESP/root filesystems for `FILESYSTEM=ext4` or `FILESYSTEM=btrfs` after printing a destructive preview.
 - `make mount-target`: require explicit `INSTALL_DISK`, reuse the approved mount/filesystem plans, mount only `/mnt/gentoo` and `/mnt/gentoo/boot/efi`, and validate existing mounts for idempotency.
+- `make stage3-install`: download, verify, and extract official Gentoo stage3 into verified `/mnt/gentoo` without chrooting or configuring Portage.
 - `make install-plan PROFILE=openrc`: summarize the planned OpenRC flow through the shared Ansible install path.
 - `make install-plan PROFILE=systemd`: summarize the planned systemd flow through the shared Ansible install path.
 - `make vm-check`: read-only validation of libvirt tools, ISO resolution, UEFI firmware, network mode, and safe project-local paths.
@@ -201,6 +208,7 @@ Semi-dangerous targets:
 - `make prepare-live-env`
 - `make download-stage3`
 - `make mount-target`
+- `make stage3-install`
 - `make vm-disk`
 - `make vm-define`
 - `make vm-start`
@@ -221,6 +229,7 @@ Expected behavior:
 - `make prepare-live-env`: install or verify temporary live-session dependencies only.
 - `make download-stage3`: download the official amd64 stage3 and verification metadata for the selected `PROFILE` without extracting over existing data.
 - `make verify-stage3`: verify checksum and signature policy from `docs/stage3-signature-policy.md` before any extraction target can run.
+- `make stage3-install`: use `STAGE3_MIRROR` and `STAGE3_CACHE_DIR`, verify official metadata and SHA512/signatures, then extract only into mounted `/mnt/gentoo`.
 - `make mount-target`: mount explicitly provided partitions to explicitly provided target paths after mount-state checks; for Btrfs it must mount root with `subvol=@` and the approved subvolumes from `docs/btrfs-layout-policy.md`.
 - `make vm-disk`: create or preserve the project-local qcow2 VM disk.
 - `make vm-define`: define the project-owned libvirt domain from reviewed project-local inputs.

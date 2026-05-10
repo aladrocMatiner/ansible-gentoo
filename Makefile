@@ -29,6 +29,8 @@ CODEX_INSTALL_METHOD ?= npm
 I_UNDERSTAND_THIS_WIPES_DISK ?=
 PROFILE ?= openrc
 FILESYSTEM ?= ext4
+STAGE3_MIRROR ?= https://distfiles.gentoo.org/releases/amd64/autobuilds
+STAGE3_CACHE_DIR ?= /tmp/gentoo-ai-installer/stage3
 
 export LIBVIRT_URI
 export VM_NET_MODE
@@ -59,11 +61,13 @@ export CODEX_INSTALL_METHOD
 export I_UNDERSTAND_THIS_WIPES_DISK
 export PROFILE
 export FILESYSTEM
+export STAGE3_MIRROR
+export STAGE3_CACHE_DIR
 export INSTALL_DISK
 
 .PHONY: help \
 	vm-check vm-disk vm-define vm-start vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
-	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target \
+	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -94,6 +98,7 @@ help:
 		'  make partition      DESTRUCTIVE: apply GPT ESP/root partition layout (requires confirmation)' \
 		'  make format         DESTRUCTIVE: create ESP/root filesystems (requires confirmation)' \
 		'  make mount-target   Mount formatted target root/ESP for stage3 extraction' \
+		'  make stage3-install Download, verify, and extract official Gentoo stage3' \
 		'  make vm-shutdown     Request clean guest shutdown' \
 		'  make vm-destroy      Stop the configured VM without deleting artifacts' \
 		'  make vm-clean        Undefine VM and delete generated artifacts after confirmation' \
@@ -135,6 +140,8 @@ help:
 		'  CODEX_INSTALL_METHOD=$(CODEX_INSTALL_METHOD)' \
 		'  PROFILE=$(PROFILE)' \
 		'  FILESYSTEM=$(FILESYSTEM)' \
+		'  STAGE3_MIRROR=$(STAGE3_MIRROR)' \
+		'  STAGE3_CACHE_DIR=$(STAGE3_CACHE_DIR)' \
 		'  INSTALL_DISK has no default; pass INSTALL_DISK=/dev/vda only deliberately inside the VM'
 
 vm-check:
@@ -211,6 +218,9 @@ format:
 
 mount-target:
 	@scripts/ansible-mount-target.sh
+
+stage3-install:
+	@scripts/ansible-stage3-install.sh
 
 vm-shutdown:
 	@scripts/vm-shutdown.sh

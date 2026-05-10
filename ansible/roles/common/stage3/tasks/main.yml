@@ -1,0 +1,437 @@
+---
+- name: Validate supported stage3 profile
+  ansible.builtin.assert:
+    that:
+      - profile is defined
+      - profile in ['openrc', 'systemd']
+    fail_msg: "STAGE3_UNSAFE: PROFILE/profile must be openrc or systemd."
+    success_msg: "Stage3 profile is supported."
+
+- name: Derive stage3 selection facts
+  ansible.builtin.set_fact:
+    stage3_profile: "{{ profile }}"
+    stage3_variant: "{{ profile }}"
+    stage3_base_name: "stage3-amd64-{{ profile }}"
+    stage3_variant_dir: "current-stage3-amd64-{{ profile }}"
+    stage3_latest_name: "latest-stage3-amd64-{{ profile }}.txt"
+    stage3_mirror_base: "{{ stage3_mirror | default('https://distfiles.gentoo.org/releases/amd64/autobuilds') | regex_replace('/+$', '') }}"
+    stage3_cache_path: "{{ stage3_cache_dir | default('/tmp/gentoo-ai-installer/stage3') }}"
+    stage3_target_root: "{{ target_mount | default('/mnt/gentoo') }}"
+
+- name: Validate stage3 paths and mirror
+  ansible.builtin.assert:
+    that:
+      - stage3_profile == stage3_variant
+      - stage3_mirror_base is match('^https://.+')
+      - not (stage3_mirror_base is search('\\s'))
+      - stage3_cache_path is match('^/.+')
+      - stage3_cache_path != '/'
+      - not (stage3_cache_path is search('\\.\\.'))
+      - stage3_cache_path != stage3_target_root
+      - not (stage3_cache_path is match('^' ~ (stage3_target_root | regex_escape) ~ '/'))
+      - stage3_target_root == '/mnt/gentoo'
+      - stage3_target_root != '/'
+    fail_msg: "STAGE3_UNSAFE: stage3 mirror, cache, variant, or target root is outside the approved policy."
+    success_msg: "Stage3 mirror, cache, variant, and target root are within policy."
+
+- name: Require stage3 verification tools
+  ansible.builtin.stat:
+    path: "/usr/bin/{{ item }}"
+  loop:
+    - wget
+    - gpg
+    - sha512sum
+    - tar
+  register: stage3_required_tools
+
+- name: Fail if required stage3 verification tools are missing
+  ansible.builtin.assert:
+    that:
+      - stage3_required_tools.results | rejectattr('stat.exists') | list | length == 0
+    fail_msg: "STAGE3_TOOL_MISSING: required tools are missing from /usr/bin: {{ stage3_required_tools.results | rejectattr('stat.exists') | map(attribute='item') | list }}"
+    success_msg: "Required stage3 verification tools are present."
+
+- name: Require Gentoo release OpenPGP key bundle
+  ansible.builtin.stat:
+    path: /usr/share/openpgp-keys/gentoo-release.asc
+  register: stage3_release_key
+
+- name: Fail if Gentoo release OpenPGP key bundle is missing
+  ansible.builtin.assert:
+    that:
+      - stage3_release_key.stat.exists
+      - stage3_release_key.stat.isreg
+    fail_msg: "STAGE3_SIGNATURE_UNAVAILABLE: /usr/share/openpgp-keys/gentoo-release.asc is required; no signature override exists."
+    success_msg: "Gentoo release OpenPGP key bundle is available."
+
+- name: Read current target root mount
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - "{{ stage3_target_root }}"
+      - --noheadings
+      - --output
+      - TARGET,SOURCE,FSTYPE,OPTIONS
+  register: stage3_target_findmnt
+  changed_when: false
+  failed_when: stage3_target_findmnt.rc != 0
+  check_mode: false
+
+- name: Check existing target root markers
+  ansible.builtin.stat:
+    path: "{{ stage3_target_root }}/{{ item }}"
+  loop:
+    - etc
+    - usr
+    - bin
+    - lib
+    - lib64
+    - sbin
+    - opt
+    - root
+  register: stage3_existing_root_markers
+
+- name: Build existing target root marker list
+  ansible.builtin.set_fact:
+    stage3_existing_marker_paths: >-
+      {{
+        stage3_existing_root_markers.results
+        | selectattr('stat.exists')
+        | map(attribute='item')
+        | list
+      }}
+
+- name: Refuse extracting over an existing target root
+  ansible.builtin.assert:
+    that:
+      - stage3_existing_marker_paths | length == 0
+    fail_msg: "STAGE3_UNSAFE: target root already contains stage3-like paths: {{ stage3_existing_marker_paths }}"
+    success_msg: "Target root does not contain existing stage3 markers."
+
+- name: Build stage3 URL facts
+  ansible.builtin.set_fact:
+    stage3_variant_url: "{{ stage3_mirror_base }}/{{ stage3_variant_dir }}"
+    stage3_latest_url: "{{ stage3_mirror_base }}/{{ stage3_variant_dir }}/{{ stage3_latest_name }}"
+    stage3_latest_path: "{{ stage3_cache_path }}/{{ stage3_latest_name }}"
+    stage3_gnupg_dir: "{{ stage3_cache_path }}/gnupg"
+    stage3_checksum_check_path: "{{ stage3_cache_path }}/stage3.sha512.check"
+
+- name: Create live ISO stage3 cache directory
+  ansible.builtin.file:
+    path: "{{ stage3_cache_path }}"
+    state: directory
+    mode: "0755"
+  when: not ansible_check_mode
+
+- name: Create stage3 GnuPG home
+  ansible.builtin.file:
+    path: "{{ stage3_gnupg_dir }}"
+    state: directory
+    mode: "0700"
+  when: not ansible_check_mode
+
+- name: Download latest stage3 metadata
+  ansible.builtin.get_url:
+    url: "{{ stage3_latest_url }}"
+    dest: "{{ stage3_latest_path }}"
+    mode: "0644"
+    force: true
+  when: not ansible_check_mode
+
+- name: Extract selected stage3 filename from official metadata
+  ansible.builtin.command:
+    argv:
+      - awk
+      - "{{ '$1 ~ /^' ~ stage3_base_name ~ '-[0-9TZ]+\\.tar\\.xz$/ { print $1; exit }' }}"
+      - "{{ stage3_latest_path }}"
+  register: stage3_latest_filename
+  changed_when: false
+  failed_when: stage3_latest_filename.stdout | trim | length == 0
+  check_mode: false
+
+- name: Store selected stage3 artifact facts
+  ansible.builtin.set_fact:
+    stage3_tarball_name: "{{ stage3_latest_filename.stdout | trim }}"
+    stage3_tarball_url: "{{ stage3_variant_url }}/{{ stage3_latest_filename.stdout | trim }}"
+    stage3_tarball_path: "{{ stage3_cache_path }}/{{ stage3_latest_filename.stdout | trim }}"
+    stage3_digest_url: "{{ stage3_variant_url }}/{{ stage3_latest_filename.stdout | trim }}.DIGESTS"
+    stage3_digest_path: "{{ stage3_cache_path }}/{{ stage3_latest_filename.stdout | trim }}.DIGESTS"
+    stage3_signature_url: "{{ stage3_variant_url }}/{{ stage3_latest_filename.stdout | trim }}.asc"
+    stage3_signature_path: "{{ stage3_cache_path }}/{{ stage3_latest_filename.stdout | trim }}.asc"
+    stage3_sha256_url: "{{ stage3_variant_url }}/{{ stage3_latest_filename.stdout | trim }}.sha256"
+    stage3_sha256_path: "{{ stage3_cache_path }}/{{ stage3_latest_filename.stdout | trim }}.sha256"
+
+- name: Validate selected stage3 filename matches profile
+  ansible.builtin.assert:
+    that:
+      - stage3_tarball_name is match('^' ~ (stage3_base_name | regex_escape) ~ '-[0-9TZ]+\\.tar\\.xz$')
+      - stage3_tarball_name is search('amd64')
+      - stage3_tarball_name is search(stage3_variant)
+    fail_msg: "STAGE3_VARIANT_MISMATCH: selected {{ stage3_tarball_name }} does not match {{ stage3_base_name }}."
+    success_msg: "Selected stage3 filename matches the requested profile and variant."
+
+- name: Download selected stage3 tarball
+  ansible.builtin.get_url:
+    url: "{{ stage3_tarball_url }}"
+    dest: "{{ stage3_tarball_path }}"
+    mode: "0644"
+    force: false
+  when: not ansible_check_mode
+
+- name: Download selected stage3 DIGESTS metadata
+  ansible.builtin.get_url:
+    url: "{{ stage3_digest_url }}"
+    dest: "{{ stage3_digest_path }}"
+    mode: "0644"
+    force: true
+  when: not ansible_check_mode
+
+- name: Download selected stage3 detached signature
+  ansible.builtin.get_url:
+    url: "{{ stage3_signature_url }}"
+    dest: "{{ stage3_signature_path }}"
+    mode: "0644"
+    force: true
+  when: not ansible_check_mode
+
+- name: Check optional stage3 SHA256 metadata
+  ansible.builtin.uri:
+    url: "{{ stage3_sha256_url }}"
+    method: HEAD
+    status_code:
+      - 200
+      - 404
+  register: stage3_sha256_head
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Download optional stage3 SHA256 metadata
+  ansible.builtin.get_url:
+    url: "{{ stage3_sha256_url }}"
+    dest: "{{ stage3_sha256_path }}"
+    mode: "0644"
+    force: true
+  when:
+    - not ansible_check_mode
+    - stage3_sha256_head.status == 200
+
+- name: Import Gentoo release keys into isolated GnuPG home
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --batch
+      - --homedir
+      - "{{ stage3_gnupg_dir }}"
+      - --import
+      - /usr/share/openpgp-keys/gentoo-release.asc
+  register: stage3_gpg_import
+  changed_when: "'imported:' in stage3_gpg_import.stderr"
+  when: not ansible_check_mode
+
+- name: Verify signed latest stage3 metadata
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --batch
+      - --homedir
+      - "{{ stage3_gnupg_dir }}"
+      - --verify
+      - "{{ stage3_latest_path }}"
+  register: stage3_latest_signature
+  changed_when: false
+  failed_when: stage3_latest_signature.rc != 0
+  when: not ansible_check_mode
+
+- name: Verify signed stage3 DIGESTS metadata
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --batch
+      - --homedir
+      - "{{ stage3_gnupg_dir }}"
+      - --verify
+      - "{{ stage3_digest_path }}"
+  register: stage3_digest_signature
+  changed_when: false
+  failed_when: stage3_digest_signature.rc != 0
+  when: not ansible_check_mode
+
+- name: Verify selected stage3 tarball signature
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --batch
+      - --homedir
+      - "{{ stage3_gnupg_dir }}"
+      - --verify
+      - "{{ stage3_signature_path }}"
+      - "{{ stage3_tarball_path }}"
+  register: stage3_tarball_signature
+  changed_when: false
+  failed_when: stage3_tarball_signature.rc != 0
+  when: not ansible_check_mode
+
+- name: Verify optional signed stage3 SHA256 metadata
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --batch
+      - --homedir
+      - "{{ stage3_gnupg_dir }}"
+      - --verify
+      - "{{ stage3_sha256_path }}"
+  register: stage3_sha256_signature
+  changed_when: false
+  failed_when: stage3_sha256_signature.rc != 0
+  when:
+    - not ansible_check_mode
+    - stage3_sha256_head.status == 200
+
+- name: Extract SHA512 checksum from signed DIGESTS metadata
+  ansible.builtin.command:
+    argv:
+      - awk
+      - -v
+      - "file={{ stage3_tarball_name }}"
+      - "prev == \"# SHA512 HASH\" && $2 == file { print $1; exit } { prev = $0 }"
+      - "{{ stage3_digest_path }}"
+  register: stage3_sha512_checksum
+  changed_when: false
+  failed_when: stage3_sha512_checksum.stdout | trim | length == 0
+  check_mode: false
+
+- name: Write stage3 SHA512 check file
+  ansible.builtin.copy:
+    dest: "{{ stage3_checksum_check_path }}"
+    mode: "0644"
+    content: "{{ stage3_sha512_checksum.stdout | trim }}  {{ stage3_tarball_name }}\n"
+  when: not ansible_check_mode
+
+- name: Verify selected stage3 SHA512 checksum
+  ansible.builtin.command:
+    argv:
+      - sha512sum
+      - --check
+      - "{{ stage3_checksum_check_path }}"
+    chdir: "{{ stage3_cache_path }}"
+  register: stage3_checksum_verify
+  changed_when: false
+  failed_when: stage3_checksum_verify.rc != 0
+  when: not ansible_check_mode
+
+- name: Define stage3 audit run id
+  ansible.builtin.set_fact:
+    stage3_run_id: "{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}"
+
+- name: Define stage3 audit log path
+  ansible.builtin.set_fact:
+    stage3_log_dir: "{{ project_root | default(lookup('ansible.builtin.env', 'PWD'), true) }}/logs/install-runs/{{ stage3_run_id }}/stage3"
+
+- name: Create local stage3 log directory
+  ansible.builtin.file:
+    path: "{{ stage3_log_dir }}"
+    state: directory
+    mode: "0750"
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Record stage3 verification evidence before extraction
+  ansible.builtin.copy:
+    dest: "{{ stage3_log_dir }}/verification.json"
+    mode: "0640"
+    content: |
+      {
+        "profile": {{ stage3_profile | to_json }},
+        "stage3_variant": {{ stage3_variant | to_json }},
+        "mirror": {{ stage3_mirror_base | to_json }},
+        "variant_url": {{ stage3_variant_url | to_json }},
+        "latest_metadata": {{ stage3_latest_name | to_json }},
+        "tarball": {{ stage3_tarball_name | to_json }},
+        "target_root": {{ stage3_target_root | to_json }},
+        "target_mount": {{ stage3_target_findmnt.stdout | to_json }},
+        "cache_dir": {{ stage3_cache_path | to_json }},
+        "checksum_algorithm": "SHA512",
+        "checksum_status": {{ (stage3_checksum_verify.rc == 0) | to_json }},
+        "signature_status": {
+          "latest_metadata": {{ (stage3_latest_signature.rc == 0) | to_json }},
+          "digests": {{ (stage3_digest_signature.rc == 0) | to_json }},
+          "tarball": {{ (stage3_tarball_signature.rc == 0) | to_json }},
+          "sha256_metadata": {{ ((stage3_sha256_signature.rc | default(1)) == 0) | to_json }},
+          "sha256_metadata_available": {{ (stage3_sha256_head.status == 200) | to_json }}
+        },
+        "extraction_allowed": true
+      }
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Extract verified stage3 into target root
+  ansible.builtin.command:
+    argv:
+      - tar
+      - -xJpf
+      - "{{ stage3_tarball_path }}"
+      - --xattrs-include=*.*
+      - --numeric-owner
+      - -C
+      - "{{ stage3_target_root }}"
+  register: stage3_extract
+  changed_when: true
+  when: not ansible_check_mode
+
+- name: Verify expected stage3 directories after extraction
+  ansible.builtin.stat:
+    path: "{{ stage3_target_root }}/{{ item }}"
+  loop:
+    - etc
+    - usr
+    - var
+    - root
+  register: stage3_extracted_dirs
+
+- name: Require expected stage3 directories after extraction
+  ansible.builtin.assert:
+    that:
+      - stage3_extracted_dirs.results | selectattr('stat.exists') | list | length == stage3_extracted_dirs.results | length
+    fail_msg: "STAGE3_EXTRACT_FAILED: expected base directories are missing after extraction."
+    success_msg: "Expected base directories exist after stage3 extraction."
+
+- name: Record stage3 extraction evidence
+  ansible.builtin.copy:
+    dest: "{{ stage3_log_dir }}/extraction.json"
+    mode: "0640"
+    content: |
+      {
+        "profile": {{ stage3_profile | to_json }},
+        "stage3_variant": {{ stage3_variant | to_json }},
+        "tarball": {{ stage3_tarball_name | to_json }},
+        "target_root": {{ stage3_target_root | to_json }},
+        "changed": {{ stage3_extract.changed | default(false) | to_json }},
+        "rc": {{ stage3_extract.rc | to_json }},
+        "expected_paths": {{ stage3_extracted_dirs.results | map(attribute='item') | list | to_nice_json }}
+      }
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Build stage3 install report
+  ansible.builtin.set_fact:
+    stage3_install_report:
+      changed: "{{ not ansible_check_mode }}"
+      profile: "{{ stage3_profile }}"
+      stage3_variant: "{{ stage3_variant }}"
+      tarball: "{{ stage3_tarball_name }}"
+      target_root: "{{ stage3_target_root }}"
+      checksum: SHA512
+      checksum_verified: "{{ (not ansible_check_mode) and stage3_checksum_verify.rc == 0 }}"
+      signature_verified: "{{ (not ansible_check_mode) and stage3_latest_signature.rc == 0 and stage3_digest_signature.rc == 0 and stage3_tarball_signature.rc == 0 and (stage3_sha256_head.status != 200 or stage3_sha256_signature.rc == 0) }}"
+      logs: "{{ stage3_log_dir }}/"
+
+- name: Print stage3 install report
+  ansible.builtin.debug:
+    msg: "{{ stage3_install_report }}"
