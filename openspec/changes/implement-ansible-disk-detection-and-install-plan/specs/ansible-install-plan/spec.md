@@ -17,9 +17,21 @@ The project SHALL provide a Makefile-mediated Ansible install plan workflow for 
 - **WHEN** the operator runs `make install-plan PROFILE=openrc` or `make install-plan PROFILE=systemd`
 - **THEN** the workflow SHALL validate that the profile is supported
 - **AND** the workflow SHALL report the selected init system and stage3 variant
-- **AND** the workflow SHALL report v1 assumptions for amd64, UEFI, ext4, `gentoo-kernel-bin`, GRUB, NetworkManager, no LUKS, and no Btrfs
+- **AND** the workflow SHALL report v1 assumptions for amd64, UEFI, selected filesystem, `gentoo-kernel-bin`, GRUB, NetworkManager, and no LUKS
 - **AND** the workflow SHALL report planned partition layout without applying it
 - **AND** the workflow SHALL NOT require destructive confirmation variables
+
+#### Scenario: Generate ext4 filesystem plan
+- **WHEN** the operator runs `make install-plan PROFILE=openrc FILESYSTEM=ext4`
+- **THEN** the workflow SHALL report an EFI system partition and an ext4 root partition
+- **AND** it SHALL NOT report Btrfs subvolumes as active planned mounts
+
+#### Scenario: Generate Btrfs filesystem plan
+- **WHEN** the operator runs `make install-plan PROFILE=openrc FILESYSTEM=btrfs`
+- **THEN** the workflow SHALL report an EFI system partition and a Btrfs root partition
+- **AND** it SHALL report planned Btrfs subvolumes for root, home, var, var log, var cache, and snapshots
+- **AND** the planned Btrfs root mount options SHALL include `subvol=@`
+- **AND** it SHALL NOT create the filesystem or subvolumes
 
 #### Scenario: Preserve explicit install disk selection
 - **WHEN** the operator runs `make install-plan PROFILE=openrc INSTALL_DISK=/dev/vda`

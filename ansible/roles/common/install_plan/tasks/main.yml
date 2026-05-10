@@ -7,10 +7,20 @@
     fail_msg: "PROFILE/profile must be openrc or systemd."
     success_msg: "Install profile is supported."
 
+- name: Validate supported filesystem plan
+  ansible.builtin.assert:
+    that:
+      - filesystem is defined
+      - filesystem in ['ext4', 'btrfs']
+    fail_msg: "FILESYSTEM/filesystem must be ext4 or btrfs."
+    success_msg: "Filesystem plan is supported."
+
 - name: Derive read-only plan variables
   ansible.builtin.set_fact:
     install_plan_init_system: "{{ profile }}"
     install_plan_stage3_variant: "{{ profile }}"
+    install_plan_filesystem: "{{ filesystem }}"
+    install_plan_uses_btrfs: "{{ filesystem == 'btrfs' }}"
     install_plan_disk_selected: "{{ install_disk is defined and (install_disk | string | length > 0) }}"
 
 - name: Match explicit install disk when provided
@@ -42,12 +52,12 @@
       v1_assumptions:
         architecture: amd64
         boot_mode: uefi
-        filesystem: ext4
+        filesystem: "{{ install_plan_filesystem }}"
         kernel: gentoo-kernel-bin
         bootloader: grub
         network: NetworkManager
         luks: false
-        btrfs: false
+        btrfs: "{{ install_plan_uses_btrfs }}"
         custom_iso: false
       install_disk:
         selected: "{{ install_plan_disk_selected }}"
@@ -60,8 +70,10 @@
           mountpoint: /boot/efi
         root_partition:
           size: remaining disk
-          filesystem: ext4
+          filesystem: "{{ install_plan_filesystem }}"
           mountpoint: /mnt/gentoo
+          btrfs_subvolumes: "{{ [{'name': '@', 'mountpoint': '/mnt/gentoo'}, {'name': '@home', 'mountpoint': '/mnt/gentoo/home'}, {'name': '@var', 'mountpoint': '/mnt/gentoo/var'}, {'name': '@var/log', 'mountpoint': '/mnt/gentoo/var/log'}, {'name': '@var/cache', 'mountpoint': '/mnt/gentoo/var/cache'}, {'name': '@snapshots', 'mountpoint': '/mnt/gentoo/.snapshots'}] if install_plan_filesystem == 'btrfs' else [] }}"
+          btrfs_mount_options: "{{ ['noatime', 'compress=zstd', 'subvol=@'] if install_plan_filesystem == 'btrfs' else [] }}"
         swap:
           partition: false
           note: "No swap partition in v1 unless a future approved change adds one; optional swapfile can be planned later."

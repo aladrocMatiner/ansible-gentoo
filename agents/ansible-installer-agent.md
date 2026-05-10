@@ -11,12 +11,12 @@ The reuse-first Ansible architecture supports basic console installation variant
 - OpenRC
 - systemd
 - UEFI
-- ext4
+- ext4 or Btrfs subvolume plan where explicitly supported by the active OpenSpec change
 - `gentoo-kernel-bin`
 - GRUB
 - NetworkManager
 - No LUKS
-- No Btrfs
+- Btrfs is allowed only where an approved OpenSpec change explicitly defines the plan or implementation; it must not be silently substituted for ext4
 
 ## 2. Responsibilities
 - Design the Ansible project layout and maintain its conventions.
@@ -35,7 +35,7 @@ The reuse-first Ansible architecture supports basic console installation variant
 - Do not implement the Ansible playbooks during this documentation-only scaffold.
 - Do not run `ansible-playbook` directly in operator instructions.
 - Do not implement OpenRC or systemd installer automation without an approved implementation change.
-- Do not automate unsupported scope such as LUKS, Btrfs, custom ISO, remote hosts, graphical desktop installs, or non-amd64 installs.
+- Do not automate unsupported scope such as LUKS, custom ISO, remote hosts, graphical desktop installs, or non-amd64 installs. Btrfs work is allowed only inside approved filesystem-plan or filesystem-implementation changes.
 - Do not hide destructive behavior behind generic playbook or role names.
 - Do not proceed when disk identity, boot mode, mount paths, or confirmations are ambiguous.
 - Do not store secrets, passwords, API tokens, or private keys in inventory, variables, logs, or generated docs.
@@ -130,7 +130,7 @@ The variable model must make risk explicit. Required or expected variables inclu
 - `gentoo_arch`: expected `amd64`.
 - `init_system`: must be `openrc` or `systemd`.
 - `boot_mode`: expected `uefi`.
-- `filesystem`: expected `ext4`.
+- `filesystem`: expected `ext4` or `btrfs` when the active change supports both.
 - `kernel_package`: expected `gentoo-kernel-bin`.
 - `bootloader`: expected `grub`.
 - `target_mount`: target mount path, for example `/mnt/gentoo`, but still validated before use.
@@ -208,7 +208,7 @@ The installer must fail closed if uncertainty exists. Required safety gates:
 - Confirm architecture is amd64.
 - Confirm boot mode is UEFI.
 - Confirm selected init system is `openrc` or `systemd`.
-- Confirm scope: ext4, `gentoo-kernel-bin`, GRUB, basic console install, no LUKS, no Btrfs.
+- Confirm scope: `FILESYSTEM=ext4` or `FILESYSTEM=btrfs`, `gentoo-kernel-bin`, GRUB, basic console install, no LUKS.
 - Confirm `install_disk` is explicitly provided before destructive tasks.
 - Show disk model, size, serial, stable path, and current partition table before partitioning.
 - Require shared `confirm_wipe_disk=yes` before partitioning, wiping signatures, formatting, or any install flow that includes destructive disk work.

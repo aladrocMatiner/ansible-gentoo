@@ -11,14 +11,14 @@ The v1 target installation is:
 - Architecture: amd64
 - Init system: OpenRC
 - Boot mode: UEFI
-- Root filesystem: ext4
+- Root filesystem: ext4 by default; Btrfs subvolumes only when explicitly selected by an approved plan
 - Kernel: `gentoo-kernel-bin`
 - Bootloader: GRUB
 - Network manager: NetworkManager
 - Live environment: official standard Gentoo live ISO
 - Codex: installed temporarily in the live ISO
 - No LUKS encryption in v1
-- No Btrfs in v1
+- Btrfs must not be used implicitly; it requires an explicit filesystem plan
 - No custom ISO in v1
 - No Ansible automation in phase 1
 
@@ -38,7 +38,7 @@ Any request outside this scope requires an OpenSpec change before implementation
 - Do not implement the Ansible installer.
 - Do not create destructive scripts.
 - Do not select a target disk automatically.
-- Do not recommend LUKS, Btrfs, systemd, custom ISO work, or non-amd64 flows for v1.
+- Do not recommend LUKS, custom ISO work, or non-amd64 flows for v1. Btrfs requires an explicit approved filesystem plan and must not replace ext4 silently.
 - Do not hide risky commands behind vague wording.
 - Do not proceed when the operator cannot identify the target disk confidently.
 
@@ -183,7 +183,7 @@ Validation: UEFI mode is confirmed before GRUB planning.
 
 ### 10.8 Plan Partitions
 1. Produce a human-readable plan for the operator-selected disk.
-2. For v1, plan an EFI system partition and an ext4 root partition.
+2. For v1, plan an EFI system partition and an explicit root filesystem: ext4 by default or Btrfs only when selected by the plan.
 3. Identify every existing partition or filesystem that would be destroyed.
 4. Ask the operator to confirm the plan before any write.
 
@@ -195,7 +195,7 @@ Validation: operator-approved partition plan exists with disk, partitions, files
 1. Confirm partition names are operator-provided and match the approved plan.
 2. Mark formatting as destructive.
 3. Require confirmation before formatting EFI or root partitions.
-4. Use ext4 for root and the appropriate EFI filesystem for the EFI system partition.
+4. Use the planned root filesystem and the appropriate EFI filesystem for the EFI system partition.
 
 Destructive step. Formatting destroys data on the selected partitions.
 

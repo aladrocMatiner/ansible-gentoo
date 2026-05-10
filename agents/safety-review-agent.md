@@ -80,7 +80,7 @@ Before creating filesystems:
 - Existing filesystem signatures must be displayed.
 - Formatting must be classified as `DESTRUCTIVE`.
 - Confirmation must identify the exact partition paths to be formatted.
-- Root filesystem must be ext4 for v1.
+- Root filesystem must be explicitly planned as `ext4` or `btrfs`; Btrfs subvolume behavior must be documented and must not run without the same destructive confirmations as other filesystem operations.
 - EFI filesystem must match UEFI boot requirements.
 - The task must stop if the partition is mounted unexpectedly.
 - The task must stop if the partition path is empty, `/`, a whole disk when a partition is expected, or not under the approved disk.

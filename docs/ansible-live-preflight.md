@@ -38,6 +38,7 @@ make ansible-check
 make detect-disks
 make install-plan PROFILE=openrc
 make install-plan PROFILE=openrc INSTALL_DISK=/dev/vda
+make install-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda
 ```
 
 The install plan targets still do not install Gentoo. They use the official Gentoo AMD64 Handbook as the baseline procedure and stop at read-only planning.

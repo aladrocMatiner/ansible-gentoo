@@ -30,7 +30,7 @@ Small documentation-only edits may not require a full change if the operator exp
 - Affected files and directories.
 - Makefile target implications.
 - Safety risk level.
-- v1 assumptions: amd64, OpenRC, UEFI, ext4, `gentoo-kernel-bin`, GRUB, NetworkManager, no LUKS, no Btrfs.
+- v1 assumptions: amd64, OpenRC, UEFI, ext4 by default with approved Btrfs subvolume planning where specified, `gentoo-kernel-bin`, GRUB, NetworkManager, no LUKS.
 - Whether the change is documentation-only or executable behavior.
 
 ## 4. Change Creation Workflow

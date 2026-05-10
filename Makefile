@@ -17,6 +17,7 @@ VM_SSH_USER ?= root
 VM_BOOT_MODE ?= uefi
 VM_KERNEL_ARGS ?= dokeymap nodhcp root=live:CDLABEL=Gentoo-amd64-20260426 rd.live.dir=/ rd.live.squashimg=image.squashfs cdroot console=tty0 console=ttyS0,115200n8
 PROFILE ?= openrc
+FILESYSTEM ?= ext4
 
 export LIBVIRT_URI
 export VM_NET_MODE
@@ -35,6 +36,7 @@ export VM_SSH_USER
 export VM_BOOT_MODE
 export VM_KERNEL_ARGS
 export PROFILE
+export FILESYSTEM
 export INSTALL_DISK
 
 .PHONY: help \
@@ -60,7 +62,7 @@ help:
 		'  make ansible-live-ping Validate Ansible connectivity using project inventory' \
 		'  make ansible-live-preflight Run read-only live ISO Ansible preflight' \
 		'  make detect-disks    Run read-only Ansible disk detection in the live ISO' \
-		'  make install-plan    Generate read-only Ansible install plan (PROFILE=openrc|systemd)' \
+		'  make install-plan    Generate read-only Ansible install plan (PROFILE=openrc|systemd FILESYSTEM=ext4|btrfs)' \
 		'  make vm-shutdown     Request clean guest shutdown' \
 		'  make vm-destroy      Stop the configured VM without deleting artifacts' \
 		'  make vm-clean        Undefine VM and delete generated artifacts after confirmation' \
@@ -89,6 +91,7 @@ help:
 		'  VM_BOOT_MODE=$(VM_BOOT_MODE)' \
 		'  VM_KERNEL_ARGS=$(VM_KERNEL_ARGS)' \
 		'  PROFILE=$(PROFILE)' \
+		'  FILESYSTEM=$(FILESYSTEM)' \
 		'  INSTALL_DISK has no default; pass INSTALL_DISK=/dev/vda only deliberately inside the VM'
 
 vm-check:

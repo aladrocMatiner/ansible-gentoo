@@ -16,6 +16,8 @@ make detect-disks
 make install-plan PROFILE=openrc
 make install-plan PROFILE=systemd
 make install-plan PROFILE=openrc INSTALL_DISK=/dev/vda
+make install-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda
+make install-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda
 ```
 
 `INSTALL_DISK` is optional for read-only planning, but it must never have a default. When omitted, `install-plan` must explicitly say no install disk was selected.
@@ -25,7 +27,7 @@ Add:
 
 - `make ansible-check`: verify Ansible commands exist and syntax-check implemented playbooks.
 - `make detect-disks`: run read-only disk detection against the live ISO.
-- `make install-plan`: run read-only install planning with `PROFILE`, defaulting to `openrc`.
+- `make install-plan`: run read-only install planning with `PROFILE`, defaulting to `openrc`, and `FILESYSTEM`, defaulting to `ext4`.
 
 Rules:
 
@@ -33,6 +35,7 @@ Rules:
 - Targets must not expose raw `ansible-playbook` as the normal operator workflow.
 - Targets must not require `I_UNDERSTAND_THIS_WIPES_DISK`.
 - Targets must fail clearly for unsupported `PROFILE` values.
+- Targets must fail clearly for unsupported `FILESYSTEM` values.
 
 ## Ansible Layout
 Add shared roles under `roles/common/`:
@@ -70,8 +73,10 @@ The roles are shared by OpenRC and systemd flows. Init-specific behavior in this
 - require `PROFILE`/`profile` to be `openrc` or `systemd`,
 - map `PROFILE=openrc` to `init_system=openrc` and `stage3_variant=openrc`,
 - map `PROFILE=systemd` to `init_system=systemd` and `stage3_variant=systemd`,
-- report the v1 assumptions: amd64, UEFI, ext4, `gentoo-kernel-bin`, GRUB, NetworkManager, no LUKS, no Btrfs,
-- report the expected v1 layout as a plan only: 512 MiB EFI system partition and ext4 root using the remaining disk,
+- report the selected filesystem plan: `ext4` or `btrfs`,
+- report the v1 assumptions: amd64, UEFI, `gentoo-kernel-bin`, GRUB, NetworkManager, no LUKS,
+- report the expected v1 layout as a plan only: 512 MiB EFI system partition and either ext4 root or Btrfs root using the remaining disk,
+- for Btrfs, report planned subvolumes and mount options, including `subvol=@` for the root mount, without creating them,
 - report whether `INSTALL_DISK` was explicitly provided,
 - when `INSTALL_DISK` is provided, match it against detected block device paths and report its identity,
 - fail closed if `INSTALL_DISK` is provided but not visible,
@@ -81,11 +86,13 @@ The roles are shared by OpenRC and systemd flows. Init-specific behavior in this
 Makefile variable mapping:
 
 - `PROFILE` maps to Ansible `profile`.
+- `FILESYSTEM` maps to Ansible `filesystem`.
 - `INSTALL_DISK`, if set, maps to Ansible `install_disk`.
 
 Defaults:
 
 - `PROFILE ?= openrc` is allowed.
+- `FILESYSTEM ?= ext4` is allowed.
 - `INSTALL_DISK` must not be assigned a default.
 
 ## Safety Rules

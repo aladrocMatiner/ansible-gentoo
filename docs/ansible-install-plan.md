@@ -52,6 +52,13 @@ make install-plan PROFILE=systemd
 
 `PROFILE` defaults to `openrc`. Supported values are `openrc` and `systemd`.
 
+Select the filesystem plan with `FILESYSTEM`. Supported values are `ext4` and `btrfs`; the default is `ext4`:
+
+```sh
+make install-plan PROFILE=openrc FILESYSTEM=ext4
+make install-plan PROFILE=openrc FILESYSTEM=btrfs
+```
+
 `INSTALL_DISK` has no default. If it is omitted, the plan explicitly reports that no install disk was selected:
 
 ```sh
@@ -73,10 +80,12 @@ The plan reports:
 - selected profile and init system,
 - stage3 variant,
 - official Handbook baseline URL,
-- v1 assumptions: amd64, UEFI, ext4, `gentoo-kernel-bin`, GRUB, NetworkManager, no LUKS, no Btrfs, no custom ISO,
+- v1 assumptions: amd64, UEFI, selected filesystem, `gentoo-kernel-bin`, GRUB, NetworkManager, no LUKS, no custom ISO,
 - whether `INSTALL_DISK` was explicitly provided,
 - matched disk identity when `INSTALL_DISK` is visible,
-- planned v1 partition layout: 512 MiB EFI system partition and ext4 root using the remaining disk,
+- planned v1 partition layout: 512 MiB EFI system partition and root using the remaining disk,
+- for `FILESYSTEM=ext4`, an ext4 root partition mounted at `/mnt/gentoo`,
+- for `FILESYSTEM=btrfs`, a Btrfs root partition plus planned subvolumes for `/`, `/home`, `/var`, `/var/log`, `/var/cache`, and `/.snapshots`; the root mount options include `subvol=@`,
 - safety boundary confirming no destructive commands ran.
 
 ## Safety

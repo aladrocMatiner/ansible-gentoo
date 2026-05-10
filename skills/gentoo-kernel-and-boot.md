@@ -3,7 +3,7 @@
 ## 1. Purpose
 This skill describes the v1 kernel and bootloader workflow for `gentoo-ai-installer`.
 
-The v1 system uses `gentoo-kernel-bin`, GRUB, UEFI, ext4 root, no LUKS, and no Btrfs. The Makefile is the operator-facing control plane.
+The v1 system uses `gentoo-kernel-bin`, GRUB, UEFI, no LUKS, and an explicitly selected root filesystem plan. ext4 is the default; Btrfs subvolumes are allowed only where an approved OpenSpec change defines the plan or implementation. The Makefile is the operator-facing control plane.
 
 This skill defines the workflow and safety requirements. It does not implement scripts.
 
@@ -22,7 +22,7 @@ Do not use this skill before UEFI, target root, and EFI mount state are confirme
 - Confirmed UEFI boot mode.
 - Target root mounted at `/mnt/gentoo`.
 - EFI system partition mounted at `/boot/efi` inside the target.
-- Root filesystem is ext4.
+- Root filesystem is explicitly planned as ext4 or Btrfs.
 - Root filesystem UUID.
 - `/etc/fstab` entries for root and EFI.
 - Kernel package: `gentoo-kernel-bin`.
@@ -45,8 +45,8 @@ Rationale: `gentoo-kernel-bin` reduces build time and risk during the first repr
 Policy:
 
 - No LUKS in v1.
-- No Btrfs in v1.
-- Root filesystem is ext4.
+- Btrfs requires explicit `FILESYSTEM=btrfs` planning and documented subvolume behavior.
+- Root filesystem defaults to ext4 when no filesystem override is provided.
 - Initramfs should not be made complex unless required by `gentoo-kernel-bin`, hardware, or boot validation.
 - If an initramfs is generated or installed by package behavior, record it.
 - Do not introduce dracut, genkernel, custom initramfs logic, or LUKS/Btrfs boot handling without an OpenSpec change.
@@ -108,7 +108,7 @@ Expectations:
 - Generate GRUB config only after kernel files exist.
 - Use stable root filesystem UUIDs.
 - Confirm `/etc/fstab` root and EFI entries match discovered UUIDs.
-- Confirm no LUKS or Btrfs-specific boot configuration is added in v1.
+- Confirm no LUKS is added in v1. For Btrfs, confirm root UUID, subvolume mount options, and GRUB configuration are documented before bootloader work is implemented.
 - Log generated GRUB config path and timestamp.
 - Review GRUB config for the expected kernel entries.
 

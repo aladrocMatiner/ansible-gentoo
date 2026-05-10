@@ -26,7 +26,7 @@ Do not use this skill to bypass OpenSpec or safety review for destructive automa
 - Official Gentoo AMD64 Handbook baseline: <https://wiki.gentoo.org/wiki/Handbook:AMD64>.
 - Official Gentoo live ISO preflight behavior.
 - Libvirt VM SSH access for host-driven live ISO validation, when using `make ansible-live-ping` or `make ansible-live-preflight`.
-- Basic console targets: amd64, OpenRC or systemd, UEFI, ext4, `gentoo-kernel-bin`, GRUB, NetworkManager or equivalent network setup, no LUKS, no Btrfs.
+- Basic console targets: amd64, OpenRC or systemd, UEFI, ext4 or planned Btrfs subvolumes, `gentoo-kernel-bin`, GRUB, NetworkManager or equivalent network setup, no LUKS.
 - Makefile target contract.
 - Safety review requirements.
 - Target root path, expected `/mnt/gentoo`.
@@ -102,7 +102,7 @@ Expected variables:
 - `gentoo_arch: amd64`
 - `init_system`: must be `openrc` or `systemd`.
 - `boot_mode: uefi`
-- `filesystem: ext4`
+- `filesystem`: must be `ext4` or `btrfs` for current read-only planning.
 - `kernel_package: gentoo-kernel-bin`
 - `bootloader: grub`
 - `stage3_variant`: must match `init_system`.
@@ -121,6 +121,7 @@ Rules:
 - No destructive task without `confirm_wipe_disk=yes`.
 - No default disk.
 - No wildcard disk matching.
+- `filesystem` must be `ext4` or `btrfs`.
 - `stage3_variant` must match `init_system`.
 - OpenRC variables belong in `group_vars/openrc.yml` or an equivalent variant file.
 - systemd variables belong in `group_vars/systemd.yml` or an equivalent variant file.
@@ -299,7 +300,7 @@ Target expectations:
 - `make detect-disks`: run read-only Ansible disk inventory from inside the live ISO without selecting an install disk.
 - `make ansible-dry-run PROFILE=openrc`: run the supported OpenRC check-mode workflow through the shared flow.
 - `make ansible-dry-run PROFILE=systemd`: run the supported systemd check-mode workflow through the shared flow.
-- `make install-plan`: default to `PROFILE=openrc` and produce a read-only plan without defaulting `INSTALL_DISK`.
+- `make install-plan`: default to `PROFILE=openrc` and `FILESYSTEM=ext4`, and produce a read-only plan without defaulting `INSTALL_DISK`.
 - `make install-plan PROFILE=openrc`: gather facts and create an operator-readable OpenRC install plan.
 - `make install-plan PROFILE=systemd`: gather facts and create an operator-readable systemd install plan.
 - `make install-openrc`: execute the approved OpenRC install with required confirmations.
@@ -310,7 +311,7 @@ Operators should not run `ansible-playbook` directly.
 Makefile targets should pass init-specific variables into shared Ansible flows where practical.
 
 `make ansible-live-preflight` is not an installer target. It must not set `install_disk`, consume destructive confirmation variables, or mutate target filesystems.
-`make detect-disks` and `make install-plan` are also read-only at this stage. `INSTALL_DISK` may be passed for identity matching only, and the playbook must explicitly report when it is omitted.
+`make detect-disks` and `make install-plan` are also read-only at this stage. `INSTALL_DISK` may be passed for identity matching only, and the playbook must explicitly report when it is omitted. `FILESYSTEM=btrfs` may report planned subvolumes, but must not create a Btrfs filesystem or subvolumes until a later destructive change is approved.
 
 ## 15. Failure Modes
 - No approved OpenSpec change for Ansible work.
@@ -364,6 +365,7 @@ When phase 2 Ansible behavior changes, documentation must change in the same imp
 
 - If the Ansible layout, inventory model, variable model, roles, playbooks, safety gates, dry-run behavior, idempotency rules, or log locations change, update this skill and the relevant Ansible documentation under `docs/`.
 - If disk detection or install-plan behavior changes, update `docs/ansible-install-plan.md`, `skills/gentoo-disk-planning.md`, and the active OpenSpec `tasks.md`.
+- If filesystem plan options change, document `FILESYSTEM`, defaults, Btrfs subvolumes, and ext4 behavior in docs and skills together.
 - If a role or playbook intentionally differs from the official Gentoo AMD64 Handbook flow, document the reason in the relevant OpenSpec change and `docs/ansible-architecture.md`.
 - If the live ISO preflight role, inventory, SSH targeting, checks, or Makefile targets change, update `docs/ansible-live-preflight.md`, `docs/libvirt-manual-install-test.md`, and the active OpenSpec `tasks.md`.
 - If shared role boundaries or init-specific behavior changes, update `docs/ansible-architecture.md`.

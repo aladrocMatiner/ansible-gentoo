@@ -14,6 +14,7 @@
 - [x] Add `make install-plan`.
 - [x] Document the new targets in `make help`.
 - [x] Ensure `PROFILE` defaults to `openrc`.
+- [x] Ensure `FILESYSTEM` defaults to `ext4`.
 - [x] Ensure `INSTALL_DISK` has no default.
 
 ## 3. Scripts
@@ -29,11 +30,13 @@
 - [x] Create `ansible/roles/common/install_plan/tasks/main.yml`.
 - [x] Keep tasks read-only.
 - [x] Keep OpenRC and systemd plan logic shared.
+- [x] Support ext4 and Btrfs install-plan output.
 
 ## 5. Safety
 - [x] Verify no destructive commands are used.
 - [x] Verify no install disk is selected or defaulted.
 - [x] Verify provided `INSTALL_DISK` is used only for read-only matching.
+- [x] Verify Btrfs planning does not create filesystems or subvolumes.
 - [x] Verify no confirmation variable is required or consumed.
 - [x] Verify no installer playbooks run.
 
@@ -48,6 +51,7 @@
 - [x] Run `make ansible-check`.
 - [x] Run `make detect-disks`.
 - [x] Run `make install-plan PROFILE=openrc`.
+- [x] Run `make install-plan PROFILE=openrc FILESYSTEM=btrfs`.
 - [x] Run `make install-plan PROFILE=systemd`.
 - [x] Run `make install-plan PROFILE=openrc INSTALL_DISK=/dev/vda`.
 - [x] Run `openspec validate implement-ansible-disk-detection-and-install-plan --strict`.

@@ -22,7 +22,7 @@ Use this skill:
 - v1 architecture: amd64.
 - v1 init system: OpenRC.
 - v1 boot mode: UEFI.
-- v1 filesystem: ext4.
+- v1 filesystem: ext4 by default, or Btrfs when explicitly planned with `FILESYSTEM=btrfs`.
 - Required packages for `gentoo-kernel-bin`, GRUB, EFI boot support, NetworkManager, editor, privilege escalation, syslog, and cron.
 - Network and DNS status.
 - Mirror selection.

@@ -102,7 +102,7 @@ Currently implemented read-only planning roles:
 
 - `common/live_preflight`: validates the live ISO environment over SSH.
 - `common/disk_detection`: reports visible block devices without selecting or modifying a disk.
-- `common/install_plan`: prints a profile-aware OpenRC or systemd plan without defaulting `install_disk`.
+- `common/install_plan`: prints a profile-aware OpenRC or systemd plan without defaulting `install_disk`; it supports `FILESYSTEM=ext4` and `FILESYSTEM=btrfs` as read-only plan variants.
 
 ## Init-specific Roles
 Init-specific roles must be thin and explicit.

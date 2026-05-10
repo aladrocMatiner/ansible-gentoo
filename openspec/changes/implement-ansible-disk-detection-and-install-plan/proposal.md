@@ -22,6 +22,7 @@ Future automation must not infer or default an install disk. Operators need a Ma
 ## Scope
 - Add read-only Ansible disk detection using shared/common roles.
 - Add read-only Ansible install plan generation for `PROFILE=openrc` and `PROFILE=systemd`.
+- Add read-only filesystem plan selection for `FILESYSTEM=ext4` and `FILESYSTEM=btrfs`.
 - Add Makefile targets for `make ansible-check`, `make detect-disks`, and `make install-plan`.
 - Reuse the existing live ISO VM SSH target discovery.
 - Document the new operator workflow.
@@ -34,7 +35,8 @@ Future automation must not infer or default an install disk. Operators need a Ma
 - Do not chroot.
 - Do not install packages, kernels, users, services, or bootloaders.
 - Do not automate a full Gentoo installation.
-- Do not add LUKS, Btrfs, BIOS boot, custom ISO, or graphical desktop support.
+- Do not add LUKS, BIOS boot, custom ISO, or graphical desktop support.
+- Do not implement Btrfs formatting or subvolume creation yet; only plan the layout.
 
 ## Safety Considerations
 - `INSTALL_DISK` must not have a default.
@@ -51,6 +53,8 @@ Future automation must not infer or default an install disk. Operators need a Ma
 - `make detect-disks` reports disk path, model, serial when available, size, type, filesystem, mountpoints, and partition children.
 - `make install-plan PROFILE=openrc` produces a read-only OpenRC plan and does not default `INSTALL_DISK`.
 - `make install-plan PROFILE=systemd` produces a read-only systemd plan and does not default `INSTALL_DISK`.
+- `make install-plan PROFILE=openrc FILESYSTEM=ext4` reports the ext4 root filesystem plan.
+- `make install-plan PROFILE=openrc FILESYSTEM=btrfs` reports the Btrfs root filesystem and planned subvolumes.
 - `make install-plan PROFILE=... INSTALL_DISK=/dev/vda` reports matching disk identity without modifying `/dev/vda`.
 - The implementation uses shared roles for disk detection and install planning.
 - Documentation explains the new targets, `PROFILE`, optional `INSTALL_DISK`, and read-only safety boundary.
