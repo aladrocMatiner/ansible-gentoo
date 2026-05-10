@@ -75,4 +75,12 @@ make mount-target PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda
 make generate-fstab PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda
 ```
 
+Kernel installation consumes the generated fstab and must keep the Btrfs boot command line aligned with the root subvolume:
+
+```sh
+make install-kernel PROFILE=openrc FILESYSTEM=btrfs
+```
+
+The generated kernel command line must include `rootflags=subvol=@`.
+
 Inside the local libvirt VM, `/dev/vda` is the disposable guest disk. On real network targets, use the disk path reported by `make detect-disks`.

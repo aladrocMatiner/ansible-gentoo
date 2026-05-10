@@ -191,7 +191,7 @@ Shared roles live under `roles/common/` or an equivalent shared structure.
 - `locale_timezone_hostname`: target hostname, timezone, locale, and keymap configuration.
 - `package_install`: shared package installation framework.
 - `fstab`: UUID-based fstab generation.
-- `kernel`: `gentoo-kernel-bin` installation.
+- `kernel`: `gentoo-kernel-bin` installation, installkernel/dracut support, fstab-derived kernel command line, and kernel/initramfs artifact evidence.
 - `bootloader`: GRUB and EFI framework.
 - `users`: user creation framework with secret-safe input.
 - `ssh`: SSH package framework and init-specific enablement dispatch.
@@ -212,6 +212,7 @@ Currently implemented shared roles and workflows:
 - `common/portage`: manages conservative `make.conf`, official Gentoo repo configuration, repo sync, OpenRC/systemd profile selection from variant variables, GURU-disabled policy, pending config-update reporting, and Portage evidence logs.
 - `common/locale_timezone_hostname`: configures target hostname, timezone, UTF-8 locale, OpenRC/systemd console keymap files, locale generation, env update, and evidence for final checks and install reports.
 - `common/fstab`: generates UUID-based `/mnt/gentoo/etc/fstab` entries for ext4 root or the approved Btrfs subvolume layout plus `/boot/efi`, validates UUIDs, and records evidence for final checks and install reports.
+- `common/kernel`: installs `sys-kernel/installkernel`, `sys-kernel/dracut`, and `sys-kernel/gentoo-kernel-bin`, writes Handbook-aligned command-line input derived from `/mnt/gentoo/etc/fstab`, validates `/boot` kernel/initramfs artifacts, and records evidence for final checks and install reports.
 
 ## Init-specific Roles
 Init-specific roles must be thin and explicit.

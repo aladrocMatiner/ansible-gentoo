@@ -49,9 +49,11 @@ Policy:
 - No LUKS in v1.
 - Btrfs requires explicit `FILESYSTEM=btrfs` planning and documented subvolume behavior.
 - Root filesystem defaults to ext4 when no filesystem override is provided.
-- Initramfs should not be made complex unless required by `gentoo-kernel-bin`, hardware, or boot validation.
-- If an initramfs is generated or installed by package behavior, record it.
-- Do not introduce dracut, genkernel, custom initramfs logic, or LUKS/Btrfs boot handling without an OpenSpec change.
+- `gentoo-kernel-bin` requires installkernel/initramfs handling in this project. The implemented target uses `sys-kernel/installkernel` with dracut support and records the generated initramfs.
+- The kernel role derives the installkernel command line from `/mnt/gentoo/etc/fstab`.
+- ext4 root uses `root=UUID=<root-uuid> rootfstype=ext4`.
+- Btrfs root uses `root=UUID=<root-uuid> rootfstype=btrfs rootflags=subvol=@`.
+- Do not introduce genkernel, custom initramfs logic, LUKS boot handling, or alternate Btrfs root flags without an OpenSpec change.
 
 ## 6. UEFI Requirements
 Before installing GRUB for UEFI:
@@ -149,7 +151,7 @@ These targets define the expected control-plane contract for kernel and bootload
 
 Target expectations:
 
-- `make install-kernel`: install `gentoo-kernel-bin` in the target and record installed kernel files.
+- `make install-kernel`: install `sys-kernel/installkernel`, `sys-kernel/dracut`, and `sys-kernel/gentoo-kernel-bin`; write target command-line input; validate `/boot` kernel/initramfs artifacts; and record non-secret evidence. It must not install GRUB or alter EFI boot entries.
 - `make install-bootloader`: install GRUB for UEFI only after safety gates pass.
 - `make configure-grub`: generate and review GRUB configuration.
 - `make final-boot-checks`: validate kernel, GRUB, EFI files, fstab, UUIDs, and NetworkManager.
@@ -166,6 +168,10 @@ The operator should not be asked to run raw `grub-install`, `efibootmgr`, GRUB c
 - GRUB is installed to the wrong disk.
 - Current EFI boot entries were not shown before changes.
 - Kernel files are missing from `/boot`.
+- Initramfs files are missing from `/boot`.
+- `/etc/fstab` does not contain a UUID root entry.
+- Btrfs root fstab options are missing `subvol=@`.
+- installkernel/dracut cannot generate an initramfs because command-line input is missing or invalid.
 - GRUB config is missing or references the wrong root UUID.
 - `/etc/fstab` uses volatile disk names or wrong UUIDs.
 - NetworkManager is not enabled for boot.
@@ -175,6 +181,8 @@ The operator should not be asked to run raw `grub-install`, `efibootmgr`, GRUB c
 - If UEFI is missing, reboot the live ISO using the UEFI boot entry.
 - If target root or EFI mount is missing, return to mount validation before bootloader work.
 - If root UUIDs differ from fstab or GRUB config, regenerate the plan before making more bootloader changes.
+- If kernel install fails because fstab is missing or invalid, rerun `make generate-fstab` before retrying `make install-kernel`.
+- If initramfs generation fails, inspect `/mnt/gentoo/etc/kernel/cmdline` and `/mnt/gentoo/etc/cmdline.d/00-gentoo-ai-installer.conf`.
 - If `grub-install` fails, do not retry with a different disk until UEFI mode, EFI mount, target root, and operator-provided boot disk are re-confirmed.
 - If EFI boot entries look wrong, record current entries before changing anything else.
 - If final boot checks fail, do not reboot until failures are corrected or a recovery plan is documented.
@@ -185,6 +193,8 @@ This skill should produce or request:
 
 - Installed kernel package version.
 - List of kernel files in `/boot`.
+- List of initramfs files in `/boot`.
+- Kernel command line written for installkernel/dracut.
 - Root filesystem UUID.
 - EFI partition UUID or stable identifier.
 - `/etc/fstab` review result.

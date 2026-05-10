@@ -5,7 +5,8 @@ The project SHALL install `gentoo-kernel-bin` into the target system using share
 
 #### Scenario: installkernel support
 - **WHEN** `gentoo-kernel-bin` is installed for a GRUB boot flow
-- **THEN** installkernel/initramfs support SHALL be configured as required by the Gentoo Handbook guidance for distribution kernels
+- **THEN** installkernel/dracut initramfs support SHALL be configured as required by the Gentoo Handbook guidance for distribution kernels
+- **AND** GRUB package installation and bootloader configuration SHALL remain deferred to the bootloader change
 
 #### Scenario: Kernel artifacts exist
 - **WHEN** kernel installation completes

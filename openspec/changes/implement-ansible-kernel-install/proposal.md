@@ -10,7 +10,7 @@ This change maps to the Gentoo AMD64 Handbook kernel phase. The Handbook notes t
 
 ## Scope
 - Add shared `common/kernel` role.
-- Configure required installkernel/initramfs support for the selected profile where needed.
+- Configure required installkernel/initramfs support for the selected profile where needed, without installing GRUB in this change.
 - Install `gentoo-kernel-bin`.
 - Verify kernel and initramfs artifacts in `/boot`.
 - Record kernel/initramfs evidence needed by the boot kernel command line policy.
@@ -28,7 +28,7 @@ This change maps to the Gentoo AMD64 Handbook kernel phase. The Handbook notes t
 
 ## Acceptance Criteria
 - `gentoo-kernel-bin` is installed.
-- Required installkernel/initramfs support is configured for GRUB.
+- Required installkernel/initramfs support is configured so the later GRUB change can consume generated kernel/initramfs artifacts.
 - Kernel files exist in target `/boot`.
 - Kernel/initramfs artifacts support the approved boot command line policy.
 - `openspec validate implement-ansible-kernel-install --strict` passes.

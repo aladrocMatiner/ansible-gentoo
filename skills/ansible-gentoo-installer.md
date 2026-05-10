@@ -178,7 +178,7 @@ Shared roles:
 - `common/locale_timezone_hostname`: configure target hostname, timezone, locale generation, OpenRC/systemd keymap files, and report inputs for final checks and install reports.
 - `common/package_install`: install packages from shared and variant package lists.
 - `common/fstab`: generate stable UUID-based fstab entries for ext4 root or the approved Btrfs subvolume layout plus `/boot/efi`, validate UUIDs, and write only under `/mnt/gentoo`.
-- `common/kernel`: install `gentoo-kernel-bin`.
+- `common/kernel`: install `sys-kernel/installkernel`, `sys-kernel/dracut`, and `gentoo-kernel-bin`; derive the kernel command line from `/mnt/gentoo/etc/fstab`; write installkernel/dracut command-line input; validate kernel, initramfs, and module artifacts; and leave GRUB installation to `common/bootloader`.
 - `common/bootloader`: install and configure GRUB for UEFI through shared safety gates.
 - `common/users`: create users and credentials through secret-safe mechanisms.
 - `common/ssh`: install SSH packages and dispatch service enablement through init-specific logic.

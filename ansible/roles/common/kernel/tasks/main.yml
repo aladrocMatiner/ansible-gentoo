@@ -1,0 +1,413 @@
+---
+- name: Define kernel installation facts
+  ansible.builtin.set_fact:
+    kernel_target_root: "{{ target_mount | default('/mnt/gentoo') }}"
+    kernel_package_use_file: /mnt/gentoo/etc/portage/package.use/gentoo-ai-installer-kernel
+    kernel_packages:
+      - sys-kernel/installkernel
+      - sys-kernel/dracut
+      - sys-kernel/gentoo-kernel-bin
+
+- name: Validate kernel installation inputs
+  ansible.builtin.assert:
+    that:
+      - profile is defined
+      - profile in ['openrc', 'systemd']
+      - init_system is defined
+      - init_system == profile
+      - filesystem is defined
+      - filesystem in ['ext4', 'btrfs']
+      - kernel_target_root == '/mnt/gentoo'
+      - kernel_target_root != '/'
+    fail_msg: "KERNEL_INSTALL_FAILED: profile, filesystem, init system, or target root is invalid."
+    success_msg: "Kernel installation inputs are approved."
+
+- name: Require extracted stage3 before kernel installation
+  ansible.builtin.stat:
+    path: "{{ kernel_target_root }}/{{ item }}"
+  loop:
+    - etc
+    - usr
+    - var
+    - root
+    - boot
+  register: kernel_stage3_markers
+
+- name: Validate extracted stage3 before kernel installation
+  ansible.builtin.assert:
+    that:
+      - kernel_stage3_markers.results | selectattr('stat.exists') | list | length == kernel_stage3_markers.results | length
+    fail_msg: "KERNEL_INSTALL_FAILED: expected target directories are missing under /mnt/gentoo."
+    success_msg: "Expected target directories exist under /mnt/gentoo."
+
+- name: Verify chroot pseudo-filesystems are mounted before kernel installation
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - "{{ item }}"
+      - --noheadings
+      - --output
+      - TARGET,FSTYPE
+  loop:
+    - "{{ kernel_target_root }}/proc"
+    - "{{ kernel_target_root }}/sys"
+    - "{{ kernel_target_root }}/dev"
+    - "{{ kernel_target_root }}/run"
+    - "{{ kernel_target_root }}/dev/pts"
+  register: kernel_chroot_mounts
+  changed_when: false
+  failed_when: kernel_chroot_mounts.rc != 0
+  check_mode: false
+
+- name: Verify target root mount before kernel installation
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - "{{ kernel_target_root }}"
+      - --noheadings
+      - --output
+      - TARGET,SOURCE,FSTYPE,OPTIONS
+  register: kernel_root_findmnt
+  changed_when: false
+  failed_when: kernel_root_findmnt.rc != 0
+  check_mode: false
+
+- name: Reject unsupported separate boot mount
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - "{{ kernel_target_root }}/boot"
+      - --noheadings
+      - --output
+      - TARGET,SOURCE,FSTYPE,OPTIONS
+  register: kernel_boot_findmnt
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Validate boot directory layout
+  ansible.builtin.assert:
+    that:
+      - kernel_boot_findmnt.rc != 0
+    fail_msg: "KERNEL_INSTALL_FAILED: separate /boot mounts are outside the current v1 layout; only /boot/efi may be mounted separately."
+    success_msg: "Target /boot is part of the root filesystem as expected."
+
+- name: Verify target EFI mount before kernel installation
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - "{{ kernel_target_root }}/boot/efi"
+      - --noheadings
+      - --output
+      - TARGET,SOURCE,FSTYPE,OPTIONS
+  register: kernel_efi_findmnt
+  changed_when: false
+  failed_when: kernel_efi_findmnt.rc != 0 or kernel_efi_findmnt.stdout is not search('vfat')
+  check_mode: false
+
+- name: Ensure target package.use directory exists
+  ansible.builtin.file:
+    path: "{{ kernel_target_root }}/etc/portage/package.use"
+    state: directory
+    mode: "0755"
+  when: not ansible_check_mode
+
+- name: Configure installkernel support for dracut initramfs generation
+  ansible.builtin.copy:
+    dest: "{{ kernel_package_use_file }}"
+    mode: "0644"
+    content: |
+      # Managed by gentoo-ai-installer.
+      # Handbook-aligned distribution kernel initramfs support.
+      # GRUB package installation and configuration are handled by the bootloader change.
+      sys-kernel/installkernel dracut
+      sys-kernel/gentoo-kernel-bin initramfs
+  register: kernel_package_use
+  when: not ansible_check_mode
+
+- name: Read root fstab entry for kernel command line
+  ansible.builtin.command:
+    argv:
+      - awk
+      - ($1 ~ /^UUID=/ && $2 == "/") { print $1 " " $3 " " $4; exit }
+      - "{{ kernel_target_root }}/etc/fstab"
+  register: kernel_root_fstab_entry
+  changed_when: false
+  failed_when: kernel_root_fstab_entry.stdout | trim | length == 0
+  check_mode: false
+
+- name: Store root fstab fields for kernel command line
+  ansible.builtin.set_fact:
+    kernel_root_fstab_fields: "{{ kernel_root_fstab_entry.stdout.split() }}"
+
+- name: Store kernel command line root facts
+  ansible.builtin.set_fact:
+    kernel_root_uuid: "{{ kernel_root_fstab_fields[0] | regex_replace('^UUID=', '') }}"
+    kernel_root_fstype: "{{ kernel_root_fstab_fields[1] }}"
+    kernel_root_options: "{{ kernel_root_fstab_fields[2] }}"
+
+- name: Validate kernel command line root facts
+  ansible.builtin.assert:
+    that:
+      - kernel_root_uuid is match('^[0-9A-Fa-f-]+$')
+      - kernel_root_fstype == filesystem
+      - filesystem != 'btrfs' or kernel_root_options is search('(^|,)subvol=@(,|$)')
+      - filesystem != 'ext4' or kernel_root_fstype == 'ext4'
+    fail_msg: "KERNEL_INSTALL_FAILED: fstab root entry cannot produce the approved kernel command line."
+    success_msg: "Kernel command line root facts match fstab and filesystem policy."
+
+- name: Build kernel command line
+  ansible.builtin.set_fact:
+    kernel_cmdline: >-
+      {{
+        (
+          ['root=UUID=' ~ kernel_root_uuid, 'rootfstype=' ~ kernel_root_fstype]
+          + (['rootflags=subvol=@'] if filesystem == 'btrfs' else [])
+        ) | join(' ')
+      }}
+
+- name: Validate kernel command line policy
+  ansible.builtin.assert:
+    that:
+      - kernel_cmdline is search('root=UUID=')
+      - kernel_cmdline is not search('/dev/')
+      - kernel_cmdline is not search('(^|\\s)(crypt|doluks|rd\\.luks|luks|resume)=')
+      - filesystem != 'btrfs' or kernel_cmdline is search('(^|\\s)rootflags=subvol=@(\\s|$)')
+    fail_msg: "KERNEL_INSTALL_FAILED: generated kernel command line violates v1 boot policy."
+    success_msg: "Generated kernel command line matches v1 boot policy."
+
+- name: Ensure kernel command line directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ kernel_target_root }}/etc/kernel"
+    - "{{ kernel_target_root }}/etc/cmdline.d"
+  when: not ansible_check_mode
+
+- name: Write target kernel command line
+  ansible.builtin.copy:
+    dest: "{{ kernel_target_root }}/etc/kernel/cmdline"
+    mode: "0644"
+    content: "{{ kernel_cmdline }}\n"
+  register: kernel_cmdline_file
+  when: not ansible_check_mode
+
+- name: Write installkernel chroot command line input
+  ansible.builtin.copy:
+    dest: "{{ kernel_target_root }}/etc/cmdline.d/00-gentoo-ai-installer.conf"
+    mode: "0644"
+    content: "{{ kernel_cmdline }}\n"
+  register: kernel_installkernel_cmdline_file
+  when: not ansible_check_mode
+
+- name: Check target kernel package installation state
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ kernel_target_root }}"
+      - /usr/bin/portageq
+      - has_version
+      - /
+      - "{{ item }}"
+  loop: "{{ kernel_packages }}"
+  register: kernel_package_state
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Store missing kernel packages
+  ansible.builtin.set_fact:
+    kernel_missing_packages: "{{ kernel_package_state.results | selectattr('rc', 'ne', 0) | map(attribute='item') | list }}"
+
+- name: Install Gentoo distribution kernel packages
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ kernel_target_root }}"
+      - /usr/bin/emerge
+      - --verbose
+      - sys-kernel/installkernel
+      - sys-kernel/dracut
+      - sys-kernel/gentoo-kernel-bin
+  register: kernel_emerge
+  changed_when: true
+  failed_when: kernel_emerge.rc != 0
+  when:
+    - not ansible_check_mode
+    - (kernel_package_use is defined and kernel_package_use is changed) or (kernel_missing_packages | length > 0)
+
+- name: Recheck target kernel package installation state
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ kernel_target_root }}"
+      - /usr/bin/portageq
+      - has_version
+      - /
+      - "{{ item }}"
+  loop: "{{ kernel_packages }}"
+  register: kernel_package_state_after
+  changed_when: false
+  failed_when: kernel_package_state_after.rc != 0
+  check_mode: false
+
+- name: Configure installed Gentoo distribution kernel artifacts
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ kernel_target_root }}"
+      - /usr/bin/emerge
+      - --config
+      - sys-kernel/gentoo-kernel-bin
+  register: kernel_emerge_config
+  changed_when: true
+  failed_when: kernel_emerge_config.rc != 0
+  when:
+    - not ansible_check_mode
+    - >-
+      (kernel_cmdline_file is defined and kernel_cmdline_file is changed)
+      or (kernel_installkernel_cmdline_file is defined and kernel_installkernel_cmdline_file is changed)
+      or (kernel_emerge is defined and kernel_emerge is changed)
+
+- name: Find target kernel and initramfs artifacts
+  ansible.builtin.command:
+    argv:
+      - find
+      - "{{ kernel_target_root }}/boot"
+      - -maxdepth
+      - "1"
+      - -type
+      - f
+      - "("
+      - -name
+      - "vmlinuz-*"
+      - -o
+      - -name
+      - "kernel-*"
+      - -o
+      - -name
+      - "initramfs-*"
+      - -o
+      - -name
+      - "initrd*"
+      - ")"
+      - -printf
+      - "%f\n"
+  register: kernel_boot_artifacts
+  changed_when: false
+  failed_when: kernel_boot_artifacts.rc != 0
+  check_mode: false
+
+- name: List target kernel module directories
+  ansible.builtin.command:
+    argv:
+      - find
+      - "{{ kernel_target_root }}/lib/modules"
+      - -mindepth
+      - "1"
+      - -maxdepth
+      - "1"
+      - -type
+      - d
+      - -printf
+      - "%f\n"
+  register: kernel_module_dirs
+  changed_when: false
+  failed_when: kernel_module_dirs.rc != 0
+  check_mode: false
+
+- name: Validate target kernel artifacts
+  ansible.builtin.assert:
+    that:
+      - kernel_boot_artifacts.stdout_lines | select('match', '^vmlinuz-.+') | list | length >= 1
+      - kernel_boot_artifacts.stdout_lines | select('match', '^(initramfs-.+|initrd.*)') | list | length >= 1
+      - kernel_module_dirs.stdout_lines | length >= 1
+    fail_msg: "KERNEL_INSTALL_FAILED: expected vmlinuz, initramfs, and module artifacts were not found under the target root."
+    success_msg: "Kernel, initramfs, and module artifacts exist in the target root."
+
+- name: Read target fstab for boot validation context
+  ansible.builtin.slurp:
+    src: "{{ kernel_target_root }}/etc/fstab"
+  register: kernel_fstab
+  when: not ansible_check_mode
+
+- name: Define kernel audit run id
+  ansible.builtin.set_fact:
+    kernel_run_id: "{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}"
+
+- name: Define kernel audit log path
+  ansible.builtin.set_fact:
+    kernel_log_dir: "{{ project_root | default(lookup('ansible.builtin.env', 'PWD'), true) }}/logs/install-runs/{{ kernel_run_id }}/kernel"
+
+- name: Create local kernel log directory
+  ansible.builtin.file:
+    path: "{{ kernel_log_dir }}"
+    state: directory
+    mode: "0750"
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Record kernel installation evidence
+  ansible.builtin.copy:
+    dest: "{{ kernel_log_dir }}/kernel.json"
+    mode: "0640"
+    content: |
+      {
+        "profile": {{ profile | to_json }},
+        "filesystem": {{ filesystem | to_json }},
+        "target_root": {{ kernel_target_root | to_json }},
+        "packages": {{ kernel_packages | to_nice_json }},
+        "missing_before": {{ kernel_missing_packages | to_nice_json }},
+        "package_use_file": {{ kernel_package_use_file | to_json }},
+        "package_use_changed": {{ (kernel_package_use is defined and kernel_package_use is changed) | to_json }},
+        "kernel_cmdline": {{ kernel_cmdline | to_json }},
+        "kernel_cmdline_changed": {{ ((kernel_cmdline_file is defined and kernel_cmdline_file is changed) or (kernel_installkernel_cmdline_file is defined and kernel_installkernel_cmdline_file is changed)) | to_json }},
+        "emerge_ran": {{ (kernel_emerge is defined and kernel_emerge is changed) | to_json }},
+        "emerge_config_ran": {{ (kernel_emerge_config is defined and kernel_emerge_config is changed) | to_json }},
+        "kernel_artifacts": {{ kernel_boot_artifacts.stdout_lines | to_nice_json }},
+        "module_directories": {{ kernel_module_dirs.stdout_lines | to_nice_json }},
+        "root_mount": {{ kernel_root_findmnt.stdout | to_json }},
+        "efi_mount": {{ kernel_efi_findmnt.stdout | to_json }},
+        "fstab": {{ (kernel_fstab.content | default('') | b64decode) | to_json }},
+        "final_checks_input": true,
+        "install_report_input": true
+      }
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Build kernel installation report
+  ansible.builtin.set_fact:
+    kernel_report:
+      changed: >-
+        {{
+          (not ansible_check_mode) and (
+            (kernel_package_use is defined and kernel_package_use is changed) or
+            (kernel_cmdline_file is defined and kernel_cmdline_file is changed) or
+            (kernel_installkernel_cmdline_file is defined and kernel_installkernel_cmdline_file is changed) or
+            (kernel_emerge is defined and kernel_emerge is changed) or
+            (kernel_emerge_config is defined and kernel_emerge_config is changed)
+          )
+        }}
+      packages: "{{ kernel_packages }}"
+      kernel_artifacts: "{{ kernel_boot_artifacts.stdout_lines }}"
+      module_directories: "{{ kernel_module_dirs.stdout_lines }}"
+      installkernel_use: "dracut"
+      kernel_cmdline: "{{ kernel_cmdline }}"
+      emerge_config_ran: "{{ kernel_emerge_config is defined and kernel_emerge_config is changed }}"
+      final_checks_input: true
+      install_report_input: true
+      logs: "{{ kernel_log_dir }}/"
+
+- name: Print kernel installation report
+  ansible.builtin.debug:
+    msg: "{{ kernel_report }}"

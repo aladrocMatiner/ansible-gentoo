@@ -1,0 +1,12 @@
+---
+- name: Install Gentoo distribution kernel
+  hosts: gentoo_live
+  gather_facts: true
+  pre_tasks:
+    - name: Load init-specific variables
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../group_vars/{{ profile }}.yml"
+  roles:
+    - role: common/live_preflight
+    - role: common/chroot
+    - role: common/kernel

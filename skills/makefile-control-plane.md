@@ -225,6 +225,7 @@ Semi-dangerous targets:
 - `make configure-portage`
 - `make configure-system`
 - `make generate-fstab`
+- `make install-kernel`
 - `make vm-disk`
 - `make vm-define`
 - `make vm-start`
@@ -251,6 +252,7 @@ Expected behavior:
 - `make configure-portage`: manage conservative target `make.conf`, install official Gentoo repo configuration, run official Gentoo repo sync, select the matching OpenRC/systemd profile from variant variables, keep GURU disabled, report pending config updates, and skip broad `@world`.
 - `make configure-system`: configure target hostname, timezone, UTF-8 locale, and OpenRC/systemd console keymap files under `/mnt/gentoo`; generate the locale and refresh target env only when locale files change.
 - `make generate-fstab`: require explicit `INSTALL_DISK`, verify mounted target filesystems and UUIDs, and write only `/mnt/gentoo/etc/fstab` with ext4 or approved Btrfs subvolume entries plus `/boot/efi`.
+- `make install-kernel`: require prepared `/mnt/gentoo`, prepared chroot pseudo-filesystems, mounted `/mnt/gentoo/boot/efi`, and generated fstab; install `gentoo-kernel-bin` with installkernel/dracut support; write target kernel command-line input; validate `/boot` artifacts; and avoid GRUB or EFI boot-entry changes.
 - `make vm-disk`: create or preserve the project-local qcow2 VM disk.
 - `make vm-define`: define the project-owned libvirt domain from reviewed project-local inputs.
 - `make vm-start`: start the project-owned VM from the official Gentoo live ISO.
