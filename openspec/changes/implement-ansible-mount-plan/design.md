@@ -3,7 +3,7 @@
 ## Overview
 `mount-plan` is a read-only planning checkpoint between `partition-plan` and any future destructive or state-changing mount implementation. It should answer: "If the planned partitions and filesystems existed, what would this project mount and with which options?"
 
-The workflow runs from the operator machine through Makefile, connects to the official Gentoo live ISO VM over SSH, and executes Ansible read-only tasks.
+The workflow runs from the operator/controller machine through Makefile, connects to a booted official Gentoo live ISO target over SSH, and executes Ansible read-only tasks. The local libvirt VM is one supported validation target, not a role dependency.
 
 ## Makefile Integration
 Add:
@@ -27,14 +27,14 @@ The script should:
 
 - use `bash` with `set -euo pipefail`,
 - source `scripts/vm-libvirt-common.sh`,
-- validate libvirt VM configuration,
 - require `ansible-playbook`,
-- discover VM SSH target through `scripts/vm-ssh-target.sh env`,
-- fail at SSH discovery if the VM is not reachable or has no target,
+- use `ANSIBLE_LIVE_HOST` when an explicit network target is provided,
+- fall back to local libvirt VM SSH discovery only for validation when no explicit network target is provided,
+- fail clearly if no live ISO SSH target can be determined,
 - validate `PROFILE=openrc|systemd`,
 - validate `FILESYSTEM=ext4|btrfs`,
 - require explicit `INSTALL_DISK`,
-- reject wildcard characters in `INSTALL_DISK`,
+- reject unsafe `INSTALL_DISK` values before invoking Ansible: no wildcards, parent traversal, whitespace, shell metacharacters, or Ansible extra-var injection characters,
 - run `ansible/playbooks/mount-plan.yml`.
 
 The script must not run raw `ssh` commands beyond existing Ansible transport behavior and must not run disk-changing commands.
@@ -106,8 +106,8 @@ For `FILESYSTEM=btrfs`, report:
   - `@` at `/mnt/gentoo`
   - `@home` at `/mnt/gentoo/home`
   - `@var` at `/mnt/gentoo/var`
-  - `@var/log` at `/mnt/gentoo/var/log`
-  - `@var/cache` at `/mnt/gentoo/var/cache`
+  - `@var_log` at `/mnt/gentoo/var/log`
+  - `@var_cache` at `/mnt/gentoo/var/cache`
   - `@snapshots` at `/mnt/gentoo/.snapshots`
 
 The root mount options must include `subvol=@`.

@@ -1,9 +1,11 @@
 # Ansible Installer Agent
 
 ## 1. Purpose
-The Ansible Installer Agent is responsible for phase 2 of `gentoo-ai-installer`: designing, generating, and maintaining a reproducible Gentoo installer built with Ansible.
+The Ansible Installer Agent is responsible for phase 2 of `gentoo-ai-installer`: designing, generating, and maintaining a reusable Gentoo installer built with Ansible.
 
-Phase 1 remains a manual installation assisted by Codex. Phase 2 translates validated phase-1 procedures into local Ansible playbooks that run from the official Gentoo live ISO environment. The Makefile remains the only operator-facing control plane.
+Phase 1 remains a manual installation assisted by Codex. Phase 2 translates validated phase-1 procedures into Ansible playbooks that run from an operator/controller machine against a network-reachable target booted into the official Gentoo live ISO. The Makefile remains the only operator-facing control plane.
+
+The local libvirt VM is a test harness for the same Ansible workflow. It must not become the architecture of the reusable installer.
 
 The reuse-first Ansible architecture supports basic console installation variants for:
 
@@ -35,7 +37,7 @@ The reuse-first Ansible architecture supports basic console installation variant
 - Do not implement the Ansible playbooks during this documentation-only scaffold.
 - Do not run `ansible-playbook` directly in operator instructions.
 - Do not implement OpenRC or systemd installer automation without an approved implementation change.
-- Do not automate unsupported scope such as LUKS, custom ISO, remote hosts, graphical desktop installs, or non-amd64 installs. Btrfs work is allowed only inside approved filesystem-plan or filesystem-implementation changes.
+- Do not automate unsupported scope such as LUKS, custom ISO, graphical desktop installs, or non-amd64 installs. Btrfs work is allowed only inside approved filesystem-plan or filesystem-implementation changes.
 - Do not hide destructive behavior behind generic playbook or role names.
 - Do not proceed when disk identity, boot mode, mount paths, or confirmations are ambiguous.
 - Do not store secrets, passwords, API tokens, or private keys in inventory, variables, logs, or generated docs.
@@ -46,6 +48,7 @@ The agent must generate and maintain a reuse-first layout when implementation is
 ```text
 ansible/
   inventory/
+    live.yml
     local.yml
   group_vars/
     all.yml
@@ -58,6 +61,7 @@ ansible/
   roles/
     common/
       preflight/
+      live_target/
       disk_detection/
       disk_safety/
       partitioning/
@@ -80,7 +84,8 @@ ansible/
 
 Layout intent:
 
-- `inventory/local.yml`: local live-ISO execution inventory only.
+- `inventory/live.yml`: network live-ISO target inventory used by remote SSH workflows.
+- `inventory/local.yml`: optional local live-ISO execution inventory for fallback or diagnostics only, not the primary product path.
 - `group_vars/all.yml`: shared variables and safe defaults that do not select disks.
 - `group_vars/openrc.yml`: OpenRC variant values such as stage3 variant, profile, services, syslog, and cron package choices.
 - `group_vars/systemd.yml`: systemd variant values such as stage3 variant, profile, units, and journald assumptions.
@@ -100,6 +105,7 @@ Roles should have narrow scope, explicit risk classification, and a reuse-first 
 Shared roles:
 
 - `common/preflight`: verify live ISO, amd64, UEFI, network, time, tools, and mount state.
+- `common/live_target`: validate controller-to-live-ISO SSH, Python availability, amd64, UEFI, network, DNS, and time evidence without assuming libvirt.
 - `common/disk_detection`: collect disk model, size, serial, stable paths, and current partition table without modifying disks.
 - `common/disk_safety`: validate required disk variables, confirmations, libvirt VM guest-mode assumptions, and fail-closed behavior.
 - `common/partitioning`: perform partition changes only after shared disk and confirmation gates pass.
@@ -149,6 +155,9 @@ The variable model must make risk explicit. Required or expected variables inclu
 - `locale`: target locale.
 - `enable_ssh`: whether to install and enable SSH.
 - `vm_guest_mode`: true only when running inside the libvirt-managed test VM.
+- `ansible_live_host`: network target address for the booted official Gentoo live ISO.
+- `ansible_live_port`: SSH port for the live ISO target.
+- `ansible_live_user`: SSH user for the live ISO target.
 - `admin_users`: target user definitions without plaintext passwords.
 - `confirm_wipe_disk`: required value is `yes` for destructive disk tasks. It may be populated from the Makefile `I_UNDERSTAND_THIS_WIPES_DISK` variable.
 - `bootloader_confirmation`: required for GRUB and EFI changes.
@@ -162,25 +171,28 @@ Rules:
 - The Makefile variable `INSTALL_DISK` must never have a default value, and Ansible must not introduce one in inventory or `group_vars`.
 - `stage3_variant` must match `init_system`.
 - VM guest `/dev/vda` is allowed only when explicitly passed as `install_disk=/dev/vda` inside the libvirt-managed guest VM.
+- Real network targets must use disk paths discovered from the target itself. `/dev/vda` must never be suggested for non-VM targets unless detection proves that is the intended target.
 - Passwords and tokens must not be stored in `group_vars/all.yml`.
 - Values discovered at runtime must be logged as evidence before tasks mutate state.
 
 ## 7. Inventory Model
-The inventory is local-only for v1:
+The inventory model is remote/network-first:
 
 ```yaml
 all:
   hosts:
-    live_iso:
-      ansible_connection: local
+    gentoo_live:
+      ansible_connection: ssh
+      ansible_user: root
       ansible_python_interpreter: auto_silent
 ```
 
 Inventory rules:
 
-- Do not support remote hosts in v1.
+- Treat the operator machine as the Ansible controller and the booted official Gentoo live ISO as the managed target.
 - Do not assume the installed target is the Ansible control host.
-- Treat the live ISO as the control environment and the mounted target root as data being modified.
+- Treat the mounted target root as data being modified on the managed target.
+- Keep libvirt VM discovery in wrapper scripts and test docs, not in reusable role logic.
 - Keep inventory free of secrets.
 - Do not store disk selections in inventory unless the operator intentionally provides them for a run.
 
@@ -188,6 +200,7 @@ Inventory rules:
 The Makefile is the only operator-facing control plane. The agent must expose Ansible through these expected targets:
 
 - `make ansible-check`: validate Ansible availability, inventory syntax, variables, and role/playbook structure.
+- `make ansible-live-preflight ANSIBLE_LIVE_HOST=...`: validate a network-reachable official Gentoo live ISO target over SSH.
 - `make ansible-dry-run PROFILE=openrc`: run supported OpenRC check-mode workflow and produce a plan.
 - `make ansible-dry-run PROFILE=systemd`: run supported systemd check-mode workflow and produce a plan.
 - `make install-plan PROFILE=openrc`: collect facts and produce an OpenRC installation plan without destructive changes.
@@ -200,6 +213,7 @@ The Makefile is the only operator-facing control plane. The agent must expose An
 
 Operator instructions must use Makefile targets. Raw `ansible-playbook` commands may appear only as implementation notes inside Makefile or maintainer docs.
 Makefile targets should pass `PROFILE=openrc` or `PROFILE=systemd` into shared Ansible flows where practical instead of maintaining duplicated command chains.
+Makefile targets should accept explicit live ISO target variables such as `ANSIBLE_LIVE_HOST`, `ANSIBLE_LIVE_PORT`, and `ANSIBLE_LIVE_USER`. If those are omitted, wrappers may discover the local libvirt VM for validation only.
 
 ## 9. Safety Gates
 The installer must fail closed if uncertainty exists. Required safety gates:
@@ -246,6 +260,31 @@ Future roles and playbooks must be safe to re-run when possible:
 - Final checks must be read-only.
 
 If idempotency is not possible for a task, the task must be isolated, tagged, documented, and guarded by confirmation.
+
+## Ansible quality standards responsibilities
+Before adding or modifying Ansible content, this agent must enforce the project quality gate as part of the implementation design.
+
+- Use FQCN modules (`ansible.builtin.*` or the canonical collection name) in every playbook, task, handler, and include.
+- Name every task and handler so failure output, logs, and audit bundles are readable.
+- Prefer purpose-built modules over `command`, `shell`, `raw`, or chroot wrappers. If command-like execution is required for Gentoo-specific behavior, document why in the task comment, design notes, or implementation summary.
+- For command-like tasks, use `argv` where possible and set `changed_when`, `failed_when`, `creates`, `removes`, or equivalent guards.
+- Read-only tasks must report `changed_when: false` and must not mutate live ISO, target root, VM disk, or host state.
+- Mutating tasks must use explicit `state`, idempotent module behavior, preflight facts, or path guards where practical.
+- File and template tasks should support check mode and diff mode; tasks that can expose secrets must disable sensitive logging or diffs.
+- Dangerous tasks must be tagged by risk and phase, for example `destructive`, `partition`, `filesystem`, `mount`, `chroot`, `bootloader`, `users`, or `services`.
+- New or changed roles must be covered by `make ansible-check`; when `ansible-lint` is unavailable, the implementation summary must state that lint was skipped and why.
+- Lint exceptions must be local, justified, and documented in the OpenSpec change or implementation summary.
+- Global `ansible.cfg` must not disable host key checking; temporary live ISO SSH exceptions must remain in wrapper scripts only and must be scoped to official live ISO targets.
+
+Quality review checklist:
+
+- Do all tasks use FQCN and clear names?
+- Are command-like tasks justified and guarded?
+- Do read-only tasks report no changes?
+- Do mutating tasks have idempotency guards and check-mode behavior?
+- Are secrets protected by `no_log`, omitted from diffs, and excluded from logs?
+- Does `make ansible-check` pass or clearly report skipped optional lint?
+- Does the change preserve reuse-first OpenRC/systemd architecture?
 
 ## Reuse-first Responsibilities
 Before adding or reviewing Ansible implementation, the agent must classify each task as shared or init-specific.
@@ -298,7 +337,7 @@ Logs must support audit and recovery without leaking secrets:
 When this agent changes phase 2 Ansible behavior, it must update documentation in the same change.
 
 - If playbooks, roles, inventories, variables, role defaults, safety gates, dry-run behavior, or log locations change, update the Ansible documentation under `docs/` and the reusable procedure in `skills/ansible-gentoo-installer.md`.
-- If local execution assumptions change, document whether Ansible runs locally from the official Gentoo live ISO or against a remote host; v1 documentation must keep local live ISO execution explicit.
+- If execution assumptions change, document controller/target behavior: Ansible should remain network/inventory-driven for reusable installs, while local live ISO execution is optional fallback or diagnostics.
 - If Makefile targets such as `make ansible-check`, `make ansible-dry-run`, `make install-plan`, `make install`, or `make final-checks` change, update `README.md` or `docs/` and `skills/makefile-control-plane.md`.
 - If destructive or high-risk Ansible behavior changes, update `agents/safety-review-agent.md`, relevant `skills/` safety sections, and the active OpenSpec `tasks.md`.
 - If the Ansible layout changes, update this file, `skills/ansible-gentoo-installer.md`, and `docs/ansible-architecture.md` together so future role generation uses the same structure.

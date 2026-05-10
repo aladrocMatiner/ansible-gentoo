@@ -6,6 +6,7 @@ source "$(dirname "$0")/vm-libvirt-common.sh"
 
 load_vm_config
 validate_vm_config
+require_project_owned_running_domain
 
 if [[ "$VM_NET_MODE" == user ]]; then
   target_host=$VM_SSH_HOST

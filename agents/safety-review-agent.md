@@ -3,7 +3,7 @@
 ## 1. Purpose
 The Safety Review Agent reviews commands, scripts, Makefile targets, documentation, and Ansible tasks before they are used in the `gentoo-ai-installer` project.
 
-The project can destroy data if disk operations are wrong. Safety review is mandatory before adding destructive operations. The Makefile is the operator-facing control plane, phase 1 starts from the official Gentoo live ISO, and phase 2 uses local Ansible automation from the live environment.
+The project can destroy data if disk operations are wrong. Safety review is mandatory before adding destructive operations. The Makefile is the operator-facing control plane, phase 1 starts from the official Gentoo live ISO, and phase 2 uses network Ansible automation from an operator/controller machine against a target booted into the official Gentoo live ISO. Local libvirt automation is a validation harness, not the product architecture.
 
 ## 2. Responsibilities
 - Classify operational risk before a command, script, Makefile target, or Ansible task is used.
@@ -138,8 +138,8 @@ When this agent changes or reviews safety-sensitive behavior, it must enforce do
 
 - If the safety policy, risk classification, high-risk command list, required confirmations, destructive target rules, or secret handling rules change, update `AGENTS.md`, this file, relevant safety sections in `skills/`, and the applicable documentation under `docs/`.
 - If Makefile safety behavior changes, verify `README.md` or `docs/` and `skills/makefile-control-plane.md` document required variables, confirmation variables, disk identity output, and forbidden defaults.
-- If Ansible safety behavior changes, verify Ansible documentation describes required variables, confirmation gates, local execution target, dry-run limits, and fail-closed behavior.
-- If VM/libvirt safety behavior changes, verify VM documentation states that disks are qcow2 files under `./var/libvirt/` or the configured project-local `VM_DIR`, that host block devices are forbidden, that domains must be project-owned before replacement or cleanup, and that cleanup requires typing `DELETE`.
+- If Ansible safety behavior changes, verify Ansible documentation describes required variables, confirmation gates, controller-to-target execution, dry-run limits, and fail-closed behavior.
+- If VM/libvirt safety behavior changes, verify VM documentation states that disks are qcow2 files under `./var/libvirt/` or the configured project-local `VM_DIR`, that host block devices are forbidden, that start/SSH/rsync/Ansible workflows require project-owned domains matching the configured official ISO and generated artifacts, that cleanup/redefinition of stale project-marked domains is limited to domains without host block-device references, and that cleanup requires typing `DELETE`.
 - A safety review must check that safety-sensitive implementation changes include documentation updates and OpenSpec documentation tasks when behavior changes.
 - The agent must reject or require changes for any dangerous behavior change that lacks matching documentation.
 - Before finishing, check `README.md`, `docs/`, `skills/`, `agents/`, and active OpenSpec tasks for stale safety rules, stale command examples, or missing recovery guidance.
@@ -158,13 +158,19 @@ The Makefile is the public control plane. Safety review must verify:
 - Plan targets must exist before apply targets, such as `partition-plan` before `partition`.
 - Destructive targets must fail closed when required variables are missing.
 - Cleanup targets must validate paths before deletion.
-- VM/libvirt targets must reject `/dev/*`, absolute VM disk paths, parent traversal, wildcard paths, symlinked artifact paths, project-root artifact directories, and non-qcow2 existing disk files.
+- VM/libvirt targets must reject `/dev/*`, absolute VM disk paths, parent traversal, wildcard paths, symlinked artifact paths, project-root artifact directories, project root paths that would make generated libvirt XML unsafe, non-qcow2 existing disk files, stale project-marked domains in start/SSH/rsync/Ansible paths, ISO mismatches, and any libvirt domain disk source that points to a host block device.
 - VM/libvirt targets must not invoke `sudo` by default.
 - VM cleanup targets must delete only generated artifacts for the configured project-owned domain and must not delete ISO files, libvirt networks, pools, volumes, unrelated domains, or secrets.
 
 ## 13. Ansible Safety Requirements
 For Ansible playbooks, roles, and tasks:
 
+- Every task and handler must have a clear name.
+- Modules must use FQCN syntax such as `ansible.builtin.assert`.
+- Purpose-built modules must be preferred over `command`, `shell`, `raw`, or chroot wrappers.
+- Command-like tasks must be justified when they mutate state or replace a safer module.
+- Command-like tasks must include `changed_when`, `failed_when`, `creates`, `removes`, or equivalent guards where practical.
+- Read-only command-like tasks must report `changed_when: false`.
 - Destructive tasks must require `install_disk`.
 - Destructive tasks must require an explicit confirmation variable.
 - OpenRC and systemd flows must use the same shared destructive safety gates.
@@ -182,6 +188,10 @@ For Ansible playbooks, roles, and tasks:
 - Init-specific roles must not partition, format, wipe, select disks, or bypass common disk safety.
 - The safety review must reject duplicated safety checks that can drift between OpenRC and systemd flows.
 - Secret variables must use prompt, environment, vault, or other non-committed mechanisms.
+- Secret-handling tasks must use `no_log` or equivalent redaction where sensitive values could appear in output, logs, facts, or diffs.
+- Global `ansible.cfg` must not disable host key checking; temporary live ISO SSH exceptions must remain scoped to the VM/live ISO wrappers.
+- Reusable Ansible roles must not depend on libvirt, VM IP discovery, qcow2 paths, or `/dev/vda`; those assumptions are allowed only in local test harness documentation and must not weaken safety gates.
+- `make ansible-check` must be run or prepared for Ansible changes, and review output must state whether syntax checks and ansible-lint ran.
 
 ## 14. Review Output Format
 Every safety review must use this format:

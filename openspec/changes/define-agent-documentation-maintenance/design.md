@@ -213,4 +213,4 @@ Agents must not document:
 - Unsupported v1 features as if they are implemented.
 - Long raw command sequences that bypass Makefile targets.
 
-Agents should document placeholders such as `.env.example` variable names only when useful.
+Agents should document `.env.example` variable names only when useful. Secret values must stay empty.

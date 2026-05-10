@@ -41,7 +41,8 @@ The new workflow must not weaken the safety model created for the QEMU workflow.
 - Do not use host block devices as VM disks.
 - Do not require raw `sudo` commands in operator documentation; system libvirt permissions must be provided by host configuration.
 - Do not support BIOS boot in v1.
-- Do not add LUKS, Btrfs, graphical desktop, or advanced storage layouts.
+- Do not define or automate installer storage layouts in this virtualization-only change.
+- Do not add LUKS, graphical desktop, or advanced storage automation.
 - Do not keep direct QEMU and virsh as equal operator-facing workflows; direct QEMU should become an implementation detail or be removed.
 
 ## Safety Requirements

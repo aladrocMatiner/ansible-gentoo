@@ -6,8 +6,7 @@ source "$(dirname "$0")/vm-libvirt-common.sh"
 
 load_vm_config
 require_command ansible-playbook
-validate_vm_config
-eval "$(scripts/vm-ssh-target.sh env)"
+require_ansible_live_target install-plan
 
 profile=${PROFILE:-openrc}
 case "$profile" in
@@ -29,6 +28,7 @@ extra_vars=(
 )
 
 if [[ -n "${INSTALL_DISK:-}" ]]; then
+  assert_install_disk_input "$INSTALL_DISK"
   extra_vars+=(-e "install_disk=${INSTALL_DISK}")
 fi
 

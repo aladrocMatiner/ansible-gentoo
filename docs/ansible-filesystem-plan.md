@@ -1,6 +1,8 @@
 # Ansible Filesystem Plan
 
-This workflow generates a read-only filesystem plan from inside the booted official Gentoo live ISO VM. It is the checkpoint after `mount-plan` and before any future destructive `format` implementation.
+This workflow generates a read-only filesystem plan against a booted official Gentoo live ISO target over SSH. It is the checkpoint after `mount-plan` and before any future destructive `format` implementation.
+
+Use `ANSIBLE_LIVE_HOST=...` for a real network target. If it is omitted, the wrappers may use the local libvirt VM as the validation target.
 
 It does not format, wipe, partition, mount, unmount, create directories, create Btrfs subvolumes, chroot, install packages, create users, change passwords, enable services, or install bootloaders.
 
@@ -17,7 +19,7 @@ make partition-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda
 make mount-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda
 ```
 
-Inside the libvirt VM, `/dev/vda` is the expected guest disk backed by the project-local qcow2 image. It must still be passed explicitly.
+Inside the libvirt VM, `/dev/vda` is the expected guest disk backed by the project-local qcow2 image. It must still be passed explicitly. On real network targets, use the disk path reported by `make detect-disks`.
 
 ## Required Variables
 
@@ -29,19 +31,25 @@ Inside the libvirt VM, `/dev/vda` is the expected guest disk backed by the proje
 
 ## Commands
 
-Generate an ext4 filesystem plan:
+Generate an ext4 filesystem plan for the local VM harness:
 
 ```sh
 make filesystem-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda
 ```
 
-Generate a Btrfs filesystem plan:
+For a real network target:
+
+```sh
+make filesystem-plan ANSIBLE_LIVE_HOST=192.0.2.10 PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/<target-disk>
+```
+
+Generate a Btrfs filesystem plan for the local VM harness:
 
 ```sh
 make filesystem-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda
 ```
 
-Generate a systemd/Btrfs plan through the same shared logic:
+Generate a systemd/Btrfs plan through the same shared logic for the local VM harness:
 
 ```sh
 make filesystem-plan PROFILE=systemd FILESYSTEM=btrfs INSTALL_DISK=/dev/vda
@@ -70,8 +78,8 @@ For `FILESYSTEM=btrfs`, the plan reports these subvolumes for future creation af
 - `@` at `/mnt/gentoo`
 - `@home` at `/mnt/gentoo/home`
 - `@var` at `/mnt/gentoo/var`
-- `@var/log` at `/mnt/gentoo/var/log`
-- `@var/cache` at `/mnt/gentoo/var/cache`
+- `@var_log` at `/mnt/gentoo/var/log`
+- `@var_cache` at `/mnt/gentoo/var/cache`
 - `@snapshots` at `/mnt/gentoo/.snapshots`
 
 ## Safety
@@ -81,6 +89,7 @@ For `FILESYSTEM=btrfs`, the plan reports these subvolumes for future creation af
 It reuses the earlier planning checks and fails if:
 
 - `INSTALL_DISK` is missing,
+- `INSTALL_DISK` is not an explicit safe `/dev/...` path,
 - `INSTALL_DISK` does not match exactly one detected disk,
 - the selected path is not type `disk`,
 - the selected disk has mounted child partitions or nested descendants,

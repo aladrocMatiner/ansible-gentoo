@@ -122,7 +122,7 @@ New targets:
 - `make vm-check`: read-only validation of libvirt tools, connection, ISO resolution, UEFI support, network mode configuration, and safe paths.
 - `make vm-disk`: create the qcow2 disk if missing.
 - `make vm-define`: generate or update the libvirt domain definition from safe project-local inputs.
-- `make vm-start`: start the VM from the official ISO and qcow2 disk.
+- `make vm-start`: validate ISO, UEFI firmware, network, and path prerequisites before creating missing artifacts; for an existing inactive domain, verify disk, NVRAM, kernel, and initrd artifacts before starting; then start the VM from the official ISO and qcow2 disk.
 - `make vm-console`: attach to `virsh console`.
 - `make vm-viewer`: open a graphical console with `virt-viewer` or documented equivalent when serial console is not usable.
 - `make vm-ip`: discover the guest IP when a managed libvirt network or guest agent can provide it; otherwise fail with guidance to use the forwarded SSH target.
@@ -175,7 +175,7 @@ The XML must include:
 
 If `virt-install --print-xml` is used, the resulting XML must be reviewed and written to `VM_DIR` before definition. The workflow must not pass unvalidated disk or ISO paths directly to libvirt commands.
 
-If a domain with `VM_NAME` already exists, `vm-define` must inspect it before making changes. It must fail if the existing domain does not carry the project ownership marker or does not match the generated artifact paths. The workflow must not overwrite unrelated libvirt domains. It must not enable libvirt autostart by default.
+If a domain with `VM_NAME` already exists, `vm-define` must inspect it before making changes. It must fail if the existing domain does not carry the project ownership marker or if it references host block devices. `vm-define` may replace an inactive stale project-marked domain so older generated XML can be regenerated with current OVMF, ISO, and artifact settings. Start, SSH, rsync, Ansible, console, viewer, and IP discovery must fail if the existing domain does not match the configured official ISO and generated artifact paths. The workflow must not overwrite unrelated libvirt domains. It must not enable libvirt autostart by default.
 
 ## 10. Network and SSH Strategy
 Default network mode is `VM_NET_MODE=network` with `VM_NETWORK=default`. It requires `VM_NETWORK` to name an existing libvirt network available on `LIBVIRT_URI`.
@@ -218,6 +218,7 @@ Path safety rules must be shared with or equivalent to the current QEMU scripts:
 - Reject project-root artifact directories such as `.`, `./`, and `./.`.
 - Reject wildcard characters.
 - Reject libvirt or shell option injection characters in operator-controlled paths.
+- Reject XML-special characters in the project root path before generating libvirt domain XML.
 - Reject symlinked artifact directories and symlinked path components.
 - Reject existing disk files that are not qcow2 according to `qemu-img info`.
 - Preserve existing qcow2 disks rather than overwriting them.
@@ -230,8 +231,9 @@ Domain safety rules:
 - `VM_NAME` must be validated against a conservative domain-name pattern.
 - Generated domains must include a project ownership marker.
 - `vm-define` must refuse to replace an existing unrelated domain with the same name.
+- `vm-start`, `vm-console`, `vm-viewer`, `vm-ip`, SSH, rsync, and Ansible target discovery must require the existing domain to match the configured official ISO and generated artifacts.
 - `vm-clean` must operate only on the configured `VM_NAME`.
-- `vm-clean` must refuse to undefine an existing domain unless it carries the project ownership marker or otherwise matches the generated project-local XML.
+- `vm-clean`, `vm-destroy`, `vm-shutdown`, and `vm-define` may operate on stale project-marked domains only when those domains do not reference host block devices.
 - `vm-clean` must show the domain and file paths it will remove.
 - `vm-clean` must require `DELETE`.
 - `vm-clean` must not delete libvirt networks, pools, unrelated domains, or unrelated volumes.

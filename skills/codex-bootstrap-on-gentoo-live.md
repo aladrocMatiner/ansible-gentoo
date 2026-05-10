@@ -85,17 +85,18 @@ If a secret may have been written into the repository, stop and clean it before 
 ## 8. Environment Variable Handling
 When using environment variables:
 
-- Document variable names in `.env.example` with placeholder values only.
+- Document secret variable names in `.env.example` with empty values only.
+- Non-secret configuration variables may show safe defaults when that helps usage.
 - Keep real values outside git.
 - Prefer one-shot shell environment variables or interactive prompts.
 - Do not ask the operator to paste secret values into chat logs.
 - Do not echo secret variables in scripts or Makefile targets.
 - Ensure `make clean-live-secrets` removes only known temporary secret files.
 
-Examples of documented placeholders are acceptable:
+Examples of documented variable names are acceptable:
 
 ```text
-OPENAI_API_KEY=replace-with-your-key
+OPENAI_API_KEY=
 CODEX_INSTALL_METHOD=npm
 ```
 
@@ -143,7 +144,7 @@ After `make bootstrap-codex`, run `make check-codex` and verify:
 - Codex install path is in the live environment or project-approved temporary path.
 - No files were written into the target Gentoo root.
 - `.env` is gitignored if present.
-- `.env.example` contains variable names and placeholders only.
+- `.env.example` contains variable names only, with empty values for secrets.
 - No secrets appear in tracked files or command output.
 
 ## 12. Failure Modes

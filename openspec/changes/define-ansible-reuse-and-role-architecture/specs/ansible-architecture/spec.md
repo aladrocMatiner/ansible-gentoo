@@ -3,7 +3,9 @@
 ### Requirement: Reuse-first Ansible Architecture
 The project SHALL define Ansible installation flows so common behavior is implemented once and reused across OpenRC and systemd variants.
 
-Shared behavior includes preflight checks, architecture detection, UEFI detection, disk discovery, disk identity reporting, safety confirmation validation, partition planning, filesystem checks, mount target preparation, stage3 download framework, stage3 verification framework, stage3 extraction, chroot preparation, Portage baseline configuration, package installation framework, fstab generation, kernel installation, GRUB installation framework, user creation framework, SSH package installation framework, final validation checks, logging, and QEMU validation flow.
+Shared behavior includes preflight checks, network live ISO target validation, architecture detection, UEFI detection, disk discovery, disk identity reporting, safety confirmation validation, partition planning, filesystem checks, mount target preparation, stage3 download framework, stage3 verification framework, stage3 extraction, chroot preparation, Portage baseline configuration, package installation framework, fstab generation, kernel installation, GRUB installation framework, user creation framework, SSH package installation framework, final validation checks, logging, and libvirt VM validation flow.
+
+The reusable installer SHALL be network/inventory-driven. libvirt VM behavior is a local validation harness for the same Ansible workflows.
 
 #### Scenario: Shared roles own common behavior
 - **WHEN** an Ansible implementation adds behavior used by both OpenRC and systemd flows
@@ -14,6 +16,12 @@ Shared behavior includes preflight checks, architecture detection, UEFI detectio
 - **WHEN** an Ansible implementation adds OpenRC-specific or systemd-specific behavior
 - **THEN** the behavior SHALL be isolated in init-specific roles, task files, handlers, templates, variables, or validation tasks
 - **AND** the implementation SHALL document why the behavior is init-specific
+
+#### Scenario: Network target remains primary
+- **WHEN** an Ansible implementation adds or changes installer behavior
+- **THEN** reusable roles and playbooks SHALL work against a network-reachable official Gentoo live ISO target selected by inventory or Makefile variables
+- **AND** they SHALL NOT depend on libvirt domain names, VM-only IP discovery, qcow2 paths, or `/dev/vda`
+- **AND** VM-specific assumptions SHALL be isolated to local test harness scripts, docs, examples, or validation fixtures
 
 ### Requirement: Init-specific Service Manager Separation
 OpenRC and systemd flows SHALL use only their own service management commands.
@@ -33,7 +41,7 @@ The Ansible architecture SHALL use a shared variable model with init-specific ov
 
 #### Scenario: Shared variables are defined consistently
 - **WHEN** an Ansible install flow runs
-- **THEN** variables such as `install_disk`, `hostname`, `admin_user`, `filesystem`, `boot_mode`, `stage3_variant`, `init_system`, `enable_ssh`, `confirm_wipe_disk`, `target_mount`, `efi_mount`, and `qemu_mode` SHALL have one documented meaning across OpenRC and systemd flows
+- **THEN** variables such as `install_disk`, `hostname`, `admin_user`, `filesystem`, `boot_mode`, `stage3_variant`, `init_system`, `enable_ssh`, `confirm_wipe_disk`, `target_mount`, `efi_mount`, and `vm_guest_mode` SHALL have one documented meaning across OpenRC and systemd flows
 - **AND** init-specific values SHALL live in `group_vars/openrc.yml`, `group_vars/systemd.yml`, or an equivalent documented variant mechanism
 
 #### Scenario: Init system and stage3 variant match
@@ -56,10 +64,10 @@ Safety gates SHALL be implemented once and reused by OpenRC and systemd flows.
 - **THEN** it SHALL NOT partition, format, wipe, or select disks directly
 - **AND** it SHALL NOT redefine or weaken shared disk safety checks
 
-#### Scenario: QEMU guest disk is explicit
-- **WHEN** QEMU testing uses `/dev/vda` inside the guest VM
+#### Scenario: libvirt VM guest disk is explicit
+- **WHEN** libvirt VM testing uses `/dev/vda` inside the guest VM
 - **THEN** `/dev/vda` SHALL be accepted only when explicitly passed as `install_disk=/dev/vda`
-- **AND** QEMU mode SHALL NOT disable destructive confirmations or disk identity checks
+- **AND** VM guest mode SHALL NOT disable destructive confirmations or disk identity checks
 
 ### Requirement: Makefile-mediated Ansible Entrypoints
 Operator-facing Ansible workflows SHALL be exposed through Makefile targets.
@@ -68,6 +76,7 @@ Operator-facing Ansible workflows SHALL be exposed through Makefile targets.
 - **WHEN** the project adds OpenRC and systemd Ansible entrypoints
 - **THEN** Makefile targets such as `make install-openrc`, `make install-systemd`, `make install-plan PROFILE=openrc`, `make install-plan PROFILE=systemd`, `make ansible-check`, `make ansible-dry-run PROFILE=openrc`, and `make ansible-dry-run PROFILE=systemd` SHALL pass init-specific variables into a shared Ansible flow where practical
 - **AND** destructive targets SHALL require the same shared confirmation and disk safety variables
+- **AND** Ansible targets SHALL support an explicit network live ISO target such as `ANSIBLE_LIVE_HOST=...` without requiring local libvirt discovery
 
 ### Requirement: Bash Helper Boundary
 Bash helpers MAY support low-level bootstrap or disk operations, but they SHALL NOT bypass Makefile control-plane or shared Ansible safety policy.
@@ -86,3 +95,12 @@ Ansible architecture changes SHALL update documentation in the same change.
 - **THEN** the change SHALL update relevant documentation such as `AGENTS.md`, `agents/ansible-installer-agent.md`, `skills/ansible-gentoo-installer.md`, `skills/makefile-control-plane.md`, and `docs/`
 - **AND** OpenSpec `tasks.md` SHALL include documentation tasks
 - **AND** documentation SHALL distinguish implemented Ansible behavior from planned behavior
+
+### Requirement: Architecture Uses Ansible Quality Gates
+Future Ansible architecture and implementation changes SHALL follow the project Ansible quality standards.
+
+#### Scenario: Ansible behavior is implemented
+- **WHEN** a change adds or modifies Ansible roles, playbooks, tasks, handlers, templates, variables, or inventories
+- **THEN** the change SHALL use FQCN module names and named tasks
+- **AND** command-like tasks SHALL be justified and guarded
+- **AND** idempotency, check-mode behavior, diff safety, secret handling, host-key scope, and `make ansible-check` results SHALL be reviewed before completion

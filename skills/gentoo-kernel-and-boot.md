@@ -36,6 +36,8 @@ Policy:
 - Use `gentoo-kernel-bin` for v1.
 - Avoid custom kernel compilation in v1.
 - Avoid kernel source configuration workflows in v1 unless a later OpenSpec change approves them.
+- Configure required installkernel/initramfs support explicitly for the GRUB boot flow, following Gentoo Handbook guidance for distribution kernels.
+- Follow the boot kernel command line policy: root should use a stable identifier, Btrfs must include `rootflags=subvol=@` or equivalent verified behavior, and v1 must not add LUKS or BIOS-only arguments.
 - Install kernel through Makefile target `make install-kernel`.
 - Record installed kernel version and installed files.
 
@@ -67,6 +69,7 @@ The EFI system partition must:
 
 - Be the partition from the approved disk plan.
 - Be mounted at `/boot/efi` inside the target system.
+- Correspond to `/mnt/gentoo/boot/efi` before chroot from the live ISO.
 - Use a UEFI-compatible filesystem.
 - Have expected EFI directory structure after bootloader installation.
 - Be represented in `/etc/fstab` with a stable identifier.
@@ -200,5 +203,6 @@ When kernel, initramfs, GRUB, UEFI, EFI mount, or boot validation behavior chang
 - If bootloader installation behavior changes, update `agents/safety-review-agent.md` and safety documentation because GRUB and EFI changes are high risk.
 - If Makefile targets such as `make install-kernel`, `make install-bootloader`, `make configure-grub`, or `make final-boot-checks` change, update this skill and `skills/makefile-control-plane.md`.
 - If validation now checks different kernel files, GRUB config paths, EFI files, fstab entries, UUIDs, or NetworkManager enablement, update output artifacts, failure modes, and recovery advice here.
+- If boot command line behavior changes, update the boot kernel command line policy, GRUB proposal, final checks, and this skill together.
 - If Ansible later automates bootloader work, update `skills/ansible-gentoo-installer.md` and the active OpenSpec `tasks.md` with the same safety gates.
 - Before finishing, confirm documentation still requires UEFI mode, EFI mounted at `/boot/efi`, target root mounted at `/mnt/gentoo`, and no unspecified disk for `grub-install`.

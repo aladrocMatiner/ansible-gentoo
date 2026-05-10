@@ -1,0 +1,12 @@
+---
+profile: basic
+offline: true
+use_default_rules: true
+exclude_paths:
+  - .cache/
+  - logs/
+  - var/
+  - gentoo.iso/
+  - openspec/changes/
+  - docs/
+

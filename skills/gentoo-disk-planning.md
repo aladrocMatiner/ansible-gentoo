@@ -18,7 +18,7 @@ Use this skill:
 - When reviewing Ansible disk automation later.
 - When reviewing read-only Ansible disk detection or install-plan output.
 
-Do not use this skill to support LUKS, BIOS boot, or advanced layouts in v1. Those require future OpenSpec changes. Btrfs is currently allowed only as a read-only planned layout until destructive filesystem work is approved.
+Do not use this skill to support LUKS, BIOS boot, or advanced layouts in v1. Those require future OpenSpec changes. Btrfs is allowed only through the documented ext4/Btrfs plan and must not run destructive Btrfs operations until the approved filesystem apply workflow is implemented with the shared safety gates.
 
 ## 3. Required Context
 - Official Gentoo live ISO preflight result.
@@ -74,7 +74,7 @@ For v1, recommend:
 
 - EFI system partition: 512 MiB, FAT32, mounted at `/boot/efi`.
 - Root partition: remaining disk, ext4 or Btrfs, mounted at `/mnt/gentoo`.
-- If `FILESYSTEM=btrfs`, plan subvolumes for `@`, `@home`, `@var`, `@var/log`, `@var/cache`, and `@snapshots`.
+- If `FILESYSTEM=btrfs`, plan subvolumes for `@`, `@home`, `@var`, `@var_log`, `@var_cache`, and `@snapshots`.
 - No separate `/home` in v1.
 - No swap partition in v1 unless explicitly configured.
 - Optional swapfile after installation.
@@ -108,6 +108,7 @@ Explicitly forbidden:
 - Defaulting to `/dev/sda`.
 - Defaulting to `/dev/nvme0n1`.
 - Wildcard disk matching.
+- Disk names containing whitespace, parent traversal, shell metacharacters, or Ansible extra-var injection characters.
 - Partitioning without explicit `INSTALL_DISK`.
 - Destructive operations without confirmation.
 
@@ -160,7 +161,7 @@ These targets define the expected control-plane contract for disk planning. If a
 - `make detect-disks`
 - `make install-plan PROFILE=openrc`
 - `make install-plan PROFILE=systemd`
-- `make install-plan PROFILE=openrc INSTALL_DISK=/dev/vda`
+- `make install-plan PROFILE=openrc INSTALL_DISK=/dev/vda` (VM-only example)
 - `make partition-plan INSTALL_DISK=...`
 - `make partition INSTALL_DISK=... I_UNDERSTAND_THIS_WIPES_DISK=yes`
 - `make format INSTALL_DISK=... I_UNDERSTAND_THIS_WIPES_DISK=yes`
@@ -206,7 +207,7 @@ The operator should not be asked to run raw `parted`, `sgdisk`, `fdisk`, `wipefs
 - Unmount only after reviewing current mountpoints and using documented targets.
 - Do not retry partitioning with a different disk until a new plan is approved.
 - If formatting was attempted on the wrong partition, stop immediately and collect evidence before further writes.
-- For LUKS, BIOS, swap partition, or separate `/home`, create a future OpenSpec change instead of modifying v1 behavior ad hoc. For Btrfs, stay within the documented subvolume plan until destructive Btrfs implementation is approved.
+- For LUKS, BIOS, swap partition, or separate `/home`, create a future OpenSpec change instead of modifying v1 behavior ad hoc. For Btrfs, stay within the documented subvolume plan until destructive Btrfs implementation exists and passes the same safety gates as ext4.
 
 ## 13. Output Artifacts
 This skill should produce or request:

@@ -1,7 +1,7 @@
 # Change: implement-ansible-mount-plan
 
 ## Summary
-Add a Makefile-mediated, read-only Ansible mount planning workflow for the Gentoo live ISO VM. The workflow reports how the planned target root and EFI filesystem would be mounted for `ext4` and `btrfs` without running `mount`, creating directories, formatting filesystems, or changing host or guest disks.
+Add a Makefile-mediated, read-only Ansible mount planning workflow for a booted Gentoo live ISO target over SSH. The workflow reports how the planned target root and EFI filesystem would be mounted for `ext4` and `btrfs` without running `mount`, creating directories, formatting filesystems, or changing host or target disks.
 
 ## Motivation
 The project already has read-only disk detection, install planning, and partition planning. Before destructive partitioning, formatting, or real mounting is introduced, operators need a clear mount plan that maps the planned partition layout to future mountpoints and options.
@@ -19,7 +19,7 @@ The current workflow can report the intended partition layout, but it does not y
 
 ## Scope
 - Add `make mount-plan`.
-- Add a wrapper script for running the Ansible mount plan against the live ISO VM.
+- Add a wrapper script for running the Ansible mount plan against a live ISO target over SSH.
 - Add an Ansible playbook and shared role for read-only mount planning.
 - Reuse existing disk detection, install plan, and partition plan roles.
 - Support `PROFILE=openrc|systemd`.
@@ -45,6 +45,7 @@ The current workflow can report the intended partition layout, but it does not y
 - The workflow must not run destructive commands such as `parted`, `sgdisk`, `fdisk`, `wipefs`, `mkfs.*`, `mount`, `umount`, `chroot`, `passwd`, `useradd`, `usermod`, `grub-install`, or `efibootmgr`.
 - `INSTALL_DISK` must be explicit and must not have a default.
 - VM guest `/dev/vda` is allowed only when explicitly passed as `INSTALL_DISK=/dev/vda` inside the guest VM.
+- Real network targets must use disk paths reported by `make detect-disks`.
 - The workflow must fail closed if the selected disk or descendants are mounted, reusing the partition-plan safety gate.
 - The workflow must report existing mountpoint state without creating or altering paths.
 
@@ -53,6 +54,7 @@ The current workflow can report the intended partition layout, but it does not y
 - `make mount-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda` prints a read-only Btrfs mount plan.
 - `make mount-plan PROFILE=systemd FILESYSTEM=btrfs INSTALL_DISK=/dev/vda` uses the same shared mount planning logic as OpenRC.
 - `make mount-plan` fails when `INSTALL_DISK` is missing.
+- `make mount-plan ANSIBLE_LIVE_HOST=... INSTALL_DISK=...` works without requiring libvirt VM discovery.
 - The mount plan reports planned root mountpoint `/mnt/gentoo`.
 - The mount plan reports planned EFI mountpoint `/mnt/gentoo/boot/efi`.
 - For ext4, the root mount uses the root partition without Btrfs subvolume options.

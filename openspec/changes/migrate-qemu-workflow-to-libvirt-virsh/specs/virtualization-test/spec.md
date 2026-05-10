@@ -23,7 +23,7 @@ The project SHALL provide a libvirt/virsh-managed local VM environment for rehea
 - **AND** the domain SHALL boot the official Gentoo live ISO
 - **AND** the domain SHALL use the official kernel and initrd extracted from the ISO for direct kernel boot with serial console arguments
 - **AND** the domain SHALL attach the project-local qcow2 disk as virtio storage
-- **AND** the domain SHALL use UEFI boot
+- **AND** the domain SHALL use OVMF UEFI pflash firmware with per-VM NVRAM
 - **AND** the domain SHALL include a serial console
 - **AND** the domain SHALL use managed libvirt networking with the default network
 - **AND** the domain SHALL use user-mode networking only when explicitly configured
@@ -33,11 +33,13 @@ The project SHALL provide a libvirt/virsh-managed local VM environment for rehea
 #### Scenario: Refuse unrelated existing domain
 - **WHEN** a libvirt domain already exists with the configured VM name
 - **THEN** the workflow SHALL inspect the existing domain before redefining, destroying, or cleaning it
-- **AND** the workflow SHALL fail if the domain does not carry the project ownership marker or does not match generated project-local artifacts
+- **AND** start, SSH, rsync, Ansible, console, viewer, and IP-discovery workflows SHALL fail if the domain does not carry the project ownership marker or does not match the configured official ISO and generated project-local artifacts
+- **AND** cleanup, shutdown, destroy, and redefine workflows MAY operate on stale project-marked domains only when those domains do not reference host block devices
 
 #### Scenario: Start and inspect the VM
 - **WHEN** the operator runs `make vm-start`
 - **THEN** the workflow SHALL start the configured libvirt domain
+- **AND** the domain SHALL be project-owned, configured with OVMF UEFI firmware, and matched to the configured official ISO and generated project-local artifacts before it starts
 - **AND** the workflow SHALL NOT partition, format, install Gentoo, configure Portage, create users, or install a bootloader automatically
 
 #### Scenario: Access console
@@ -53,12 +55,14 @@ The project SHALL provide a libvirt/virsh-managed local VM environment for rehea
 #### Scenario: Discover guest IP
 - **WHEN** the operator runs `make vm-ip`
 - **THEN** the workflow SHALL discover the guest IP through libvirt guest agent data or DHCP lease data when managed network discovery is available
+- **AND** any DHCP lease fallback SHALL be filtered by the configured domain MAC address
 - **AND** the workflow SHALL fail clearly when no IP can be discovered or when the selected network mode does not support lease discovery
 - **AND** the workflow SHALL point operators to the discovered SSH endpoint in default managed networking
 
 #### Scenario: Connect by SSH
 - **WHEN** the operator runs `make vm-ssh`
 - **THEN** the workflow SHALL connect to the guest through the configured discovered SSH endpoint or discovered guest IP only after SSH is reachable
+- **AND** the configured libvirt domain SHALL be project-owned, UEFI-configured, matched to generated project-local artifacts, and running before the workflow connects
 - **AND** the workflow SHALL fail clearly when SSH has not been enabled inside the official live ISO
 - **AND** the workflow SHALL NOT commit or require committed passwords, tokens, or private SSH keys
 
@@ -77,6 +81,8 @@ The project SHALL provide a libvirt/virsh-managed local VM environment for rehea
 #### Scenario: Copy files by rsync
 - **WHEN** the operator runs `make vm-rsync`
 - **THEN** the workflow SHALL copy only documented non-secret project files or artifacts to the guest
+- **AND** the configured libvirt domain SHALL be project-owned, UEFI-configured, matched to generated project-local artifacts, and running before the workflow connects
+- **AND** the guest destination SHALL remain under `/root/gentoo-ai-installer/`
 - **AND** the workflow SHALL NOT copy `.env`, private keys, credentials, tokens, or ignored large artifacts unless a future change explicitly approves a safe exception
 
 #### Scenario: Refuse host block devices

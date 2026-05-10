@@ -21,7 +21,7 @@
 - [x] Validate `PROFILE=openrc|systemd`.
 - [x] Validate `FILESYSTEM=ext4|btrfs`.
 - [x] Fail before Ansible if `INSTALL_DISK` is missing.
-- [x] Reuse existing VM SSH target discovery.
+- [x] Use explicit `ANSIBLE_LIVE_HOST` when provided and fall back to VM SSH target discovery only for local validation.
 
 ## 4. Ansible
 - [x] Create `ansible/playbooks/partition-plan.yml`.

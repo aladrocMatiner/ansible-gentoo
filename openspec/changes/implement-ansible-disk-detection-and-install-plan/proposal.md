@@ -1,12 +1,12 @@
 # implement-ansible-disk-detection-and-install-plan
 
 ## Summary
-Add the first read-only Ansible install planning workflow for the booted official Gentoo live ISO VM.
+Add the first read-only Ansible install planning workflow for a booted official Gentoo live ISO target over SSH.
 
 The workflow detects disks, reports disk identity, and generates an operator-readable basic console install plan for OpenRC or systemd without partitioning, formatting, mounting target filesystems, extracting stage3, or installing Gentoo.
 
 ## Motivation
-The project can boot the official Gentoo live ISO under libvirt, bootstrap temporary SSH, and run a read-only Ansible live preflight. The next safe step is to inspect disks through reusable Ansible roles and produce a plan before any destructive installer work exists.
+The project can boot the official Gentoo live ISO under libvirt, bootstrap temporary SSH, and run a read-only Ansible live preflight. It can also target an explicit network-reachable live ISO through `ANSIBLE_LIVE_HOST`. The next safe step is to inspect disks through reusable Ansible roles and produce a plan before any destructive installer work exists.
 
 Disk identity and install plan output are prerequisites for later partitioning, filesystem creation, stage3 installation, chroot work, and bootloader work.
 
@@ -14,7 +14,7 @@ Disk identity and install plan output are prerequisites for later partitioning, 
 Future automation must not infer or default an install disk. Operators need a Makefile-mediated way to:
 
 - list visible disks from inside the live ISO,
-- confirm the expected VM disk such as `/dev/vda`,
+- confirm the expected target disk from live ISO disk detection,
 - see whether a specific `INSTALL_DISK` was explicitly provided,
 - produce a profile-aware OpenRC or systemd plan,
 - keep all behavior read-only until a later approved destructive change.
@@ -24,7 +24,7 @@ Future automation must not infer or default an install disk. Operators need a Ma
 - Add read-only Ansible install plan generation for `PROFILE=openrc` and `PROFILE=systemd`.
 - Add read-only filesystem plan selection for `FILESYSTEM=ext4` and `FILESYSTEM=btrfs`.
 - Add Makefile targets for `make ansible-check`, `make detect-disks`, and `make install-plan`.
-- Reuse the existing live ISO VM SSH target discovery.
+- Support explicit network live ISO targets and keep VM SSH discovery as a local validation fallback.
 - Document the new operator workflow.
 - Keep implementation aligned with the official Gentoo AMD64 Handbook baseline and the reuse-first Ansible architecture.
 
@@ -45,12 +45,13 @@ Future automation must not infer or default an install disk. Operators need a Ma
 - Any provided `INSTALL_DISK` is used only for read-only identity matching in this change.
 - The workflow must not require or consume `I_UNDERSTAND_THIS_WIPES_DISK`.
 - The workflow must not run destructive commands such as `parted`, `sgdisk`, `fdisk`, `wipefs`, `mkfs.*`, `mount`, `umount`, `chroot`, `passwd`, `useradd`, `usermod`, `grub-install`, or `efibootmgr`.
-- VM guest `/dev/vda` is allowed only when explicitly passed as `INSTALL_DISK=/dev/vda` inside the guest VM context.
+- VM guest `/dev/vda` is allowed only when explicitly passed as `INSTALL_DISK=/dev/vda` inside the guest VM context. Real network targets must use disk paths reported by `make detect-disks`.
 
 ## Acceptance Criteria
 - `make ansible-check` validates Ansible availability and syntax for the implemented live ISO playbooks.
 - `make detect-disks` runs a read-only Ansible disk detection playbook against the live ISO.
 - `make detect-disks` reports disk path, model, serial when available, size, type, filesystem, mountpoints, and partition children.
+- `make detect-disks ANSIBLE_LIVE_HOST=...` works without requiring libvirt VM discovery.
 - `make install-plan PROFILE=openrc` produces a read-only OpenRC plan and does not default `INSTALL_DISK`.
 - `make install-plan PROFILE=systemd` produces a read-only systemd plan and does not default `INSTALL_DISK`.
 - `make install-plan PROFILE=openrc FILESYSTEM=ext4` reports the ext4 root filesystem plan.

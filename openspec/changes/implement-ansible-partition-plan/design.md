@@ -5,6 +5,8 @@ This change adds a read-only partition plan target. It is the final planning che
 
 The workflow follows the official Gentoo AMD64 Handbook as the baseline and remains compatible with the reuse-first Ansible architecture.
 
+The target may be selected explicitly with `ANSIBLE_LIVE_HOST=...`. If no explicit target is provided, wrappers may discover the local libvirt VM for validation.
+
 ## Operator Flow
 Expected commands:
 
@@ -32,9 +34,11 @@ Rules:
 - `INSTALL_DISK` must not have a default.
 - `PROFILE` defaults to `openrc`; valid values are `openrc` and `systemd`.
 - `FILESYSTEM` defaults to `ext4`; valid values are `ext4` and `btrfs`.
-- The target must use the existing VM SSH discovery wrapper.
+- The target must use `ANSIBLE_LIVE_HOST` when an explicit network live ISO target is provided.
+- The target may use the existing VM SSH discovery wrapper only when `ANSIBLE_LIVE_HOST` is omitted for local validation.
 - The target must not expose raw `ansible-playbook` as the normal operator workflow.
 - The target must fail clearly before running Ansible if `INSTALL_DISK` is empty.
+- The target must reject unsafe `INSTALL_DISK` values before invoking Ansible: no wildcards, parent traversal, whitespace, shell metacharacters, or Ansible extra-var injection characters.
 
 ## Ansible Layout
 Add:
@@ -100,8 +104,8 @@ For `FILESYSTEM=btrfs`:
   - `@` mounted at `/mnt/gentoo`
   - `@home` mounted at `/mnt/gentoo/home`
   - `@var` mounted at `/mnt/gentoo/var`
-  - `@var/log` mounted at `/mnt/gentoo/var/log`
-  - `@var/cache` mounted at `/mnt/gentoo/var/cache`
+  - `@var_log` mounted at `/mnt/gentoo/var/log`
+  - `@var_cache` mounted at `/mnt/gentoo/var/cache`
   - `@snapshots` mounted at `/mnt/gentoo/.snapshots`
 
 ## Safety Rules

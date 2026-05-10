@@ -78,7 +78,7 @@ The agent must enforce these rules:
 
 - Never write API keys, refresh tokens, login tokens, or session material into the repository.
 - Never commit `.env` files containing secrets.
-- Use `.env.example` only for documenting variable names and placeholder values.
+- Use `.env.example` only for documenting variable names; secret values must be empty placeholders.
 - Prefer environment variables or interactive login.
 - Keep any live-session secret files in an operator-approved temporary path outside tracked project files.
 - Remind the operator that the live ISO environment is temporary.
@@ -146,7 +146,7 @@ After `make bootstrap-codex`, the agent should ask the operator to run `make che
 - No files were installed into the target root.
 - No secrets were written to tracked files.
 - `.env` is not tracked and contains no committed secrets.
-- `.env.example`, if present, contains placeholders only.
+- `.env.example`, if present, contains variable names only, with empty values for secrets.
 - Temporary bootstrap directory has expected ownership and permissions.
 - Codex can start an interactive login or use environment-based authentication without displaying token values.
 
@@ -191,7 +191,7 @@ When this agent changes Codex bootstrap behavior, it must update documentation i
 - Choose a Codex install method based on live ISO preflight output.
 - Draft Makefile target behavior for `make bootstrap-codex`.
 - Define validation checks for `make check-codex`.
-- Review `.env.example` to ensure it documents placeholders only.
+- Review `.env.example` to ensure it documents variable names only and leaves secret values empty.
 - Explain how to use `CODEX_INSTALL_METHOD=npm` without committing secrets.
 - Create a recovery checklist for a failed binary release install.
 - Review a proposed `scripts/clean-live-secrets.sh` for path safety.

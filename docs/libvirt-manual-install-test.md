@@ -1,6 +1,6 @@
 # libvirt Manual Install Test
 
-The project uses libvirt/virsh to boot the official Gentoo live ISO in a local VM with a project-local qcow2 disk. This VM is for manual installation testing and future Ansible preparation. It does not install Gentoo automatically.
+The project uses libvirt/virsh to boot the official Gentoo live ISO in a local VM with a project-local qcow2 disk. This VM is the local validation harness for manual installation testing and Ansible workflow testing. It is not the final installer architecture and it does not install Gentoo automatically.
 
 ## ISO Location
 
@@ -21,7 +21,9 @@ Validate tools, libvirt connectivity, ISO resolution, UEFI firmware, network mod
 make vm-check
 ```
 
-`vm-check` is read-only. It does not create domains, disks, NVRAM files, or artifact directories.
+`vm-check` is read-only. It does not create domains, disks, NVRAM files, or artifact directories. It verifies OVMF/UEFI firmware is available and refuses an existing project domain that is not configured for OVMF UEFI boot.
+
+`vm-start` validates ISO resolution, UEFI firmware, libvirt networking, and path safety before it creates a missing disk or defines a missing domain. If those prerequisites are unavailable, it fails without creating new VM artifacts. When a matching inactive domain already exists, `vm-start` also verifies that the configured qcow2 disk, per-VM NVRAM, extracted kernel, and extracted initrd are present before asking libvirt to start it.
 
 Create the sparse qcow2 disk:
 
@@ -29,7 +31,7 @@ Create the sparse qcow2 disk:
 make vm-disk
 ```
 
-Define the libvirt domain. The domain boots the official ISO by extracting the official kernel and initrd from the ISO and passing serial console kernel arguments; the ISO remains attached as the live root media.
+Define the libvirt domain. The domain uses OVMF UEFI firmware with a per-VM NVRAM file under `./var/libvirt/`, boots the official ISO by extracting the official kernel and initrd from the ISO, and passes serial console kernel arguments; the ISO remains attached as the live root media.
 
 ```sh
 make vm-define
@@ -48,7 +50,7 @@ make vm-console
 make vm-viewer
 ```
 
-`vm-console` uses `virsh console`. The default VM definition passes `console=tty0 console=ttyS0,115200n8`, so the official live ISO should show boot output and a root shell on the serial console.
+`vm-console` uses `virsh console`. The default VM definition passes `console=tty0 console=ttyS0,115200n8`, so the official live ISO should show boot output and a root shell on the serial console. The kernel command line uses the `__VM_ISO_LABEL__` placeholder by default; `vm-define` resolves it from the selected ISO volume id before writing the domain XML.
 
 Bootstrap SSH access by installing the operator public key into the temporary live ISO and starting `sshd` through the serial console:
 
@@ -57,6 +59,8 @@ make vm-bootstrap-ssh
 ```
 
 The target uses `VM_SSH_PUBLIC_KEY` if set. Otherwise it reads `~/.ssh/id_ed25519.pub` or `~/.ssh/id_rsa.pub`. It writes only the public key into the temporary live ISO session.
+
+`vm-bootstrap-ssh` refuses to operate unless the configured libvirt domain is marked as project-owned, running, UEFI-configured, and still matches the generated project artifacts. The public key must be a single-line OpenSSH public key with supported key type and encoded key material; private keys, multiline values, and malformed key text are rejected.
 
 SSH, rsync, and Ansible validation are available after SSH is enabled inside the live ISO:
 
@@ -72,9 +76,13 @@ make install-plan PROFILE=openrc
 make partition-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda
 ```
 
-The default network mode is the libvirt managed `default` network. `make vm-ip` discovers the live ISO address from libvirt DHCP leases. The project does not commit passwords, tokens, or private keys.
+The default network mode is the libvirt managed `default` network. `make vm-ip` discovers the live ISO address from libvirt domain interface data or DHCP leases filtered by the configured domain MAC address. The project does not commit passwords, tokens, or private keys.
 
-`make ansible-live-ping` and `make ansible-live-preflight` are the first project Ansible handoff targets. They validate SSH connectivity and gather read-only live ISO facts. They do not install Gentoo, select an install disk, partition, format, mount target filesystems, or modify `/dev/vda`.
+`make vm-ssh`, `make vm-rsync`, and the Ansible live ISO wrappers treat SSH host keys as temporary live-session keys. They disable strict host-key persistence for these VM-only connections and keep the global `ansible.cfg` host-key policy unchanged.
+
+`make vm-rsync` copies the repository to `/root/gentoo-ai-installer/` by default. If `VM_RSYNC_DEST` is overridden, it must remain under `/root/gentoo-ai-installer/`; this prevents `rsync --delete` from targeting unrelated guest paths. The rsync filter excludes `.env`, `.ssh`, private key patterns, token/credential files, ISO artifacts, runtime artifacts, logs, and temporary files.
+
+`make ansible-live-ping` and `make ansible-live-preflight` are the first project Ansible handoff targets. In this VM workflow, they use the local libvirt target discovered by the wrappers. In the reusable network workflow, pass `ANSIBLE_LIVE_HOST=...` to target a non-libvirt live ISO. They validate SSH connectivity and gather read-only live ISO facts. They do not install Gentoo, select an install disk, partition, format, mount target filesystems, or modify `/dev/vda`.
 
 `make detect-disks` and `make install-plan` are also read-only. To plan against the VM disk, pass it deliberately:
 
@@ -101,7 +109,7 @@ make vm-destroy
 make vm-clean
 ```
 
-`vm-destroy` stops only the configured domain. `vm-clean` requires typing `DELETE`; it undefines only the project-owned domain and removes only generated project-local artifacts.
+`vm-shutdown` requests a clean guest shutdown. `vm-destroy` forcibly stops only the configured domain and is a no-op when that domain is already inactive. `vm-clean` requires typing `DELETE`; it undefines only the project-owned domain and removes only generated project-local artifacts.
 
 ## Defaults
 
@@ -117,7 +125,7 @@ make vm-clean
 - network mode: `network`
 - libvirt network: `default`
 - SSH user: `root`
-- kernel args include `console=tty0 console=ttyS0,115200n8`
+- kernel args include the ISO-derived `root=live:CDLABEL=<iso-volume-id>` and `console=tty0 console=ttyS0,115200n8`
 
 BIOS boot is not supported in v1. `VM_BOOT_MODE=bios` is rejected.
 
@@ -131,13 +139,20 @@ The VM disk must be a qcow2 file under the configured project-local artifact dir
 - project-root artifact directories such as `.`, `./`, and `./.`,
 - wildcard paths,
 - shell or libvirt option-injection characters,
+- XML-special characters in the project root path that would make generated libvirt XML unsafe,
 - symlinked artifact directories,
 - symlinked path components,
 - existing disk files that are not qcow2.
 
-Generated domains include a project ownership marker. Targets that define, destroy, or clean a domain refuse to operate on an existing domain with the same name unless it is marked as project-owned.
+Generated domains include a project ownership marker. Targets that start, inspect, SSH into, rsync to, or bootstrap SSH in a domain refuse to operate on an existing domain with the same name unless it is marked as project-owned and matches the configured official ISO plus generated artifacts: `VM_ISO`, `VM_DISK`, per-VM NVRAM, extracted kernel, extracted initrd, and artifact directory metadata. Existing domains that reference `/dev/*` or libvirt block devices are rejected even if they carry the marker.
 
-The VM uses UEFI only. Per-VM NVRAM is generated for the domain and must not point to a system firmware template as a writable file.
+Cleanup, forced stop, clean shutdown, and redefinition may operate on stale project-marked domains only to remove or replace them, and only when the domain does not reference host block devices. This allows safe recovery from older project-generated domain XML while still refusing unrelated domains and host disk attachments.
+
+SSH bootstrap uses the same ownership and artifact boundary: it must not open a console or write `authorized_keys` in an unrelated or stale libvirt domain with the same `VM_NAME`.
+
+The VM uses UEFI only. `vm-check` must find OVMF code and vars firmware before the VM is defined. Per-VM NVRAM is generated for the domain under `./var/libvirt/nvram/` and must not point to a system firmware template as a writable file.
+
+If a project VM was defined before OVMF support was added, `vm-check`, `vm-start`, SSH bootstrap, and SSH target discovery refuse to use it. Stop it with `make vm-destroy` if needed, then regenerate the domain with `make vm-define` before continuing. Redefinition recreates the per-VM NVRAM file after any `virsh undefine --nvram` cleanup.
 
 Inside the VM, `/dev/vda` is the expected guest disk for the attached qcow2 image. Disk operations inside the VM affect that qcow2 file, not a host block device.
 
@@ -153,7 +168,7 @@ make vm-check VM_NET_MODE=network VM_NETWORK=<network-name>
 
 Only use managed network mode when the named libvirt network exists on `LIBVIRT_URI`.
 
-`VM_NET_MODE=user` remains available for experiments, but it does not provide reliable DHCP lease discovery and is not the default because libvirt port forwarding requires a working `passt` backend on the host.
+`VM_NET_MODE=user` remains available for experiments, but it does not provide reliable DHCP lease discovery and is not the default because libvirt port forwarding requires a working `passt` backend on the host. SSH and rsync targets still require the configured libvirt domain to be project-owned, UEFI-configured, and running before connecting to the configured endpoint.
 
 ## Legacy QEMU Targets
 

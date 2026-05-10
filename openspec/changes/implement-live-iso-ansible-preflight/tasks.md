@@ -12,14 +12,15 @@
 - [x] Add `make ansible-live-ping`.
 - [x] Add `make ansible-live-preflight`.
 - [x] Document the new targets in `make help`.
-- [x] Ensure targets discover `VM_IP` through `make vm-ip` or accept explicit `VM_IP`.
+- [x] Ensure targets accept `ANSIBLE_LIVE_HOST` for network targets and use VM discovery only for local validation.
 
 ## 3. Ansible
 - [x] Create `ansible/inventory/live.yml`.
 - [x] Create `ansible/playbooks/live-preflight.yml`.
 - [x] Create `ansible/roles/common/live_preflight/tasks/main.yml`.
 - [x] Keep tasks read-only.
-- [x] Report architecture, kernel, Gentoo release, UEFI, network, DNS, routes, block devices, and `/dev/vda`.
+- [x] Report architecture, kernel, Gentoo release, UEFI, network, DNS, routes, and block devices; treat `/dev/vda` as VM-only evidence.
+- [x] Fail preflight when UEFI firmware evidence is missing.
 
 ## 4. Safety
 - [x] Verify no destructive commands are used.

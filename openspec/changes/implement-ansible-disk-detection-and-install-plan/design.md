@@ -3,6 +3,8 @@
 ## Overview
 This change adds read-only Ansible planning roles that run against the booted official Gentoo live ISO over SSH.
 
+The target may be selected explicitly with `ANSIBLE_LIVE_HOST=...`. If no explicit target is provided, wrappers may discover the local libvirt VM for validation.
+
 The design follows the official Gentoo AMD64 Handbook as the baseline sequence for future installation work: prepare environment, inspect disks, plan partitions and filesystems, install stage3, configure the system, install kernel and bootloader, create users, configure networking, and perform final checks. This change implements only the inspection and planning boundary.
 
 ## Operator Flow
@@ -31,11 +33,13 @@ Add:
 
 Rules:
 
-- Targets must discover the VM IP through `scripts/vm-ssh-target.sh` unless `VM_IP` is provided.
+- Targets must use `ANSIBLE_LIVE_HOST` when an explicit network live ISO target is provided.
+- Targets may discover the VM IP through `scripts/vm-ssh-target.sh` only when `ANSIBLE_LIVE_HOST` is omitted for local validation.
 - Targets must not expose raw `ansible-playbook` as the normal operator workflow.
 - Targets must not require `I_UNDERSTAND_THIS_WIPES_DISK`.
 - Targets must fail clearly for unsupported `PROFILE` values.
 - Targets must fail clearly for unsupported `FILESYSTEM` values.
+- If `INSTALL_DISK` is provided, targets must reject unsafe values before invoking Ansible: no wildcards, parent traversal, whitespace, shell metacharacters, or Ansible extra-var injection characters.
 
 ## Ansible Layout
 Add shared roles under `roles/common/`:
@@ -64,6 +68,7 @@ The roles are shared by OpenRC and systemd flows. Init-specific behavior in this
 - gather `lsblk --json` output,
 - report disk path, type, size, model, serial, filesystem, mountpoints, and children,
 - identify whether `/dev/vda` is present in the VM,
+- avoid treating `/dev/vda` as a default outside explicit VM examples,
 - never select `install_disk`,
 - never mutate disk state.
 

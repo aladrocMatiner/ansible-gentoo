@@ -6,14 +6,21 @@ The project SHALL provide a Makefile-mediated Ansible preflight workflow that va
 #### Scenario: Validate Ansible connectivity
 - **WHEN** the operator runs `make ansible-live-ping`
 - **THEN** the workflow SHALL run an Ansible ping against the live ISO
-- **AND** the workflow SHALL use the VM IP discovered from libvirt unless `VM_IP` is explicitly provided
+- **AND** the workflow SHALL use `ANSIBLE_LIVE_HOST` when explicitly provided
+- **AND** the workflow MAY use the VM IP discovered from libvirt when `ANSIBLE_LIVE_HOST` is omitted for local validation
 - **AND** the workflow SHALL fail clearly when SSH is unavailable
 
 #### Scenario: Run live preflight
 - **WHEN** the operator runs `make ansible-live-preflight`
 - **THEN** the workflow SHALL run a read-only Ansible playbook against the live ISO
-- **AND** the workflow SHALL report architecture, kernel, Gentoo release information, UEFI availability, network addresses, DNS configuration, default route, visible block devices, and `/dev/vda` presence
+- **AND** the workflow SHALL report architecture, kernel, Gentoo release information, UEFI availability, network addresses, DNS configuration, default route, and visible block devices
+- **AND** the workflow SHALL fail when `/sys/firmware/efi` is missing
 - **AND** the workflow SHALL NOT partition, format, mount target filesystems, chroot, extract stage3, install packages, create users, change passwords, install bootloaders, or run installer playbooks
+
+#### Scenario: Keep VM assumptions out of reusable preflight
+- **WHEN** the live ISO target is selected through `ANSIBLE_LIVE_HOST`
+- **THEN** the workflow SHALL NOT require libvirt, VM IP discovery, qcow2 paths, or `/dev/vda`
+- **AND** `/dev/vda` SHALL remain a local VM example only
 
 #### Scenario: Preserve disk safety
 - **WHEN** the preflight reports block devices

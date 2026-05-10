@@ -11,7 +11,7 @@ validate_vm_config
 require_libvirt_connection
 
 if domain_exists; then
-  require_project_owned_domain_if_exists
+  require_project_marker_and_no_host_block_devices_if_exists
 fi
 
 files=()

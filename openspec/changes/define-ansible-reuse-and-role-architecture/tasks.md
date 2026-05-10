@@ -12,6 +12,7 @@
 - [x] Define the shared role model.
 - [x] Define the init-specific role model.
 - [x] Define allowed alternatives to the proposed layout while preserving reuse.
+- [x] Define remote/network Ansible as the primary product path and libvirt as a local validation harness.
 
 ## 3. Variable Model Definition
 - [x] Define shared variables.
@@ -20,7 +21,8 @@
 - [x] Require `confirm_wipe_disk` for destructive operations.
 - [x] Require `init_system` to be either `openrc` or `systemd`.
 - [x] Require `stage3_variant` to match `init_system`.
-- [x] Define QEMU `/dev/vda` handling as explicit guest-only input.
+- [x] Define libvirt VM `/dev/vda` handling as explicit guest-only input.
+- [x] Define explicit network live ISO target variables and forbid default target hosts.
 
 ## 4. Reuse Policy Definition
 - [x] Define task include/import strategy.
@@ -42,6 +44,7 @@
 - [x] Define expected high-level Makefile targets for OpenRC and systemd flows.
 - [x] Define `PROFILE=openrc` and `PROFILE=systemd` behavior.
 - [x] Require Makefile targets to pass init-specific variables into shared Ansible flow where practical.
+- [x] Require Makefile Ansible targets to support explicit network live ISO targets without requiring libvirt discovery.
 - [x] Require existing-target documentation to distinguish implemented targets from planned targets.
 
 ## 7. Documentation Updates
@@ -56,7 +59,7 @@
 - [x] Add review criteria for duplicated OpenRC/systemd logic.
 - [x] Add review criteria for shared safety gates.
 - [x] Add review criteria for init-specific service manager separation.
-- [x] Add review criteria for QEMU testing assumptions.
+- [x] Add review criteria for libvirt VM testing assumptions.
 - [x] Add review criteria for documentation updates.
 - [x] Cross-check against current OpenRC install documentation.
 - [x] Cross-check against planned systemd install documentation.

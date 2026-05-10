@@ -12,6 +12,9 @@ Rules:
 - Playbooks may differ by entrypoint, but they should call a shared install flow where practical.
 - Bash helpers may be used for low-level bootstrap or disk operations only when they are called through Makefile targets or Ansible tasks with the same shared safety gates.
 - Bash helpers must not duplicate OpenRC/systemd Ansible logic or become undocumented operator-facing workflows.
+- Reusable roles and playbooks must be inventory-driven and must not depend on libvirt domain names, VM-only IP discovery, qcow2 paths, or `/dev/vda`.
+- The primary Ansible path runs from an operator/controller machine over SSH to a target booted into the official Gentoo live ISO.
+- libvirt/virsh is a local validation harness for that path, not the final installer architecture.
 - Documentation must describe shared behavior once and call out init-specific differences explicitly.
 
 Shared behavior includes:
@@ -38,7 +41,8 @@ Shared behavior includes:
 - SSH package installation framework
 - final validation checks
 - logging
-- QEMU validation flow
+- libvirt VM validation flow
+- network live ISO target validation
 
 ## 2. Shared Role Architecture
 Proposed layout:
@@ -46,6 +50,7 @@ Proposed layout:
 ```text
 ansible/
   inventory/
+    live.yml
     local.yml
   group_vars/
     all.yml
@@ -58,6 +63,7 @@ ansible/
   roles/
     common/
       preflight/
+      live_target/
       disk_detection/
       disk_safety/
       partitioning/
@@ -83,8 +89,9 @@ The exact file layout may change if a future OpenSpec design proves a better reu
 Common roles own shared behavior:
 
 - `common/preflight`: live ISO, root privilege, architecture, UEFI, network, time, and required tool checks.
+- `common/live_target`: controller-to-target SSH, Python, official live ISO evidence, architecture, UEFI, network, DNS, and time checks without assuming libvirt.
 - `common/disk_detection`: read-only disk inventory and identity reporting.
-- `common/disk_safety`: required variables, confirmation checks, host block-device guardrails, QEMU mode checks, and fail-closed behavior.
+- `common/disk_safety`: required variables, confirmation checks, host block-device guardrails, VM guest mode checks, and fail-closed behavior.
 - `common/partitioning`: partition plan generation and approved execution.
 - `common/filesystem`: filesystem checks and approved formatting.
 - `common/mount_target`: target and EFI mount preparation.
@@ -138,7 +145,10 @@ Shared variables should be defined once in `group_vars/all.yml` or equivalent:
 - `confirm_wipe_disk`
 - `target_mount`
 - `efi_mount`
-- `qemu_mode`
+- `vm_guest_mode`
+- `ansible_live_host`
+- `ansible_live_port`
+- `ansible_live_user`
 
 Init-specific variables should live in variant files:
 
@@ -153,8 +163,10 @@ Required variable rules:
 - `stage3_variant` must match `init_system`.
 - `filesystem` defaults may remain simple, such as `ext4`, but must be documented.
 - `boot_mode` defaults may remain `uefi`, but BIOS fallback must be explicit if supported later.
-- `qemu_mode=true` may relax only host-specific assumptions that do not weaken disk safety.
-- QEMU `/dev/vda` is allowed only when explicitly passed as `install_disk=/dev/vda` inside the guest VM.
+- `vm_guest_mode=true` may relax only host-specific assumptions that do not weaken disk safety.
+- libvirt VM `/dev/vda` is allowed only when explicitly passed as `install_disk=/dev/vda` inside the guest VM.
+- `ansible_live_host` must not default to a VM IP or physical host.
+- When `ansible_live_host` is omitted, Makefile wrappers may use local libvirt VM discovery for validation only.
 
 ## 5. Task Include/Import Strategy
 Use shared task includes for shared behavior and init-specific task files only for genuine differences.
@@ -222,7 +234,7 @@ Required shared gates:
 - `install_disk` has no default.
 - Disk model, serial, size, partition table, filesystems, and mountpoints are shown before destructive tasks.
 - `confirm_wipe_disk` is explicitly set before destructive operations.
-- QEMU guest disk `/dev/vda` is accepted only with explicit `install_disk=/dev/vda` inside the VM.
+- libvirt VM guest disk `/dev/vda` is accepted only with explicit `install_disk=/dev/vda` inside the VM.
 - Host block devices are never selected automatically.
 - Destructive tasks fail closed on ambiguity.
 
@@ -261,11 +273,13 @@ Makefile rules:
 - Destructive targets must require explicit disk and confirmation variables.
 - Operator-facing docs must list only targets that exist in the current Makefile; future targets must be labeled planned.
 - Bash helper scripts used by Makefile targets must be documented as implementation details unless the Makefile exposes them as operator-facing behavior.
+- Makefile Ansible targets must accept an explicit network live ISO target such as `ANSIBLE_LIVE_HOST=...` and must not require libvirt for real network installs.
 
 ## 12. OpenSpec Integration
 Future Ansible implementation changes must:
 
 - Reference this architecture rule.
+- Reference the Ansible quality standards and describe how syntax/lint checks, FQCN usage, command-like tasks, idempotency, check mode, diff safety, secret handling, and host-key scope are handled.
 - Identify shared roles affected.
 - Identify init-specific roles affected.
 - Explain why any duplicated logic is necessary.
@@ -273,17 +287,18 @@ Future Ansible implementation changes must:
 - Include documentation tasks for operator behavior changes.
 - Validate with `openspec validate <change> --strict` and `openspec validate --all --strict`.
 
-## 13. Testing Strategy with QEMU
-QEMU is the safe first test environment for both OpenRC and systemd flows.
+## 13. Testing Strategy with libvirt VM
+libvirt VM testing is the safe first test environment for both OpenRC and systemd flows, but it is not the product architecture.
 
 Rules:
 
-- QEMU tests boot the official Gentoo live ISO from `./gentoo.iso`.
-- QEMU tests use qcow2 disks under `./var/qemu/`.
-- QEMU tests must not touch host block devices.
-- OpenRC and systemd install plans should be validated in QEMU before real hardware testing.
-- `qemu_mode=true` can be used to document that `/dev/vda` is expected inside the guest VM.
-- `qemu_mode=true` must not disable destructive confirmation or disk identity checks.
+- libvirt VM tests boot the official Gentoo live ISO from `./gentoo.iso`.
+- libvirt VM tests use qcow2 disks under `./var/libvirt/`.
+- libvirt VM tests must not touch host block devices.
+- Reusable roles and playbooks must also work for non-libvirt network live ISO targets selected through inventory or Makefile variables.
+- OpenRC and systemd install plans should be validated in libvirt before real hardware testing.
+- `vm_guest_mode=true` can be used to document that `/dev/vda` is expected inside the guest VM.
+- `vm_guest_mode=true` must not disable destructive confirmation or disk identity checks.
 
 ## 14. Anti-duplication Rules
 A review must reject or require changes when:
@@ -293,6 +308,8 @@ A review must reject or require changes when:
 - Safety checks are copied into multiple roles and can drift.
 - Init-specific roles perform destructive disk operations directly.
 - Bash helpers bypass Makefile targets, shared Ansible safety gates, or documentation requirements.
+- Ansible tasks omit FQCN, task names, idempotency guards, or command-like task justification.
+- Ansible lint/syntax gates are skipped without explanation.
 - OpenRC tasks call `systemctl`.
 - systemd tasks call `rc-update` or `rc-service`.
 - Documentation repeats full shared procedures in both OpenRC and systemd sections.
@@ -314,7 +331,9 @@ Before approving future Ansible implementation:
 - Does the Makefile expose operator-facing actions?
 - Do OpenRC flows avoid `systemctl`?
 - Do systemd flows avoid `rc-update` and `rc-service`?
-- Are QEMU `/dev/vda` assumptions limited to explicit guest-mode configuration?
+- Are libvirt VM `/dev/vda` assumptions limited to explicit guest-mode configuration?
 - Are handlers, templates, validation tasks, and safety gates reused?
+- Do tasks satisfy FQCN, task-name, module-first, idempotency, check-mode, diff, and secret-redaction standards?
+- Did `make ansible-check` run or was any unavailable lint gate reported clearly?
 - Are documentation updates included and accurate?
 - Does OpenSpec validation pass?

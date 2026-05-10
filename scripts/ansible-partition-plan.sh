@@ -6,14 +6,7 @@ source "$(dirname "$0")/vm-libvirt-common.sh"
 
 load_vm_config
 require_command ansible-playbook
-validate_vm_config
-if ! ssh_target_env="$(scripts/vm-ssh-target.sh env)"; then
-  die "Unable to discover VM SSH target. Start the Gentoo live VM and verify libvirt DHCP/console networking before running partition-plan."
-fi
-eval "$ssh_target_env"
-[[ -n "${ANSIBLE_LIVE_USER:-}" ]] || die "VM SSH target discovery did not provide ANSIBLE_LIVE_USER"
-[[ -n "${ANSIBLE_LIVE_HOST:-}" ]] || die "VM SSH target discovery did not provide ANSIBLE_LIVE_HOST"
-[[ -n "${ANSIBLE_LIVE_PORT:-}" ]] || die "VM SSH target discovery did not provide ANSIBLE_LIVE_PORT"
+require_ansible_live_target partition-plan
 
 profile=${PROFILE:-openrc}
 case "$profile" in
@@ -28,7 +21,7 @@ case "$filesystem" in
 esac
 
 [[ -n "${INSTALL_DISK:-}" ]] || die "INSTALL_DISK is required for partition-plan and has no default"
-[[ "$INSTALL_DISK" != *"*"* && "$INSTALL_DISK" != *"?"* && "$INSTALL_DISK" != *"["* && "$INSTALL_DISK" != *"]"* ]] || die "INSTALL_DISK must not contain wildcard characters: $INSTALL_DISK"
+assert_install_disk_input "$INSTALL_DISK"
 
 printf 'Generating read-only %s/%s partition plan for %s against %s@%s port %s\n' "$profile" "$filesystem" "$INSTALL_DISK" "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$ANSIBLE_LIVE_PORT"
 

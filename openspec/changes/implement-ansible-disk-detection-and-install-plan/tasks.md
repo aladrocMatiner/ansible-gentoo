@@ -21,7 +21,7 @@
 - [x] Add wrapper script for `make ansible-check`.
 - [x] Add wrapper script for `make detect-disks`.
 - [x] Add wrapper script for `make install-plan`.
-- [x] Reuse existing VM SSH target discovery.
+- [x] Use explicit `ANSIBLE_LIVE_HOST` when provided and fall back to VM SSH target discovery only for local validation.
 
 ## 4. Ansible
 - [x] Create `ansible/playbooks/detect-disks.yml`.

@@ -3,7 +3,7 @@
 ## 1. Project Overview
 Project name: `gentoo-ai-installer`.
 
-v1 uses the official Gentoo live ISO and installs Codex temporarily in the live environment. The Makefile is the operator-facing control plane. OpenSpec controls project changes. Ansible is used for reproducible installation in phase 2. libvirt/virsh is used to test manual installation flows safely before real hardware. VM tests must avoid touching host disks.
+v1 uses the official Gentoo live ISO and installs Codex temporarily in the live environment. The Makefile is the operator-facing control plane. OpenSpec controls project changes. The primary phase-2 deliverable is a reusable Ansible installer that can run from an operator/controller machine against a network-reachable Gentoo live ISO target over SSH. libvirt/virsh is the local validation harness for testing the same Ansible workflows safely before real hardware. VM tests must avoid touching host disks.
 
 ## 2. Control Plane Rule
 All operator-facing workflows must be exposed through Makefile targets.
@@ -18,7 +18,7 @@ Agents must check documentation before finishing, correct stale documentation th
 ## 4. Required Documentation Updates by Change Type
 - Makefile target added, changed, or removed: update `README.md` or `docs/`, and update `skills/makefile-control-plane.md` if the behavior is reusable.
 - Script added or changed: update `docs/` or relevant `skills/`; document arguments, environment variables, safety checks, examples, and failure modes.
-- Ansible playbook or role added or changed: update Ansible documentation; document variables, required inventory, safety gates, and execution target.
+- Ansible playbook or role added or changed: update Ansible documentation; document variables, required inventory, safety gates, controller-to-target SSH assumptions, and execution target.
 - VM/libvirt workflow changed: update VM docs; document ISO path, disk path, libvirt URI, network mode, serial console behavior, SSH bootstrap, cleanup behavior, and whether behavior is implemented or planned.
 - Codex bootstrap changed: update Codex bootstrap docs; document install method, token handling, validation, and cleanup.
 - Safety rule changed: update safety docs and relevant agent or skill files.
@@ -65,7 +65,9 @@ Every operator-facing make target must have a help entry. Every dangerous make t
 Scripts must document usage in `docs/` or relevant `skills/`. Scripts must print clear errors. Scripts must not require reading source code to understand basic usage.
 
 ## 10. Ansible Documentation Rule
-Playbooks and roles must document required variables. Dangerous playbooks must document safety gates. Local-vs-remote execution must be explicit.
+Playbooks and roles must document required variables. Dangerous playbooks must document safety gates. Controller-vs-target execution must be explicit.
+
+The reusable network Ansible installer is the product. VM/libvirt scripts, SSH bootstrap helpers, and local artifact directories are test harness pieces used to validate the installer. Shared Ansible roles and Makefile targets must not depend on a libvirt domain name, VM-only IP discovery, `./var/libvirt/`, or `/dev/vda` except in VM-specific tests and examples.
 
 Future Ansible installer behavior must use the official Gentoo AMD64 Handbook as the baseline installation procedure: <https://wiki.gentoo.org/wiki/Handbook:AMD64>. Agents may adapt Handbook steps into reusable Ansible roles, but must preserve the project safety model, Makefile control-plane rule, OpenSpec review flow, and v1 assumptions.
 
@@ -80,9 +82,25 @@ Future Ansible implementation must reuse shared roles, tasks, variables, handler
 - Shared Ansible roles should map back to the relevant official Gentoo AMD64 Handbook phase where practical, with deviations documented in the OpenSpec change or implementation summary.
 - If duplication is introduced, the agent must justify it in the OpenSpec change notes or implementation summary.
 - Makefile targets should call shared Ansible flows where practical and pass `PROFILE=openrc` or `PROFILE=systemd` into the shared flow.
+- Makefile targets should support explicit network live ISO targets through documented variables such as `ANSIBLE_LIVE_HOST`, while keeping libvirt discovery as a local testing convenience.
 - Documentation must describe shared behavior once and call out init-specific behavior clearly.
 
-## 12. VM/libvirt Documentation Rule
+## 12. Ansible quality standards
+Before adding or changing Ansible playbooks, roles, tasks, handlers, templates, variables, or inventories, agents must apply the project Ansible quality standards.
+
+- Use fully qualified module names such as `ansible.builtin.command`.
+- Give every task and handler a clear `name`.
+- Prefer purpose-built modules over `command`, `shell`, `raw`, or chroot wrappers.
+- When command-like tasks are necessary, use `argv` where possible and define `changed_when`, `failed_when`, `creates`, `removes`, or equivalent guards.
+- Read-only inspection tasks must report `changed: false`.
+- Mutating tasks must be idempotent where practical, or isolated, tagged, documented, and guarded by confirmation.
+- Planning and dry-run workflows must remain mutation-free and should support Ansible check mode where practical.
+- File/template tasks should support diff mode unless the output can reveal secrets; secret-sensitive tasks must use `no_log` or equivalent redaction.
+- `make ansible-check` is the operator-facing quality target for implemented Ansible content. It must syntax-check implemented playbooks and run `ansible-lint` when available.
+- Global Ansible config must not disable host key checking. Temporary official live ISO SSH wrappers may disable host key checking only for that wrapper invocation because live ISO host keys are ephemeral.
+- Any unavoidable duplication, command-like mutation, check-mode limitation, or lint exception must be explained in the implementation summary or OpenSpec change notes.
+
+## 13. VM/libvirt Documentation Rule
 VM docs must explain:
 
 - `./gentoo.iso`.
@@ -102,7 +120,7 @@ VM docs must explain:
 
 Compatibility `qemu-*` targets may exist only as aliases to the libvirt workflow. Planned VM behavior must be clearly labeled as planned and not documented as available.
 
-## 13. Codex Bootstrap Documentation Rule
+## 14. Codex Bootstrap Documentation Rule
 Codex bootstrap docs must explain:
 
 - Install method.
@@ -111,10 +129,10 @@ Codex bootstrap docs must explain:
 - Cleanup behavior.
 - Validation commands.
 
-## 14. What Not to Document
+## 15. What Not to Document
 Do not document real secrets, real API keys, private SSH keys, real tokens, local credentials, or passwords. Do not document local-only personal paths unless they are examples. Do not duplicate large blocks of the same content across many files. Do not document behavior that does not exist yet as if it already exists. Clearly label planned behavior as planned.
 
-## 15. Review Requirements Before Finishing a Task
+## 16. Review Requirements Before Finishing a Task
 At the end of each implementation task, report:
 
 - Documentation files updated.

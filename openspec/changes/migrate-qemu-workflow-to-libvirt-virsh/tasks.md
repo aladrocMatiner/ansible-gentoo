@@ -46,6 +46,8 @@
 - [x] Attach the official ISO as CD-ROM.
 - [x] Attach the project-local qcow2 disk as virtio.
 - [x] Configure UEFI-only boot.
+- [x] Use OVMF pflash firmware and per-VM NVRAM for UEFI boot.
+- [x] Derive the live ISO `CDLABEL` from the selected official ISO instead of hardcoding one dated ISO label.
 - [x] Configure a serial console.
 - [x] Configure managed libvirt networking with the default network.
 - [x] Keep user-mode networking available only when explicitly configured.
@@ -57,6 +59,7 @@
 - [x] Implement `make vm-console` with `virsh console`.
 - [x] Implement `make vm-viewer` for graphical access when serial console is not usable.
 - [x] Implement `make vm-ip` using `virsh domifaddr` and/or DHCP leases.
+- [x] Filter DHCP lease fallback by the configured domain MAC address.
 - [x] Implement `make vm-bootstrap-ssh` to install an operator public key and start `sshd` through serial console.
 - [x] Implement `make vm-ssh` with clear failure when SSH is not enabled in the live ISO.
 - [x] Implement `make vm-rsync` for non-secret project files after SSH is available.
@@ -75,6 +78,8 @@
 - [x] Validate `VM_NAME` with a conservative domain-name pattern.
 - [x] Validate `VM_NET_MODE`, `VM_NETWORK`, `VM_SSH_HOST`, `VM_SSH_HOST_PORT`, and `VM_SSH_GUEST_PORT`.
 - [x] Refuse to replace, destroy, or clean an existing libvirt domain with the same name unless it is project-owned.
+- [x] Refuse start, SSH, rsync, and Ansible SSH target discovery against a domain that is not project-owned, UEFI-configured, ISO/artifact-matched, and running where required.
+- [x] Allow cleanup, shutdown, destroy, and redefinition of stale project-marked domains only when they do not reference host block devices.
 - [x] Ensure `vm-clean` deletes only generated artifacts for the configured domain.
 - [x] Ensure `vm-clean` requires typing `DELETE`.
 - [x] Ensure `vm-clean` does not delete unrelated domains, volumes, pools, networks, ISO files, or secrets.
@@ -94,6 +99,7 @@
 - [x] Verify `make vm-disk` creates a qcow2 disk if missing and preserves existing qcow2 disks.
 - [x] Verify `make vm-define` defines only the configured domain.
 - [x] Verify `make vm-start` starts the VM from the official ISO.
+- [x] Verify `make vm-start` refuses a project-owned domain that is not configured with OVMF UEFI firmware.
 - [x] Verify `make vm-console` can attach or fails with actionable guidance.
 - [x] Verify `make vm-viewer` opens graphical access or fails with actionable guidance.
 - [x] Verify `make vm-ip` discovers the guest IP or fails clearly.

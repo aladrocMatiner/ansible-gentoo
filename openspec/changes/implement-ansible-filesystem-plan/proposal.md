@@ -20,7 +20,7 @@ The current plans show the intended partition and mount layout, but they do not 
 
 ## Scope
 - Add `make filesystem-plan`.
-- Add a wrapper script for running the Ansible filesystem plan against the live ISO VM.
+- Add a wrapper script for running the Ansible filesystem plan against a live ISO target over SSH.
 - Add an Ansible playbook and shared role for read-only filesystem planning.
 - Reuse existing disk detection, install plan, partition plan, and mount plan roles.
 - Support `PROFILE=openrc|systemd`.
@@ -48,6 +48,7 @@ The current plans show the intended partition and mount layout, but they do not 
 - The workflow must not run destructive commands such as `parted`, `sgdisk`, `fdisk`, `wipefs`, `mkfs.*`, `mount`, `umount`, `mkdir`, `chroot`, `passwd`, `useradd`, `usermod`, `grub-install`, or `efibootmgr`.
 - `INSTALL_DISK` must be explicit and must not have a default.
 - VM guest `/dev/vda` is allowed only when explicitly passed as `INSTALL_DISK=/dev/vda` inside the guest VM.
+- Real network targets must use disk paths reported by `make detect-disks`.
 - The workflow must reuse selected disk and mount safety checks from earlier planning roles.
 - The workflow must fail closed if the selected disk or descendants are mounted.
 - Future destructive formatting must require a separate approved OpenSpec change and explicit confirmation.
@@ -57,6 +58,7 @@ The current plans show the intended partition and mount layout, but they do not 
 - `make filesystem-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda` prints a read-only Btrfs filesystem plan.
 - `make filesystem-plan PROFILE=systemd FILESYSTEM=btrfs INSTALL_DISK=/dev/vda` uses the same shared filesystem planning logic as OpenRC.
 - `make filesystem-plan` fails when `INSTALL_DISK` is missing.
+- `make filesystem-plan ANSIBLE_LIVE_HOST=... INSTALL_DISK=...` works without requiring libvirt VM discovery.
 - The filesystem plan reports planned EFI filesystem `vfat`/FAT32 on partition 1.
 - The filesystem plan reports planned root filesystem `ext4` or `btrfs` on partition 2.
 - The Btrfs plan reports planned subvolumes for root, home, var, var log, var cache, and snapshots.

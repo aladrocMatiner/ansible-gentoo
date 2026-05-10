@@ -15,7 +15,10 @@ VM_SSH_HOST_PORT ?= 2222
 VM_SSH_GUEST_PORT ?= 22
 VM_SSH_USER ?= root
 VM_BOOT_MODE ?= uefi
-VM_KERNEL_ARGS ?= dokeymap nodhcp root=live:CDLABEL=Gentoo-amd64-20260426 rd.live.dir=/ rd.live.squashimg=image.squashfs cdroot console=tty0 console=ttyS0,115200n8
+VM_KERNEL_ARGS ?= dokeymap nodhcp root=live:CDLABEL=__VM_ISO_LABEL__ rd.live.dir=/ rd.live.squashimg=image.squashfs cdroot console=tty0 console=ttyS0,115200n8
+ANSIBLE_LIVE_HOST ?=
+ANSIBLE_LIVE_PORT ?= 22
+ANSIBLE_LIVE_USER ?= root
 PROFILE ?= openrc
 FILESYSTEM ?= ext4
 
@@ -35,6 +38,9 @@ export VM_SSH_GUEST_PORT
 export VM_SSH_USER
 export VM_BOOT_MODE
 export VM_KERNEL_ARGS
+export ANSIBLE_LIVE_HOST
+export ANSIBLE_LIVE_PORT
+export ANSIBLE_LIVE_USER
 export PROFILE
 export FILESYSTEM
 export INSTALL_DISK
@@ -58,10 +64,10 @@ help:
 		'  make vm-ssh          SSH to the live ISO after SSH is enabled in the guest' \
 		'  make vm-rsync        Copy non-secret project files to the guest over SSH' \
 		'  make vm-ansible-ping Validate Ansible connectivity to the live ISO over SSH' \
-		'  make ansible-check   Verify Ansible tooling and syntax for implemented playbooks' \
-		'  make ansible-live-ping Validate Ansible connectivity using project inventory' \
-		'  make ansible-live-preflight Run read-only live ISO Ansible preflight' \
-		'  make detect-disks    Run read-only Ansible disk detection in the live ISO' \
+		'  make ansible-check   Verify Ansible tooling, syntax, and lint when available' \
+		'  make ansible-live-ping Validate Ansible connectivity to a live ISO target over SSH' \
+		'  make ansible-live-preflight Run read-only live ISO Ansible preflight over SSH' \
+		'  make detect-disks    Run read-only Ansible disk detection against the live ISO target' \
 		'  make install-plan    Generate read-only Ansible install plan (PROFILE=openrc|systemd FILESYSTEM=ext4|btrfs)' \
 		'  make partition-plan  Generate read-only partition plan (requires INSTALL_DISK)' \
 		'  make mount-plan      Generate read-only mount plan (requires INSTALL_DISK)' \
@@ -93,6 +99,11 @@ help:
 		'  VM_SSH_USER=$(VM_SSH_USER)' \
 		'  VM_BOOT_MODE=$(VM_BOOT_MODE)' \
 		'  VM_KERNEL_ARGS=$(VM_KERNEL_ARGS)' \
+		'' \
+		'Ansible live ISO target variables:' \
+		'  ANSIBLE_LIVE_HOST=$(ANSIBLE_LIVE_HOST) (set for remote/network targets; empty uses local libvirt VM discovery)' \
+		'  ANSIBLE_LIVE_PORT=$(ANSIBLE_LIVE_PORT)' \
+		'  ANSIBLE_LIVE_USER=$(ANSIBLE_LIVE_USER)' \
 		'  PROFILE=$(PROFILE)' \
 		'  FILESYSTEM=$(FILESYSTEM)' \
 		'  INSTALL_DISK has no default; pass INSTALL_DISK=/dev/vda only deliberately inside the VM'
@@ -103,11 +114,10 @@ vm-check:
 vm-disk:
 	@scripts/vm-create-disk.sh
 
-vm-define: vm-disk
+vm-define:
 	@scripts/vm-define-libvirt-domain.sh
 
-vm-start: vm-disk
-	@if ! virsh --connect "$(LIBVIRT_URI)" dominfo "$(VM_NAME)" >/dev/null 2>&1; then scripts/vm-define-libvirt-domain.sh; fi
+vm-start:
 	@scripts/vm-start.sh
 
 vm-console:

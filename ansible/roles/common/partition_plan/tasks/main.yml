@@ -113,7 +113,7 @@
           filesystem: "{{ install_plan_filesystem }}"
           mountpoint: /mnt/gentoo
           btrfs_mount_options: "{{ ['noatime', 'compress=zstd', 'subvol=@'] if install_plan_filesystem == 'btrfs' else [] }}"
-          btrfs_subvolumes: "{{ [{'name': '@', 'mountpoint': '/mnt/gentoo'}, {'name': '@home', 'mountpoint': '/mnt/gentoo/home'}, {'name': '@var', 'mountpoint': '/mnt/gentoo/var'}, {'name': '@var/log', 'mountpoint': '/mnt/gentoo/var/log'}, {'name': '@var/cache', 'mountpoint': '/mnt/gentoo/var/cache'}, {'name': '@snapshots', 'mountpoint': '/mnt/gentoo/.snapshots'}] if install_plan_filesystem == 'btrfs' else [] }}"
+          btrfs_subvolumes: "{{ [{'name': '@', 'mountpoint': '/mnt/gentoo'}, {'name': '@home', 'mountpoint': '/mnt/gentoo/home'}, {'name': '@var', 'mountpoint': '/mnt/gentoo/var'}, {'name': '@var_log', 'mountpoint': '/mnt/gentoo/var/log'}, {'name': '@var_cache', 'mountpoint': '/mnt/gentoo/var/cache'}, {'name': '@snapshots', 'mountpoint': '/mnt/gentoo/.snapshots'}] if install_plan_filesystem == 'btrfs' else [] }}"
       swap_partition: false
       next_step: "Review this output before any future destructive partition or format target is implemented."
 

@@ -3,7 +3,9 @@
 ## 1. Purpose
 This skill describes how `gentoo-ai-installer` should build the phase-2 Ansible-based Gentoo installer with reuse-first OpenRC and systemd support.
 
-Phase 1 is manual installation with Codex assistance. Phase 2 creates a reproducible installer using Ansible running locally from the official Gentoo live ISO. The Makefile controls all operator-facing commands.
+Phase 1 is manual installation with Codex assistance. Phase 2 creates a reproducible installer using Ansible from an operator/controller machine against a network-reachable target booted into the official Gentoo live ISO. The Makefile controls all operator-facing commands.
+
+The local libvirt VM is a validation harness for the same Ansible workflows. It is not the final product architecture.
 
 This skill defines standards for future Ansible implementation. It does not implement playbooks.
 
@@ -16,6 +18,7 @@ Use this skill:
 - When defining Makefile targets that wrap Ansible.
 - When reviewing safety gates, dry-run behavior, idempotency, or logging.
 - When adding or changing the read-only live ISO Ansible preflight used before installer automation.
+- When deciding whether behavior belongs in reusable Ansible roles or only in the local VM/libvirt test harness.
 - When adding or changing read-only disk detection or install-plan behavior.
 
 Do not use this skill to bypass OpenSpec or safety review for destructive automation.
@@ -25,8 +28,11 @@ Do not use this skill to bypass OpenSpec or safety review for destructive automa
 - Validated phase-1 manual workflow.
 - Official Gentoo AMD64 Handbook baseline: <https://wiki.gentoo.org/wiki/Handbook:AMD64>.
 - Official Gentoo live ISO preflight behavior.
-- Libvirt VM SSH access for host-driven live ISO validation, when using `make ansible-live-ping` or `make ansible-live-preflight`.
-- Basic console targets: amd64, OpenRC or systemd, UEFI, ext4 or planned Btrfs subvolumes, `gentoo-kernel-bin`, GRUB, NetworkManager or equivalent network setup, no LUKS.
+- A network-reachable official Gentoo live ISO target over SSH, selected by inventory or Makefile variables such as `ANSIBLE_LIVE_HOST`.
+- Libvirt VM SSH access only when using the local validation harness.
+- Basic console targets: amd64, OpenRC or systemd, UEFI, ext4 or planned Btrfs subvolumes, `gentoo-kernel-bin`, GRUB, NetworkManager, no LUKS.
+- Project Handbook choices: NetworkManager for v1 networking, GRUB for UEFI, EFI mounted at `/boot/efi` in the installed system, and `gentoo-kernel-bin` with required installkernel/initramfs support.
+- Planned shared guardrails: install configuration schema, config validation report, target system baseline, installed time sync policy, installed SSH policy, boot kernel command line policy, download/cache mirror policy, Portage world update policy, install state checkpoints, destructive previews, audit bundles, secret input policy, logging/error taxonomy, Handbook traceability, live ISO network bootstrap hardening, host requirements, cleanup/reset policy, manual escape hatch, libvirt matrix validation, first-boot validation, and install report summary.
 - Makefile target contract.
 - Safety review requirements.
 - Target root path, expected `/mnt/gentoo`.
@@ -38,6 +44,7 @@ Expected layout:
 ```text
 ansible/
   inventory/
+    live.yml
     local.yml
   group_vars/
     all.yml
@@ -77,25 +84,27 @@ ansible/
 The layout must keep shared behavior in common roles and init-specific behavior isolated under explicit OpenRC and systemd roles or task files. Alternative layouts are allowed only when an approved OpenSpec design preserves common implementation and init-specific isolation.
 
 ## 5. Inventory Model
-Inventory is local-only in v1:
+Inventory is remote/network-first:
 
 ```yaml
 all:
   hosts:
-    live_iso:
-      ansible_connection: local
+    gentoo_live:
+      ansible_connection: ssh
+      ansible_user: root
       ansible_python_interpreter: auto_silent
 ```
 
 Rules:
 
-- Ansible runs from the official Gentoo live ISO.
-- Do not support remote hosts in v1.
+- Ansible normally runs from the operator/controller machine and manages a booted official Gentoo live ISO target over SSH.
 - Do not treat the installed target as the control host.
+- Reusable roles must not depend on libvirt, VM names, qcow2 paths, or `/dev/vda`.
 - Do not store secrets in inventory.
 - Do not define a default install disk in inventory.
+- Explicit network target variables such as `ANSIBLE_LIVE_HOST`, `ANSIBLE_LIVE_PORT`, and `ANSIBLE_LIVE_USER` belong in Makefile wrappers, inventory, or documented operator inputs, not in role defaults.
 
-The live ISO VM preflight is an exception for test validation before phase-2 installer execution. It may use SSH from the host to the libvirt VM through `ansible/inventory/live.yml`, but it must remain read-only and must not select `install_disk`.
+The live ISO VM preflight is the local test-harness path. It may use SSH from the controller to the libvirt VM through `ansible/inventory/live.yml`, but it must remain read-only and must not select `install_disk`.
 
 ## 6. Variable Model
 Variables must make init selection, shared behavior, and destructive intent explicit.
@@ -113,6 +122,9 @@ Expected variables:
 - `target_mount: /mnt/gentoo`
 - `efi_mount: /mnt/gentoo/boot/efi`
 - `vm_guest_mode`: true only in the libvirt-managed VM guest test environment.
+- `ansible_live_host`: network target address for the booted official Gentoo live ISO.
+- `ansible_live_port`: SSH port for the live ISO target.
+- `ansible_live_user`: SSH user for the live ISO target.
 - `install_disk`: required for destructive tasks, no default.
 - `efi_partition`: set only after approved plan.
 - `root_partition`: set only after approved plan.
@@ -131,6 +143,7 @@ Rules:
 - OpenRC workflows must not call `systemctl`.
 - systemd workflows must not call `rc-update` or `rc-service`.
 - VM guest `/dev/vda` is allowed only when explicitly passed as `install_disk=/dev/vda` inside the libvirt-managed guest VM.
+- Real network targets must use disk paths from `make detect-disks` output. VM example paths such as `/dev/vda` must not be reused as defaults for physical hosts.
 - Do not store plaintext passwords, API keys, or login tokens in variables.
 - Variables that select disks or partitions must be operator-provided or generated from an approved plan.
 
@@ -140,6 +153,7 @@ Roles must have narrow responsibilities and a reuse-first boundary.
 Shared roles:
 
 - `common/preflight`: verify live ISO, amd64, UEFI, network, time, tools, and root privileges.
+- `common/live_target`: verify controller-to-target SSH, Python availability, official live ISO evidence, amd64, UEFI, network, DNS, and time without assuming libvirt.
 - `common/disk_detection`: read-only disk identity and partition reporting.
 - `common/install_plan`: profile-aware read-only plan output that follows the official Gentoo AMD64 Handbook baseline and does not select a disk by default.
 - `common/partition_plan`: read-only GPT partition plan that requires explicit `install_disk` and reports ext4 or Btrfs root layout without writing.
@@ -184,6 +198,43 @@ Rules:
 - Shell and command tasks must be minimized and guarded.
 - Do not duplicate OpenRC and systemd playbook logic when a shared playbook can be parameterized safely.
 
+## Ansible quality standards
+Future Ansible implementation must be written so it can be reviewed, linted, and rerun safely.
+
+Authoring rules:
+
+- Use fully qualified module names, for example `ansible.builtin.assert`, `ansible.builtin.command`, and `ansible.builtin.template`.
+- Give every task and handler a clear `name`.
+- Prefer modules over `command`, `shell`, `raw`, or chroot wrappers.
+- Use `command.argv` instead of free-form command strings where practical.
+- Use explicit module `state` values when modules support them.
+- Keep tasks narrow; do not combine unrelated risk classes in one task or shell pipeline.
+- Use handlers for service restarts or reloads triggered by managed configuration changes.
+- Use tags consistently for risk and phase, such as `preflight`, `plan`, `destructive`, `partition`, `filesystem`, `mount`, `stage3`, `chroot`, `portage`, `kernel`, `bootloader`, `users`, `services`, and `final_checks`.
+
+Command-like task rules:
+
+- A command-like task that only inspects state must set `changed_when: false`.
+- A command-like task that can fail for acceptable reasons must define `failed_when` explicitly.
+- A command-like task that mutates state must use `creates`, `removes`, pre-check facts, path assertions, or another idempotency guard where practical.
+- Shell-specific features such as pipes, redirects, and globbing require a documented reason and safety review when target state can change.
+- Chroot wrappers must assert the target root and preserve the risk classification of the command executed inside the chroot.
+
+Check and diff rules:
+
+- Plan targets must remain read-only and mutation-free.
+- Apply roles should support Ansible check mode where modules support it.
+- Template and file changes should support diff mode unless the output contains secrets.
+- Secret-sensitive tasks must set `no_log` or otherwise redact values from output, logs, facts, and diffs.
+
+Quality gates:
+
+- `make ansible-check` must syntax-check implemented playbooks.
+- `make ansible-check` must run `ansible-lint` when it is installed.
+- If `ansible-lint` is unavailable, the result must say lint was skipped; future release or CI changes may make lint mandatory.
+- Lint exceptions must be local, justified, and documented in the OpenSpec change or implementation summary.
+- Global `ansible.cfg` must not disable host key checking. Host-to-live-ISO wrappers may disable host key checking only for temporary VM SSH sessions.
+
 ## 9. Safety Gates
 Required gates:
 
@@ -200,11 +251,19 @@ Required gates:
 - Confirm `stage3_variant` matches `init_system`.
 - Confirm `target_mount` is not `/`.
 - Confirm target root and EFI mount paths before writing.
+- Confirm `/mnt/gentoo/boot/efi` in the live ISO maps to `/boot/efi` in the target system.
 - Confirm no mounted filesystem is formatted.
 - Confirm GRUB target disk is operator-provided.
 - Confirm current EFI boot entries are shown before EFI changes.
 - Confirm OpenRC flows do not call `systemctl`.
 - Confirm systemd flows do not call `rc-update` or `rc-service`.
+- Confirm destructive workflows print or call the shared preview before accepting confirmation.
+- Confirm resume checkpoints do not replace destructive confirmations.
+- Confirm logs, state files, and audit bundles do not contain secrets.
+- Confirm operator variables pass the shared config validation before apply workflows.
+- Confirm manual intervention is recorded and revalidated before resume.
+- Confirm bootloader/kernel tasks follow the shared boot command line policy.
+- Confirm SSH and time-sync behavior follows target policies and remains init-specific only where needed.
 
 Disk identity output must include path, model, serial when available, size, current partition table, current filesystems, and mountpoints.
 Safety gates must be implemented once and reused by both OpenRC and systemd flows.
@@ -244,6 +303,8 @@ Non-idempotent tasks must be isolated, tagged, documented, and explicitly confir
 Future Ansible implementation must follow these rules:
 
 - Map shared roles to the relevant Gentoo AMD64 Handbook phase where practical.
+- Document project-specific Handbook choices, including NetworkManager, GRUB UEFI, `/boot/efi`, required filesystem tools, and installkernel/initramfs support for `gentoo-kernel-bin`.
+- Document shared guardrails when introduced: configuration schema, config validation output, target policies, state checkpoints, audit bundle paths, destructive preview output, secret input channels, error codes, cleanup/reset scope, manual escape hatch, and Handbook traceability.
 - Implement common behavior once under `roles/common/` or equivalent shared task, handler, template, validation, or variable files.
 - Add init-specific files only for behavior that genuinely differs between OpenRC and systemd.
 - Use variant variables for package lists, profile names, service names, and stage3 variant values where that avoids duplicated tasks.
@@ -303,8 +364,8 @@ These targets define the expected control-plane contract for future Ansible inst
 
 Target expectations:
 
-- `make ansible-live-ping`: validate SSH-based Ansible connectivity to the booted official live ISO VM.
-- `make ansible-live-preflight`: run read-only live ISO checks for architecture, kernel, Gentoo release evidence, UEFI availability, network, DNS, routes, block devices, and `/dev/vda`.
+- `make ansible-live-ping`: validate SSH-based Ansible connectivity to the booted official live ISO target. Use `ANSIBLE_LIVE_HOST=...` for real network targets; omit it only for local libvirt VM discovery.
+- `make ansible-live-preflight`: run read-only live ISO checks for architecture, kernel, Gentoo release evidence, UEFI availability, network, DNS, routes, and block devices.
 - `make ansible-check`: validate Ansible availability, inventory, variables, playbooks, roles, and syntax.
 - `make detect-disks`: run read-only Ansible disk inventory from inside the live ISO without selecting an install disk.
 - `make ansible-dry-run PROFILE=openrc`: run the supported OpenRC check-mode workflow through the shared flow.
@@ -321,7 +382,7 @@ Operators should not run `ansible-playbook` directly.
 Makefile targets should pass init-specific variables into shared Ansible flows where practical.
 
 `make ansible-live-preflight` is not an installer target. It must not set `install_disk`, consume destructive confirmation variables, or mutate target filesystems.
-`make detect-disks` and `make install-plan` are also read-only at this stage. `INSTALL_DISK` may be passed for identity matching only, and the playbook must explicitly report when it is omitted. `FILESYSTEM=btrfs` may report planned subvolumes, but must not create a Btrfs filesystem or subvolumes until a later destructive change is approved.
+`make detect-disks` and `make install-plan` are also read-only at this stage. `INSTALL_DISK` may be passed for identity matching only, and the playbook must explicitly report when it is omitted. `FILESYSTEM=btrfs` may report planned subvolumes, but must not create a Btrfs filesystem or subvolumes until the approved filesystem apply workflow is implemented with the shared safety gates.
 `make partition-plan` is read-only but stricter than `install-plan`: it requires `INSTALL_DISK`, fails if selected disk children are mounted, and reports the exact GPT layout that a future destructive target would apply.
 
 ## 15. Failure Modes
@@ -381,7 +442,8 @@ When phase 2 Ansible behavior changes, documentation must change in the same imp
 - If a role or playbook intentionally differs from the official Gentoo AMD64 Handbook flow, document the reason in the relevant OpenSpec change and `docs/ansible-architecture.md`.
 - If the live ISO preflight role, inventory, SSH targeting, checks, or Makefile targets change, update `docs/ansible-live-preflight.md`, `docs/libvirt-manual-install-test.md`, and the active OpenSpec `tasks.md`.
 - If shared role boundaries or init-specific behavior changes, update `docs/ansible-architecture.md`.
-- If local execution assumptions change, document whether playbooks run locally from the official Gentoo live ISO or against a remote target; v1 documentation must keep local live ISO execution explicit.
+- If Ansible quality standards change, update `.ansible-lint`, `scripts/ansible-check.sh`, `docs/ansible-architecture.md`, this skill, and the active OpenSpec tasks together.
+- If execution assumptions change, document controller/target behavior. Reusable installer docs must remain remote/network-first; local VM/libvirt docs must remain clearly labeled as test harness docs.
 - If Makefile targets such as `make ansible-check`, `make ansible-dry-run PROFILE=...`, `make install-plan PROFILE=...`, `make install-openrc`, `make install-systemd`, or `make final-checks` change, update this skill and `skills/makefile-control-plane.md`.
 - If destructive Ansible tasks change, update `agents/safety-review-agent.md`, disk safety skills, and OpenSpec `tasks.md` before marking implementation complete.
 - If variables such as `install_disk`, `confirm_wipe_disk`, or the Makefile confirmation variable `I_UNDERSTAND_THIS_WIPES_DISK` change, update variable documentation, safety gates, examples, failure modes, and recovery advice together.

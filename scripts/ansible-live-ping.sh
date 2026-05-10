@@ -6,8 +6,7 @@ source "$(dirname "$0")/vm-libvirt-common.sh"
 
 load_vm_config
 require_command ansible
-validate_vm_config
-eval "$(scripts/vm-ssh-target.sh env)"
+require_ansible_live_target ansible-live-ping
 
 printf 'Running Ansible live ping against %s@%s port %s\n' "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$ANSIBLE_LIVE_PORT"
 ANSIBLE_HOST_KEY_CHECKING=False ansible gentoo_live \

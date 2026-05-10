@@ -3,7 +3,7 @@
 ## Overview
 `filesystem-plan` is a read-only checkpoint after `mount-plan` and before any future destructive format operation. It reports what filesystems and Btrfs subvolumes the project would create after partitioning has been applied, but it does not create anything.
 
-The workflow runs from the operator machine through Makefile, connects to the official Gentoo live ISO VM over SSH, and executes Ansible read-only tasks.
+The workflow runs from the operator/controller machine through Makefile, connects to a booted official Gentoo live ISO target over SSH, and executes Ansible read-only tasks. The local libvirt VM is one supported validation target, not a role dependency.
 
 ## Makefile Integration
 Add:
@@ -31,10 +31,10 @@ The script should:
 - validate `PROFILE=openrc|systemd`,
 - validate `FILESYSTEM=ext4|btrfs`,
 - require explicit `INSTALL_DISK`,
-- reject wildcard characters in `INSTALL_DISK`,
-- validate libvirt VM configuration,
-- discover VM SSH target through `scripts/vm-ssh-target.sh env`,
-- fail at SSH discovery if the VM is not reachable or has no target,
+- reject unsafe `INSTALL_DISK` values before invoking Ansible: no wildcards, parent traversal, whitespace, shell metacharacters, or Ansible extra-var injection characters,
+- use `ANSIBLE_LIVE_HOST` when an explicit network target is provided,
+- fall back to local libvirt VM SSH discovery only for validation when no explicit network target is provided,
+- fail clearly if no live ISO SSH target can be determined,
 - run `ansible/playbooks/filesystem-plan.yml`.
 
 ## Ansible Playbook Design
@@ -95,8 +95,8 @@ For `FILESYSTEM=btrfs`, report:
   - `@`
   - `@home`
   - `@var`
-  - `@var/log`
-  - `@var/cache`
+  - `@var_log`
+  - `@var_cache`
   - `@snapshots`
 - format commands: not run.
 - subvolume commands: not run.

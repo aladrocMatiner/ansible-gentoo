@@ -16,6 +16,7 @@ Use this skill when:
 - Adding scripts that an operator might run.
 - Adding or changing VM/libvirt manual-install test targets.
 - Adding Ansible playbooks or roles.
+- Adding or changing network live ISO Ansible target selection.
 - Adding disk, filesystem, mount, stage3, chroot, bootloader, user, password, or cleanup operations.
 - Reviewing whether documentation should mention raw commands or make targets.
 
@@ -42,8 +43,12 @@ Use this skill when:
 - Route scripts through make targets.
 - Route VM/libvirt operations through make targets.
 - Do not require the operator to run scripts directly.
+- Treat Ansible as the main product path: Makefile targets should run reusable Ansible workflows against an explicit network live ISO target when `ANSIBLE_LIVE_HOST` is provided.
+- Treat libvirt/VM targets as local validation harnesses for the same Ansible workflows, not as required production installer infrastructure.
 - For OpenRC and systemd Ansible flows, prefer parameterized shared Makefile targets or thin variant targets that pass variables into a shared Ansible flow.
 - Avoid separate duplicated command chains when `PROFILE=openrc` or `PROFILE=systemd` can select the variant safely.
+- Ansible quality checks must be exposed through `make ansible-check`; operators and agents should not need to remember raw syntax-check or lint commands.
+- Expose config validation, host checks, state, audit, traceability, cleanup/reset, manual-step recording, real-hardware readiness, install report, test matrix, first-boot validation, and destructive-preview workflows through Makefile targets when implemented.
 - Do not hide destructive behavior inside vague targets.
 - Update `README.md` or `docs/` whenever operator-facing targets are added, changed, or removed.
 - Update this skill when a reusable Makefile target convention changes.
@@ -77,6 +82,12 @@ VM/libvirt variables:
 - `VM_SSH_USER`
 - `VM_BOOT_MODE`
 
+Ansible live target variables:
+
+- `ANSIBLE_LIVE_HOST`
+- `ANSIBLE_LIVE_PORT`
+- `ANSIBLE_LIVE_USER`
+
 Recommended defaults:
 
 - `HOSTNAME=gentoo`
@@ -103,13 +114,19 @@ Recommended VM/libvirt defaults:
 - `VM_SSH_USER=root`
 - `VM_BOOT_MODE=uefi`
 
+Recommended Ansible live target defaults:
+
+- `ANSIBLE_LIVE_HOST` has no default; if omitted, current wrapper targets may discover the configured local libvirt VM for testing.
+- `ANSIBLE_LIVE_PORT=22`
+- `ANSIBLE_LIVE_USER=root`
+
 Rules:
 
 - `INSTALL_DISK` must not have a default value.
 - `I_UNDERSTAND_THIS_WIPES_DISK` must not default to `yes`.
 - Destructive targets must require `INSTALL_DISK` to be set explicitly.
 - Destructive targets must require `I_UNDERSTAND_THIS_WIPES_DISK=yes`.
-- Disk variables must not use wildcard matching.
+- Disk variables must not use wildcard matching, parent traversal, whitespace, shell metacharacters, or values that can inject additional Ansible extra variables.
 - Disk selection must not use a fallback such as the first disk from `lsblk`.
 - Variable names should be uppercase for operator-provided inputs.
 - `PROFILE=openrc` should map to Ansible `init_system=openrc`.
@@ -120,6 +137,9 @@ Rules:
 - `VM_DISK` must be a project-relative qcow2 path under `VM_DIR`.
 - `VM_DIR` must not be the project root, `/dev`, absolute, symlinked, or contain parent traversal.
 - `VM_BOOT_MODE=bios` must be rejected in v1.
+- `ANSIBLE_LIVE_HOST` must not default to a VM IP or a physical host.
+- When `ANSIBLE_LIVE_HOST` is set, Ansible targets must use it as the network-reachable official live ISO target instead of requiring libvirt discovery.
+- When `ANSIBLE_LIVE_HOST` is empty, VM/libvirt discovery is allowed only for local testing.
 - `VM_NETWORK` is required only when `VM_NET_MODE=network`.
 - `VM_RAM`, `VM_CPUS`, ports, and `VM_DISK_SIZE` must be validated before generated XML or disk creation uses them.
 - VM definitions should pass serial console kernel args so `make vm-console` is usable with the official live ISO.
@@ -154,9 +174,9 @@ Expected behavior:
 - `make detect-disks`: show disk path, model, serial, size, transport, current partitions, and mount state.
 - `make openspec-list`: list OpenSpec changes.
 - `make openspec-validate`: validate OpenSpec changes.
-- `make ansible-check`: validate Ansible availability and project structure.
-- `make ansible-live-ping`: validate SSH-based Ansible connectivity to the booted official live ISO VM.
-- `make ansible-live-preflight`: run read-only live ISO checks without selecting an install disk or mutating the VM disk.
+- `make ansible-check`: validate Ansible availability, syntax-check implemented playbooks, and run ansible-lint when available.
+- `make ansible-live-ping`: validate SSH-based Ansible connectivity to the booted official live ISO target. It should use `ANSIBLE_LIVE_HOST` for network targets and libvirt discovery only for local tests.
+- `make ansible-live-preflight`: run read-only live ISO checks without selecting an install disk or mutating target disks.
 - `make install-plan`: summarize intended install flow without making changes; default `PROFILE=openrc` and `FILESYSTEM=ext4`, but never default `INSTALL_DISK`.
 - `make partition-plan`: require explicit `INSTALL_DISK` and summarize the exact GPT partition layout without writing.
 - `make mount-plan`: require explicit `INSTALL_DISK` and summarize the future root and EFI mount layout without running `mount`, `umount`, or `mkdir`.
@@ -202,15 +222,17 @@ Expected behavior:
 - `make vm-ip`: discover the guest IP only when the configured network mode supports discovery.
 - `make vm-bootstrap-ssh`: use the serial console to install a public SSH key into the temporary live ISO and start `sshd`.
 - `make vm-ssh`: connect after the operator enables SSH inside the live ISO.
-- `make vm-rsync`: copy non-secret project files after SSH is available.
-- `make vm-ansible-ping`: validate Ansible SSH connectivity to the live ISO without configuring Gentoo.
+- `make vm-rsync`: copy non-secret project files after SSH is available; filters must exclude `.env`, private key patterns, token/credential files, ISO artifacts, runtime artifacts, logs, and temporary files.
+- `make vm-ansible-ping`: validate Ansible SSH connectivity to the local libvirt live ISO test target without configuring Gentoo.
 - `make vm-shutdown`: request guest shutdown.
 - `make vm-destroy`: stop the configured project-owned domain without deleting artifacts.
 - `make vm-clean`: undefine the project-owned domain and delete generated VM artifacts only after typing `DELETE`.
 
 `make mount-target` must become destructive-adjacent if it can mount over an existing path. It must print current mounts and require confirmation when ambiguity exists.
 
-VM targets are not allowed to touch host block devices. They must reject `/dev/*`, absolute VM disk paths, parent traversal, wildcard paths, symlinked artifact directories, non-qcow2 existing disk files, and project-root artifact directories. Legacy `qemu-*` targets may exist only as compatibility aliases to `vm-*` targets.
+Future destructive targets should print or call a read-only preview before accepting confirmation. Preview output must not set `I_UNDERSTAND_THIS_WIPES_DISK=yes` or any equivalent confirmation.
+
+VM targets are not allowed to touch host block devices. They must reject `/dev/*`, absolute VM disk paths, parent traversal, wildcard paths, symlinked artifact directories, non-qcow2 existing disk files, project-root artifact directories, and project root paths that would make generated libvirt XML unsafe. Existing libvirt domains with the configured name must be rejected for start, SSH, rsync, Ansible, and inspection unless they are project-owned, UEFI-configured, and match the configured official ISO plus generated artifacts for disk, NVRAM, kernel, initrd, and artifact directory. Cleanup, shutdown, destroy, and redefinition may operate on stale project-marked domains only when those domains do not reference `/dev/*` or libvirt block devices. Legacy `qemu-*` targets may exist only as compatibility aliases to `vm-*` targets.
 
 ## 8. Destructive Targets
 Destructive targets can destroy data, alter boot behavior, or perform broad persistent changes. They require strict gates.
@@ -351,5 +373,6 @@ When Makefile behavior changes, documentation must change in the same commit or 
 - If live ISO Ansible preflight targets change, update `docs/ansible-live-preflight.md`, `docs/libvirt-manual-install-test.md`, `skills/ansible-gentoo-installer.md`, and the active OpenSpec tasks.
 - If read-only Ansible disk detection or install-plan targets change, update `docs/ansible-install-plan.md`, `skills/ansible-gentoo-installer.md`, `skills/gentoo-disk-planning.md`, and the active OpenSpec tasks.
 - If read-only partition-plan targets change, update `docs/ansible-partition-plan.md`, disk-planning skills, safety docs, and active OpenSpec tasks.
+- If `make ansible-check` behavior changes, update Ansible docs, `.ansible-lint` expectations, `skills/ansible-gentoo-installer.md`, and active OpenSpec tasks.
 - If `FILESYSTEM` behavior changes, update target help, variable defaults, install-plan docs, disk-planning docs, and safety notes in the same change.
 - If failure modes or recovery behavior changes in implementation, update the `Failure Modes` and `Recovery Advice` sections here before finishing.

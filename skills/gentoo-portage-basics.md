@@ -113,6 +113,8 @@ Policy:
 - Do not enable GURU in the installed system unless an approved change explicitly requires it.
 - If GURU is used for live Codex bootstrap, keep that separate from target Portage configuration.
 - Any installed-system overlay must have a clear purpose, affected packages, and safety review.
+- Broad `@world` update must not run by default in v1 unless a later approved OpenSpec change enables it.
+- Portage sync and mirror/cache behavior must follow the approved download/cache and Portage world update policies.
 
 ## 12. Package Installation Policy
 Install only the base packages needed for v1:
@@ -121,6 +123,9 @@ Install only the base packages needed for v1:
 - `grub`
 - `efibootmgr`
 - `networkmanager`
+- `dosfstools` for the FAT32 EFI system partition
+- `btrfs-progs` when `FILESYSTEM=btrfs`
+- `e2fsprogs` verified or installed for ext4 tooling
 - `sudo` or `doas`
 - `vim` or `nano`
 - Syslog package

@@ -1,7 +1,7 @@
 # implement-ansible-partition-plan
 
 ## Summary
-Add a read-only Ansible partition planning workflow for the Gentoo live ISO VM.
+Add a read-only Ansible partition planning workflow for a booted Gentoo live ISO target over SSH.
 
 The workflow requires an explicit `INSTALL_DISK`, validates that the disk is visible and safe to plan against, and prints the exact GPT partition plan for `FILESYSTEM=ext4` and `FILESYSTEM=btrfs` without writing to the disk.
 
@@ -51,7 +51,7 @@ The install plan proves high-level intent, but it is not precise enough to be us
 - `PROFILE` may default to `openrc`; supported values are `openrc` and `systemd`.
 - The workflow must not require or consume `I_UNDERSTAND_THIS_WIPES_DISK` because it is read-only.
 - The workflow must not run destructive commands such as `parted`, `sgdisk`, `fdisk`, `wipefs`, `mkfs.*`, `mount`, `umount`, `chroot`, `passwd`, `useradd`, `usermod`, `grub-install`, or `efibootmgr`.
-- VM guest `/dev/vda` is allowed only when explicitly passed as `INSTALL_DISK=/dev/vda` inside the guest VM.
+- VM guest `/dev/vda` is allowed only when explicitly passed as `INSTALL_DISK=/dev/vda` inside the guest VM. Real network targets must use disk paths reported by `make detect-disks`.
 - If mounted partitions or nested descendants exist on the selected disk, the plan must fail closed.
 - If the selected disk cannot be matched exactly to one detected disk, the plan must fail closed.
 
@@ -60,6 +60,7 @@ The install plan proves high-level intent, but it is not precise enough to be us
 - `make partition-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda` prints a read-only Btrfs partition and subvolume plan.
 - `make partition-plan PROFILE=systemd FILESYSTEM=btrfs INSTALL_DISK=/dev/vda` prints a read-only systemd/Btrfs plan through shared logic.
 - `make partition-plan` fails when `INSTALL_DISK` is missing.
+- `make partition-plan ANSIBLE_LIVE_HOST=... INSTALL_DISK=...` works without requiring libvirt VM discovery.
 - The partition plan reports selected disk path, type, size, model, serial when available, current filesystems, current mountpoints, current children, and nested descendants.
 - The partition plan reports what would be destroyed by a future destructive apply step.
 - The partition plan reports GPT layout:

@@ -1,12 +1,20 @@
 # Ansible Disk Detection and Install Plan
 
-This workflow is the first read-only planning layer for the future Ansible installer. It runs against the booted official Gentoo live ISO VM over SSH and follows the official Gentoo AMD64 Handbook as the baseline procedure: <https://wiki.gentoo.org/wiki/Handbook:AMD64>.
+This workflow is the first read-only planning layer for the future Ansible installer. It runs from the operator/controller machine against a booted official Gentoo live ISO target over SSH and follows the official Gentoo AMD64 Handbook as the baseline procedure: <https://wiki.gentoo.org/wiki/Handbook:AMD64>.
+
+The target can be selected explicitly with `ANSIBLE_LIVE_HOST=...`. When that variable is empty, the wrappers may discover the local libvirt VM as the validation target.
 
 It does not install Gentoo. It does not partition, format, mount target filesystems, extract stage3, chroot, install packages, create users, change passwords, enable services, or install bootloaders.
 
 ## Required State
 
-Boot the VM, bootstrap temporary SSH, and run the live ISO preflight first:
+For a network target, boot the official Gentoo live ISO, enable SSH, and run the live ISO preflight with the target address:
+
+```sh
+make ansible-live-preflight ANSIBLE_LIVE_HOST=192.0.2.10
+```
+
+For the local validation VM, boot the VM, bootstrap temporary SSH, and run the live ISO preflight first:
 
 ```sh
 make vm-start
@@ -24,6 +32,8 @@ make ansible-check
 
 This target validates local Ansible commands and syntax-checks the implemented playbooks. It does not connect to disks or run installer tasks.
 
+When `ansible-lint` is installed, `make ansible-check` also runs the project lint configuration. If `ansible-lint` is missing, the target reports that lint was skipped; syntax checks still run.
+
 ## Detect Disks
 
 Run read-only disk detection from inside the live ISO:
@@ -32,7 +42,7 @@ Run read-only disk detection from inside the live ISO:
 make detect-disks
 ```
 
-The output reports visible block devices, including path, type, size, model, serial when available, filesystem, mountpoints, UUID, partition type name, and children. In the libvirt VM, `/dev/vda` is the expected virtual disk attached from the project-local qcow2 image.
+The output reports visible block devices, including path, type, size, model, serial when available, filesystem, mountpoints, UUID, partition type name, and children. In the libvirt VM, `/dev/vda` is the expected virtual disk attached from the project-local qcow2 image; on real network targets, use only the disk path shown by `make detect-disks`.
 
 `make detect-disks` never selects an install disk.
 
@@ -73,6 +83,12 @@ make install-plan PROFILE=openrc INSTALL_DISK=/dev/vda
 
 This only matches `/dev/vda` against read-only disk inventory and reports its identity. It does not modify the disk.
 
+For a real network target, replace `/dev/vda` with the explicit disk path reported by `make detect-disks`:
+
+```sh
+make install-plan ANSIBLE_LIVE_HOST=192.0.2.10 PROFILE=openrc INSTALL_DISK=/dev/<target-disk>
+```
+
 ## Plan Contents
 
 The plan reports:
@@ -94,9 +110,12 @@ Forbidden commands in this workflow include `parted`, `sgdisk`, `fdisk`, `wipefs
 
 The workflow does not require `I_UNDERSTAND_THIS_WIPES_DISK` because it is read-only. A later destructive OpenSpec change must introduce explicit confirmation before partitioning or formatting.
 
+When `INSTALL_DISK` is provided, the wrapper accepts only an explicit `/dev/...` path without wildcard, parent-traversal, whitespace, shell metacharacter, or extra-var injection characters. The Ansible role still verifies that the path matches exactly one visible live ISO disk before using it for read-only planning.
+
 ## Failure Modes
 
-- `make detect-disks` cannot connect: run `make vm-ip`, then rerun `make vm-bootstrap-ssh`.
+- `make detect-disks ANSIBLE_LIVE_HOST=...` cannot connect: verify SSH is enabled on the live ISO, the address is reachable, and the port/user are correct.
+- Local VM detection cannot connect: run `make vm-ip`, then rerun `make vm-bootstrap-ssh`.
 - `make install-plan PROFILE=<value>` fails: use only `PROFILE=openrc` or `PROFILE=systemd`.
 - `INSTALL_DISK` is not found: rerun `make detect-disks` and pass one exact visible disk path.
 - The plan shows no `INSTALL_DISK`: this is expected when the variable is omitted; no disk was inferred.
@@ -121,3 +140,5 @@ After the install plan is correct, continue with the read-only partition plan:
 make partition-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda
 make partition-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda
 ```
+
+Those partition-plan examples are for the local VM harness. For real network targets, include `ANSIBLE_LIVE_HOST=...` and use the explicit disk reported by `make detect-disks`.

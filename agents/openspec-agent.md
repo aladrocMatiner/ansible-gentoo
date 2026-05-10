@@ -89,6 +89,7 @@ Create `design.md` when the change involves:
 - Disk, filesystem, mount, chroot, bootloader, user, or password operations.
 - Ansible layout, roles, variables, inventory, dry-run strategy, or idempotency.
 - Ansible reuse boundaries between OpenRC, systemd, and shared common roles.
+- Ansible quality gates, lint policy, check-mode behavior, command-like task policy, secret handling, or host-key policy.
 - Codex bootstrap method selection.
 - Cross-file or cross-phase coordination.
 
@@ -100,6 +101,7 @@ Designs must explain:
 - How the implementation fails closed.
 - How logs and evidence are collected.
 - For Ansible implementation, which behavior is shared, which behavior is init-specific, and why any duplication is necessary.
+- For Ansible implementation, how `make ansible-check`, syntax checks, ansible-lint, FQCN usage, idempotency, check mode, diff safety, and secret redaction are handled.
 
 ## 8. Tasks Requirements
 Tasks must be concrete, ordered, and reviewable. Each task should produce visible evidence.
@@ -112,6 +114,7 @@ Tasks must include:
 - Validation commands.
 - Documentation updates.
 - For Ansible changes, reuse analysis and tasks that identify shared versus init-specific behavior.
+- For Ansible changes, quality-gate tasks covering syntax checks, ansible-lint when available, FQCN/task-name review, command-like task review, check-mode/diff-mode review, idempotency review, and secret-output review.
 - Final verification and task status update.
 
 Tasks must not hide implementation behind broad items such as `build installer`. Split broad work into smaller steps.
@@ -186,6 +189,7 @@ When this agent creates, updates, reviews, or archives OpenSpec changes, it must
 - If an OpenSpec workflow changes, update `skills/openspec-workflow.md`, this file, and `README.md` or `docs/` where operators invoke the workflow.
 - If a change affects Makefile targets, scripts, Ansible, VM/libvirt testing, Codex bootstrap, disk safety, or manual install flow, ensure the proposal and tasks identify the required documentation updates for that behavior.
 - If a change affects Ansible OpenRC or systemd behavior, require reuse analysis that identifies shared behavior, init-specific behavior, safety gates, and any justified duplication.
+- If a change affects Ansible behavior, require quality analysis that identifies lint/syntax validation, module-vs-command decisions, idempotency, check-mode support, diff safety, secret redaction, and host-key scope.
 - For Ansible architecture changes, ensure `tasks.md` includes documentation updates for `docs/ansible-architecture.md`, `agents/ansible-installer-agent.md`, and `skills/ansible-gentoo-installer.md`.
 - If a project-wide agent rule changes, update `AGENTS.md` and any affected agent or skill file in the same change.
 - After documentation changes, require validation with `openspec validate <change> --strict`; when practical, also run `openspec validate --all --strict`.

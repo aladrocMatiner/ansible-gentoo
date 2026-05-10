@@ -1,6 +1,8 @@
 # Ansible Partition Plan
 
-This workflow generates a read-only partition plan from inside the booted official Gentoo live ISO VM. It is the checkpoint before any future destructive partitioning or formatting implementation.
+This workflow generates a read-only partition plan against a booted official Gentoo live ISO target over SSH. It is the checkpoint before any future destructive partitioning or formatting implementation.
+
+Use `ANSIBLE_LIVE_HOST=...` for a real network target. If it is omitted, the wrappers may use the local libvirt VM as the validation target.
 
 It does not partition, format, wipe, mount, unmount, chroot, install packages, create users, change passwords, enable services, or install bootloaders.
 
@@ -19,7 +21,7 @@ make detect-disks
 
 ## Required Variables
 
-`INSTALL_DISK` is required and has no default. Inside the libvirt VM, `/dev/vda` is the expected guest disk backed by the project-local qcow2 image.
+`INSTALL_DISK` is required and has no default. Inside the libvirt VM, `/dev/vda` is the expected guest disk backed by the project-local qcow2 image. On real network targets, use the explicit disk path reported by `make detect-disks`.
 
 `PROFILE` defaults to `openrc`. Supported values are `openrc` and `systemd`.
 
@@ -27,19 +29,25 @@ make detect-disks
 
 ## Commands
 
-Generate an ext4 partition plan:
+Generate an ext4 partition plan for the local VM harness:
 
 ```sh
 make partition-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda
 ```
 
-Generate a Btrfs partition plan:
+For a real network target, provide the live ISO address and the target disk discovered from that machine:
+
+```sh
+make partition-plan ANSIBLE_LIVE_HOST=192.0.2.10 PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/<target-disk>
+```
+
+Generate a Btrfs partition plan for the local VM harness:
 
 ```sh
 make partition-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda
 ```
 
-Generate a systemd/Btrfs plan through the same shared logic:
+Generate a systemd/Btrfs plan through the same shared logic for the local VM harness:
 
 ```sh
 make partition-plan PROFILE=systemd FILESYSTEM=btrfs INSTALL_DISK=/dev/vda
@@ -66,8 +74,8 @@ For `FILESYSTEM=btrfs`, the root partition is planned as Btrfs with root mount o
 - `@` at `/mnt/gentoo`
 - `@home` at `/mnt/gentoo/home`
 - `@var` at `/mnt/gentoo/var`
-- `@var/log` at `/mnt/gentoo/var/log`
-- `@var/cache` at `/mnt/gentoo/var/cache`
+- `@var_log` at `/mnt/gentoo/var/log`
+- `@var_cache` at `/mnt/gentoo/var/cache`
 - `@snapshots` at `/mnt/gentoo/.snapshots`
 
 ## Safety
@@ -77,6 +85,7 @@ For `FILESYSTEM=btrfs`, the root partition is planned as Btrfs with root mount o
 It fails if:
 
 - `INSTALL_DISK` is missing,
+- `INSTALL_DISK` is not an explicit safe `/dev/...` path,
 - `INSTALL_DISK` does not match exactly one detected disk,
 - the selected path is not type `disk`,
 - the selected disk has mounted child partitions or nested descendants such as mapped LUKS/LVM devices,

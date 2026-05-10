@@ -3,11 +3,22 @@
 This document defines the planned Ansible architecture for `gentoo-ai-installer`. It is a policy and design document; it does not mean the Ansible roles or playbooks are implemented yet.
 
 ## Purpose
-The Ansible installer phase should turn validated manual Gentoo installation steps into reproducible local automation from the official Gentoo live ISO.
+The Ansible installer phase should turn validated manual Gentoo installation steps into a reusable, network-capable installer. The normal execution model is an operator/controller machine running Ansible over SSH against a target booted into the official Gentoo live ISO.
+
+Local libvirt/virsh workflows are a validation harness for that installer. They provide a safe VM target, serial-console SSH bootstrap, and disposable qcow2 disks so the same Ansible playbooks can be tested before real hardware. VM-specific paths, domain names, and `/dev/vda` assumptions must stay out of reusable roles except in test fixtures and examples.
 
 The architecture must support basic console installs for OpenRC and systemd while reusing as much implementation as possible.
 
 Future installer roles and playbooks must use the official Gentoo AMD64 Handbook as the baseline procedure: <https://wiki.gentoo.org/wiki/Handbook:AMD64>. The project may translate Handbook steps into Ansible tasks, variables, templates, and validations, but deviations must be intentional, documented, and reviewed through OpenSpec.
+
+Current deliberate project choices on top of the Handbook baseline:
+
+- NetworkManager is the v1 network manager rather than the Handbook's simplest `dhcpcd` example.
+- GRUB is the v1 bootloader for UEFI.
+- The EFI system partition is mounted at `/boot/efi` inside the installed system, corresponding to `/mnt/gentoo/boot/efi` from the live ISO.
+- `gentoo-kernel-bin` is the v1 kernel package, with required installkernel/initramfs support configured explicitly.
+- ext4 and Btrfs are both planned filesystem variants; Btrfs requires `sys-fs/btrfs-progs` and explicit subvolume mount options.
+- vfat/FAT32 EFI support requires `sys-fs/dosfstools`.
 
 ## Reuse-first Design
 Common behavior must be implemented once and reused.
@@ -15,6 +26,8 @@ Common behavior must be implemented once and reused.
 Shared behavior includes:
 
 - preflight checks
+- configuration schema validation
+- controller and host requirement validation for Ansible and libvirt test workflows
 - architecture and UEFI detection
 - disk discovery and identity reporting
 - safety confirmation validation
@@ -35,10 +48,59 @@ Shared behavior includes:
 - final validation checks
 - logging
 - libvirt VM validation flow
+- network target inventory and SSH connectivity validation
+- install state checkpoints
+- install audit bundle generation
+- destructive command preview
+- Handbook traceability reporting
+- secret redaction and validation
+- logging and error taxonomy
+- cleanup/reset safety
+- manual intervention recording
 
 Do not duplicate OpenRC and systemd logic unless the behavior genuinely differs. If duplication is necessary, the implementing OpenSpec change must explain why shared roles, variables, handlers, templates, or includes cannot express the behavior.
 
 Shared roles should correspond to Handbook phases where practical. For example, disk preparation, stage3 installation, chroot preparation, Portage configuration, kernel installation, bootloader setup, networking, users, and final checks should each preserve the Handbook order and safety assumptions unless an approved OpenSpec change explains the deviation.
+
+## Ansible Quality Standards
+Ansible code in this project must be reviewable, lintable, and rerunnable where practical.
+
+Authoring baseline:
+
+- Use FQCN module names such as `ansible.builtin.assert`.
+- Name every task and handler.
+- Prefer purpose-built modules over `command`, `shell`, `raw`, or chroot wrappers.
+- Use `command.argv` instead of free-form command strings where practical.
+- Use explicit module `state` values where supported.
+- Keep tasks focused on one risk class.
+- Use handlers for service restarts or reloads caused by managed configuration changes.
+
+Command-like task baseline:
+
+- Read-only command tasks must set `changed_when: false`.
+- Command tasks that accept non-zero return codes must define `failed_when`.
+- Mutating command tasks must use `creates`, `removes`, pre-check facts, path assertions, or equivalent guards where practical.
+- Shell pipelines, redirects, globs, and chroot wrappers require extra review because they can hide risk.
+
+Check and diff baseline:
+
+- Plan targets remain mutation-free.
+- Apply roles support Ansible check mode where practical.
+- Template and file tasks support diff mode unless output can expose secrets.
+- Secret-sensitive tasks use `no_log` or equivalent redaction.
+
+Quality gate:
+
+- `make ansible-check` syntax-checks implemented playbooks.
+- `make ansible-check` runs `ansible-lint` when it is installed.
+- Missing `ansible-lint` is reported clearly until a future release or CI change makes it mandatory.
+- Lint exceptions must be local and justified in the OpenSpec change or implementation summary.
+
+Host-key policy:
+
+- `ansible.cfg` must not disable host key checking globally.
+- Controller-to-live-ISO wrappers may disable host key checking for that temporary official live ISO wrapper invocation because the live ISO host key changes after reboot.
+- Local live ISO execution must not depend on globally disabled host-key checking.
 
 ## Proposed Directory Layout
 Planned layout:
@@ -46,6 +108,7 @@ Planned layout:
 ```text
 ansible/
   inventory/
+    live.yml
     local.yml
   group_vars/
     all.yml
@@ -58,18 +121,31 @@ ansible/
   roles/
     common/
       preflight/
+      config_validation/
+      host_requirements/
+      live_target/
       disk_detection/
       install_plan/
       partition_plan/
       mount_plan/
       filesystem_plan/
       disk_safety/
+      destructive_preview/
+      install_state/
+      audit_bundle/
+      handbook_traceability/
+      secret_safety/
+      logging/
+      cleanup/
+      manual_escape_hatch/
       partitioning/
       filesystem/
       mount_target/
       stage3/
       chroot/
       portage/
+      system_baseline/
+      locale_timezone_hostname/
       package_install/
       fstab/
       kernel/
@@ -88,18 +164,31 @@ Alternative layouts are allowed only when an approved OpenSpec change shows that
 Shared roles live under `roles/common/` or an equivalent shared structure.
 
 - `preflight`: live ISO, root privilege, amd64, UEFI, network, time, and tool checks.
+- `config_validation`: validates operator variables against the install configuration schema.
+- `host_requirements`: validates controller-side Ansible requirements and host-side libvirt requirements separately from live ISO and target checks.
+- `live_target`: validates a network-reachable official Gentoo live ISO target, including SSH endpoint, Python availability, amd64, UEFI, network, DNS, and time evidence.
 - `disk_detection`: read-only disk inventory and identity reporting.
 - `install_plan`: profile-aware read-only plan output.
 - `partition_plan`: read-only GPT layout planning.
 - `mount_plan`: read-only root, EFI, and Btrfs subvolume mount layout planning.
 - `filesystem_plan`: read-only EFI/root filesystem and Btrfs subvolume creation planning.
 - `disk_safety`: required variables, confirmations, disk identity, libvirt VM guest mode, and fail-closed behavior.
+- `destructive_preview`: read-only previews for destructive partition, format, mount-over, user, password, and bootloader actions.
+- `install_state`: non-secret run ids, checkpoints, resume planning, and current-state comparison.
+- `audit_bundle`: secret-safe evidence collection under project-local logs.
+- `handbook_traceability`: maps roles and Makefile targets back to the Gentoo AMD64 Handbook or documented project deviations.
+- `secret_safety`: shared checks for forbidden secret storage in variables, logs, state, audit bundles, and docs.
+- `logging`: run ids, log paths, and shared error taxonomy.
+- `cleanup`: safe cleanup/reset scope enforcement for generated project artifacts.
+- `manual_escape_hatch`: records non-secret manual intervention notes and triggers revalidation before resume.
 - `partitioning`: partition planning and approved execution.
 - `filesystem`: filesystem checks and approved formatting.
 - `mount_target`: target root and EFI mount preparation.
 - `stage3`: stage3 download, checksum, signature, architecture, and variant validation framework.
 - `chroot`: pseudo-filesystem, DNS, and chroot readiness.
 - `portage`: shared Portage baseline.
+- `system_baseline`: validates the target basic-console contract.
+- `locale_timezone_hostname`: target hostname, timezone, locale, and keymap configuration.
 - `package_install`: shared package installation framework.
 - `fstab`: UUID-based fstab generation.
 - `kernel`: `gentoo-kernel-bin` installation.
@@ -153,6 +242,9 @@ Shared variables have one meaning across both flows:
 - `target_mount`
 - `efi_mount`
 - `vm_guest_mode`
+- `ansible_live_host`
+- `ansible_live_port`
+- `ansible_live_user`
 
 Rules:
 
@@ -162,6 +254,20 @@ Rules:
 - `stage3_variant` must match `init_system`.
 - Variant values should live in `group_vars/openrc.yml`, `group_vars/systemd.yml`, or an equivalent documented mechanism.
 - VM guest `/dev/vda` is allowed only when explicitly passed as `install_disk=/dev/vda` inside the libvirt-managed guest VM.
+- `ansible_live_host` selects an explicit network target and must not default to a VM address.
+- When `ansible_live_host` is omitted, Makefile wrappers may discover the configured local libvirt VM for test workflows only.
+
+## Controller and Target Model
+The controller is the machine where the operator runs Makefile targets and Ansible. The target is a network-reachable machine booted into the official Gentoo live ISO.
+
+Rules:
+
+- Reusable Ansible roles must be inventory-driven and must not depend on libvirt, virsh, VM names, local qcow2 paths, or project-local artifact directories.
+- The live ISO target may be physical hardware, a remote VM, or the project libvirt VM.
+- `ANSIBLE_LIVE_HOST` is the explicit Makefile-level target selector for a real network target.
+- The local libvirt VM is used when `ANSIBLE_LIVE_HOST` is empty and the wrapper can discover the project-owned VM.
+- Temporary host-key relaxation is allowed only for official live ISO targets where host keys are ephemeral, and it must remain scoped to wrapper invocations.
+- No inventory, group vars file, or role defaults may select an install disk.
 
 ## Makefile Integration
 The Makefile remains the operator-facing control plane.
@@ -170,6 +276,8 @@ Planned Ansible targets:
 
 ```sh
 make ansible-check
+make ansible-live-preflight ANSIBLE_LIVE_HOST=192.0.2.10 ANSIBLE_LIVE_USER=root
+make detect-disks ANSIBLE_LIVE_HOST=192.0.2.10
 make ansible-dry-run PROFILE=openrc
 make ansible-dry-run PROFILE=systemd
 make install-plan PROFILE=openrc
@@ -184,9 +292,27 @@ make install-openrc
 make install-systemd
 ```
 
+The `/dev/vda` examples are VM-only examples for the local libvirt harness. For real network targets, use the explicit disk path reported by `make detect-disks ANSIBLE_LIVE_HOST=...`.
+
 Targets should pass `PROFILE=openrc` or `PROFILE=systemd` into a shared Ansible flow where practical. Avoid duplicated OpenRC and systemd command chains when a shared command can be parameterized safely.
 
+Targets should pass network target variables into Ansible through the documented wrapper layer. VM/libvirt discovery is a convenience for local testing and must not be required by the reusable installer.
+
 Only targets present in the current `Makefile` should be documented as runnable in user-facing quick-start instructions.
+
+## Handbook Alignment
+The remaining implementation changes map to the Handbook order as follows:
+
+- disk preparation: partition apply, filesystem apply, mount target,
+- stage file: stage3 selection, verification, extraction,
+- base system and chroot: chroot preparation and Portage baseline,
+- kernel: `gentoo-kernel-bin` with installkernel/initramfs support,
+- system configuration: fstab, hostname, networking, system packages,
+- tools: filesystem utilities, networking tools, editor, sudo/doas, syslog/cron where needed,
+- bootloader: GRUB UEFI,
+- finalizing: final checks and manual reboot readiness.
+
+Some roles may run earlier than the Handbook presents them when automation can safely do so, such as generating fstab after UUIDs exist. Final checks must verify that the final installed state still matches the Handbook requirements.
 
 ## Safety Gate Reuse
 Safety gates must be implemented once and reused by both init flows.
@@ -200,9 +326,44 @@ Required shared gates:
 - Destructive tasks fail closed on ambiguity.
 - Init-specific roles cannot partition, format, wipe, select disks, or redefine disk safety.
 - VM guest mode does not disable confirmations or disk identity checks.
+- Destructive apply targets print or call a read-only preview before accepting confirmation.
+- Resume checkpoints never replace destructive confirmations.
+- Logs, state files, and audit bundles must reject or redact secrets.
+
+## Cross-Cutting Guardrails
+Before broad destructive implementation, the project should add:
+
+- install configuration schema,
+- config validation report,
+- target system baseline,
+- installed time synchronization policy,
+- installed SSH policy,
+- boot kernel command line policy,
+- download cache and mirror policy,
+- Portage world update policy,
+- install state and resume checkpoints,
+- destructive command preview,
+- install audit bundle,
+- secret input policy,
+- logging and error taxonomy,
+- Handbook traceability report,
+- live ISO network bootstrap hardening.
+
+These guardrails are shared behavior. OpenRC and systemd implementations must not create parallel versions of them.
+
+The project should also define real hardware readiness, supported host requirements, cleanup/reset behavior, manual escape-hatch behavior, locale/timezone/hostname configuration, and a human-readable install report before the first usable release milestone.
+
+## Installed Target Policies
+Future implementation must keep these policy areas shared across OpenRC and systemd:
+
+- Time sync: OpenRC and systemd may use different service managers, but the target must have a documented time synchronization plan.
+- SSH: optional installed SSH is controlled by `ENABLE_SSH`; root password login and passwordless root SSH are not enabled by default.
+- Boot command line: root is identified by stable UUID where practical; Btrfs requires `rootflags=subvol=@` or equivalent verified behavior.
+- Downloads/cache: cached stage3 artifacts must still pass checksum/signature verification before extraction.
+- Portage updates: broad `@world` update is not run by default in v1 unless a later approved change enables it.
 
 ## VM Testing Expectations
-libvirt/virsh is the first safe test environment for OpenRC and systemd install plans.
+libvirt/virsh is the first safe test environment for OpenRC and systemd install plans, but it is not the product architecture.
 
 - Boot the official Gentoo live ISO from `./gentoo.iso`.
 - Use qcow2 disks under `./var/libvirt/`.
@@ -210,7 +371,9 @@ libvirt/virsh is the first safe test environment for OpenRC and systemd install 
 - Do not touch host block devices.
 - Use `/dev/vda` only inside the guest VM and only when explicitly passed as `install_disk=/dev/vda`.
 - Validate OpenRC and systemd install plans in the libvirt-managed VM before real hardware testing.
-- Use `make vm-bootstrap-ssh` and `make vm-ansible-ping` only to validate access to the live ISO; installer playbooks remain separate approved work.
+- Use `make vm-bootstrap-ssh` and `make vm-ansible-ping` only to validate access to the local live ISO test target; installer playbooks remain network/inventory-driven and separate approved work.
+- Future matrix validation should cover OpenRC/ext4, OpenRC/Btrfs, systemd/ext4, and systemd/Btrfs.
+- Future first-boot validation should boot from the installed disk and verify network, hostname, root UUID, admin user, NetworkManager, and optional SSH.
 
 ## Acceptable Reuse
 Acceptable patterns:

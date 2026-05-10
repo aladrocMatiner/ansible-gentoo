@@ -16,6 +16,8 @@ require_command make
 validate_vm_config
 
 resolved_iso=$(resolve_iso_path "$VM_ISO")
+resolved_kernel_args=$(resolve_kernel_args "$resolved_iso")
+require_uefi_firmware
 
 if [[ -e "$VM_DISK" ]]; then
   [[ -f "$VM_DISK" ]] || die "VM_DISK exists but is not a regular file: $VM_DISK"
@@ -28,6 +30,10 @@ if [[ "$VM_NET_MODE" == network ]]; then
   virsh --connect "$LIBVIRT_URI" net-info "$VM_NETWORK" >/dev/null 2>&1 || die "libvirt network not found on $LIBVIRT_URI: $VM_NETWORK"
 fi
 
+if domain_exists; then
+  require_project_owned_domain_if_exists
+fi
+
 printf 'vm-check: OK\n'
 printf '  ISO: %s\n' "$resolved_iso"
 printf '  LIBVIRT_URI: %s\n' "$LIBVIRT_URI"
@@ -35,8 +41,10 @@ printf '  VM_NAME: %s\n' "$VM_NAME"
 printf '  VM_DIR: %s\n' "$VM_DIR"
 printf '  VM_DISK: %s\n' "$VM_DISK"
 printf '  VM_BOOT_MODE: %s\n' "$VM_BOOT_MODE"
+printf '  OVMF_CODE: %s\n' "$OVMF_CODE"
+printf '  OVMF_VARS_TEMPLATE: %s\n' "$OVMF_VARS_TEMPLATE"
 printf '  VM_NET_MODE: %s\n' "$VM_NET_MODE"
-printf '  VM_KERNEL_ARGS: %s\n' "$VM_KERNEL_ARGS"
+printf '  VM_KERNEL_ARGS: %s\n' "$resolved_kernel_args"
 if [[ "$VM_NET_MODE" == user ]]; then
   printf '  SSH forwarding: %s:%s -> guest port %s\n' "$VM_SSH_HOST" "$VM_SSH_HOST_PORT" "$VM_SSH_GUEST_PORT"
 else

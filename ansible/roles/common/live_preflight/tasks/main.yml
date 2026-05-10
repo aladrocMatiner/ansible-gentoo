@@ -32,7 +32,7 @@
   register: lsblk_json
   changed_when: false
 
-- name: Check expected VM disk path
+- name: Check local VM disk example path
   ansible.builtin.stat:
     path: /dev/vda
   register: vda_device
@@ -63,6 +63,13 @@
     fail_msg: "Expected x86_64/amd64 live ISO architecture, got {{ ansible_architecture }}"
     success_msg: "Architecture is x86_64/amd64."
 
+- name: Require UEFI firmware mode
+  ansible.builtin.assert:
+    that:
+      - uefi_dir.stat.exists
+    fail_msg: "Expected UEFI firmware evidence at /sys/firmware/efi. Boot the live ISO target in UEFI mode before continuing."
+    success_msg: "UEFI firmware evidence found."
+
 - name: Require Gentoo live environment evidence
   ansible.builtin.assert:
     that:
@@ -70,10 +77,3 @@
       - "'Gentoo' in gentoo_release.stdout"
     fail_msg: "Could not confirm Gentoo live environment from /etc/gentoo-release."
     success_msg: "Gentoo live environment evidence found."
-
-- name: Require expected VM disk to be visible
-  ansible.builtin.assert:
-    that:
-      - vda_device.stat.exists
-    fail_msg: "Expected VM disk /dev/vda is not visible."
-    success_msg: "Expected VM disk /dev/vda is visible."

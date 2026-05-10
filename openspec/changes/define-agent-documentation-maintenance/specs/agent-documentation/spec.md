@@ -37,7 +37,7 @@ Operator behavior includes Makefile targets, scripts, script arguments, environm
 #### Scenario: Documentation excludes secrets
 - **WHEN** agents update documentation
 - **THEN** documentation SHALL NOT include real API keys, real tokens, real private SSH keys, passwords, local credentials, or host-specific secrets
-- **AND** documentation MAY include placeholders or `.env.example` variable names when useful
+- **AND** documentation MAY include `.env.example` variable names when useful, but secret values SHALL remain empty
 
 #### Scenario: Documentation remains operational and scoped
 - **WHEN** agents update project documentation

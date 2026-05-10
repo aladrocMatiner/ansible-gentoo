@@ -14,4 +14,12 @@ ansible-playbook -i ansible/inventory/live.yml ansible/playbooks/install-plan.ym
 ansible-playbook -i ansible/inventory/live.yml ansible/playbooks/partition-plan.yml --syntax-check >/dev/null
 ansible-playbook -i ansible/inventory/live.yml ansible/playbooks/mount-plan.yml --syntax-check >/dev/null
 ansible-playbook -i ansible/inventory/live.yml ansible/playbooks/filesystem-plan.yml --syntax-check >/dev/null
-printf '%s\n' 'Ansible tooling and syntax checks passed.'
+
+if command -v ansible-lint >/dev/null 2>&1; then
+  printf '%s\n' 'Running ansible-lint for implemented Ansible content...'
+  ansible-lint ansible
+else
+  printf '%s\n' 'ansible-lint not found; syntax checks passed but lint gate was skipped.'
+fi
+
+printf '%s\n' 'Ansible tooling checks completed.'
