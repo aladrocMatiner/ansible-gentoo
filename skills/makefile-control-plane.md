@@ -48,6 +48,7 @@ Use this skill when:
 - For OpenRC and systemd Ansible flows, prefer parameterized shared Makefile targets or thin variant targets that pass variables into a shared Ansible flow.
 - Avoid separate duplicated command chains when `PROFILE=openrc` or `PROFILE=systemd` can select the variant safely.
 - Ansible quality checks must be exposed through `make ansible-check`; operators and agents should not need to remember raw syntax-check or lint commands.
+- Installer configuration validation must be exposed through `make config-check`; future destructive targets should call the same validation contract before running disk, mount, user, password, or bootloader actions.
 - Expose config validation, host checks, state, audit, traceability, cleanup/reset, manual-step recording, real-hardware readiness, install report, test matrix, first-boot validation, and destructive-preview workflows through Makefile targets when implemented.
 - Do not hide destructive behavior inside vague targets.
 - Update `README.md` or `docs/` whenever operator-facing targets are added, changed, or removed.
@@ -157,12 +158,14 @@ Required safe targets:
 - `make openspec-list`
 - `make openspec-validate`
 - `make ansible-check`
+- `make config-check`
 - `make ansible-live-ping`
 - `make ansible-live-preflight`
 - `make install-plan`
 - `make partition-plan`
 - `make mount-plan`
 - `make filesystem-plan`
+- `make destructive-safety-check`
 - `make install-plan PROFILE=openrc`
 - `make install-plan PROFILE=systemd`
 - `make vm-check`
@@ -175,12 +178,14 @@ Expected behavior:
 - `make openspec-list`: list OpenSpec changes.
 - `make openspec-validate`: validate OpenSpec changes.
 - `make ansible-check`: validate Ansible availability, syntax-check implemented playbooks, and run ansible-lint when available.
+- `make config-check`: validate `PROFILE`, `FILESYSTEM`, `BOOT_MODE`, `HOSTNAME`, mount paths, optional `INSTALL_DISK`, and destructive confirmation variables without touching live targets or disks.
 - `make ansible-live-ping`: validate SSH-based Ansible connectivity to the booted official live ISO target. It should use `ANSIBLE_LIVE_HOST` for network targets and libvirt discovery only for local tests.
 - `make ansible-live-preflight`: run read-only live ISO checks without selecting an install disk or mutating target disks.
 - `make install-plan`: summarize intended install flow without making changes; default `PROFILE=openrc` and `FILESYSTEM=ext4`, but never default `INSTALL_DISK`.
 - `make partition-plan`: require explicit `INSTALL_DISK` and summarize the exact GPT partition layout without writing.
 - `make mount-plan`: require explicit `INSTALL_DISK` and summarize the future root and EFI mount layout without running `mount`, `umount`, or `mkdir`.
 - `make filesystem-plan`: require explicit `INSTALL_DISK` and summarize the future EFI/root filesystem creation plan without running `mkfs.*`, `wipefs`, `mount`, `umount`, or `mkdir`.
+- `make destructive-safety-check`: require explicit `INSTALL_DISK` and `I_UNDERSTAND_THIS_WIPES_DISK=yes`, then run the shared read-only disk safety role without mutating disks.
 - `make install-plan PROFILE=openrc`: summarize the planned OpenRC flow through the shared Ansible install path.
 - `make install-plan PROFILE=systemd`: summarize the planned systemd flow through the shared Ansible install path.
 - `make vm-check`: read-only validation of libvirt tools, ISO resolution, UEFI firmware, network mode, and safe project-local paths.

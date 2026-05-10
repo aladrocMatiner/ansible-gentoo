@@ -22,10 +22,28 @@
   changed_when: false
   failed_when: false
 
+- name: Read global network addresses
+  ansible.builtin.command: ip -o addr show scope global
+  register: global_network_addresses
+  changed_when: false
+  failed_when: false
+
 - name: Read network addresses
   ansible.builtin.command: ip -brief addr
   register: network_addresses
   changed_when: false
+
+- name: Resolve Gentoo mirror DNS name
+  ansible.builtin.command: getent hosts distfiles.gentoo.org
+  register: gentoo_dns_lookup
+  changed_when: false
+  failed_when: false
+
+- name: Read UTC year from live ISO clock
+  ansible.builtin.command: date -u +%Y
+  register: live_utc_year
+  changed_when: false
+  failed_when: false
 
 - name: Read block devices
   ansible.builtin.command: lsblk --json --output NAME,PATH,TYPE,SIZE,MODEL,SERIAL,FSTYPE,MOUNTPOINTS
@@ -49,9 +67,13 @@
       distribution_version: "{{ ansible_distribution_version | default('unknown') }}"
       architecture: "{{ ansible_architecture }}"
       kernel: "{{ ansible_kernel }}"
+      ansible_user: "{{ ansible_user_id | default('unknown') }}"
       uefi_available: "{{ uefi_dir.stat.exists }}"
       default_route: "{{ default_route.stdout_lines | default([]) }}"
+      global_network_addresses: "{{ global_network_addresses.stdout_lines | default([]) }}"
       dns: "{{ resolv_conf.stdout_lines | default([]) }}"
+      gentoo_dns_lookup: "{{ gentoo_dns_lookup.stdout_lines | default([]) }}"
+      live_utc_year: "{{ live_utc_year.stdout | default('unknown') }}"
       network_addresses: "{{ network_addresses.stdout_lines }}"
       dev_vda_present: "{{ vda_device.stat.exists }}"
       block_devices: "{{ live_preflight_block_devices.blockdevices }}"
@@ -77,3 +99,42 @@
       - "'Gentoo' in gentoo_release.stdout"
     fail_msg: "Could not confirm Gentoo live environment from /etc/gentoo-release."
     success_msg: "Gentoo live environment evidence found."
+
+- name: Require root SSH session for live ISO automation
+  ansible.builtin.assert:
+    that:
+      - ansible_user_id == "root"
+    fail_msg: "Expected Ansible to connect as root to the temporary live ISO. Re-run with ANSIBLE_LIVE_USER=root or fix live ISO SSH access."
+    success_msg: "Ansible is connected as root to the live ISO."
+
+- name: Require global IP address
+  ansible.builtin.assert:
+    that:
+      - global_network_addresses.rc == 0
+      - global_network_addresses.stdout | length > 0
+    fail_msg: "No global IP address found in the live ISO. Configure networking before Ansible installer steps."
+    success_msg: "Live ISO has at least one global IP address."
+
+- name: Require default route
+  ansible.builtin.assert:
+    that:
+      - default_route.rc == 0
+      - default_route.stdout | length > 0
+    fail_msg: "No default route found in the live ISO. Configure routing before downloads or installer steps."
+    success_msg: "Live ISO default route is present."
+
+- name: Require DNS resolution for Gentoo distfiles
+  ansible.builtin.assert:
+    that:
+      - gentoo_dns_lookup.rc == 0
+      - gentoo_dns_lookup.stdout | length > 0
+    fail_msg: "DNS resolution for distfiles.gentoo.org failed. Fix /etc/resolv.conf or live ISO networking before downloads."
+    success_msg: "DNS resolution for distfiles.gentoo.org works."
+
+- name: Require sane live ISO clock year
+  ansible.builtin.assert:
+    that:
+      - live_utc_year.rc == 0
+      - (live_utc_year.stdout | int) >= 2024
+    fail_msg: "Live ISO clock appears too old for TLS/signature checks. Synchronize time before continuing."
+    success_msg: "Live ISO clock year is plausible for TLS/signature checks."

@@ -19,6 +19,14 @@ VM_KERNEL_ARGS ?= dokeymap nodhcp root=live:CDLABEL=__VM_ISO_LABEL__ rd.live.dir
 ANSIBLE_LIVE_HOST ?=
 ANSIBLE_LIVE_PORT ?= 22
 ANSIBLE_LIVE_USER ?= root
+BOOT_MODE ?= uefi
+HOSTNAME = gentoo
+ADMIN_USER ?=
+ENABLE_SSH ?= no
+TARGET_MOUNT ?= /mnt/gentoo
+EFI_MOUNT ?= $(TARGET_MOUNT)/boot/efi
+CODEX_INSTALL_METHOD ?= npm
+I_UNDERSTAND_THIS_WIPES_DISK ?=
 PROFILE ?= openrc
 FILESYSTEM ?= ext4
 
@@ -41,13 +49,21 @@ export VM_KERNEL_ARGS
 export ANSIBLE_LIVE_HOST
 export ANSIBLE_LIVE_PORT
 export ANSIBLE_LIVE_USER
+export BOOT_MODE
+export HOSTNAME
+export ADMIN_USER
+export ENABLE_SSH
+export TARGET_MOUNT
+export EFI_MOUNT
+export CODEX_INSTALL_METHOD
+export I_UNDERSTAND_THIS_WIPES_DISK
 export PROFILE
 export FILESYSTEM
 export INSTALL_DISK
 
 .PHONY: help \
 	vm-check vm-disk vm-define vm-start vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
-	ansible-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan \
+	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -65,6 +81,8 @@ help:
 		'  make vm-rsync        Copy non-secret project files to the guest over SSH' \
 		'  make vm-ansible-ping Validate Ansible connectivity to the live ISO over SSH' \
 		'  make ansible-check   Verify Ansible tooling, syntax, and lint when available' \
+		'  make config-check    Validate installer configuration variables without touching targets' \
+		'  make secret-check    Scan tracked and unignored files for high-risk secret patterns' \
 		'  make ansible-live-ping Validate Ansible connectivity to a live ISO target over SSH' \
 		'  make ansible-live-preflight Run read-only live ISO Ansible preflight over SSH' \
 		'  make detect-disks    Run read-only Ansible disk detection against the live ISO target' \
@@ -72,6 +90,7 @@ help:
 		'  make partition-plan  Generate read-only partition plan (requires INSTALL_DISK)' \
 		'  make mount-plan      Generate read-only mount plan (requires INSTALL_DISK)' \
 		'  make filesystem-plan Generate read-only filesystem format plan (requires INSTALL_DISK)' \
+		'  make destructive-safety-check Validate shared destructive disk gates without mutating disks' \
 		'  make vm-shutdown     Request clean guest shutdown' \
 		'  make vm-destroy      Stop the configured VM without deleting artifacts' \
 		'  make vm-clean        Undefine VM and delete generated artifacts after confirmation' \
@@ -104,6 +123,13 @@ help:
 		'  ANSIBLE_LIVE_HOST=$(ANSIBLE_LIVE_HOST) (set for remote/network targets; empty uses local libvirt VM discovery)' \
 		'  ANSIBLE_LIVE_PORT=$(ANSIBLE_LIVE_PORT)' \
 		'  ANSIBLE_LIVE_USER=$(ANSIBLE_LIVE_USER)' \
+		'  BOOT_MODE=$(BOOT_MODE)' \
+		'  HOSTNAME=$(HOSTNAME)' \
+		'  ADMIN_USER=$(ADMIN_USER)' \
+		'  ENABLE_SSH=$(ENABLE_SSH)' \
+		'  TARGET_MOUNT=$(TARGET_MOUNT)' \
+		'  EFI_MOUNT=$(EFI_MOUNT)' \
+		'  CODEX_INSTALL_METHOD=$(CODEX_INSTALL_METHOD)' \
 		'  PROFILE=$(PROFILE)' \
 		'  FILESYSTEM=$(FILESYSTEM)' \
 		'  INSTALL_DISK has no default; pass INSTALL_DISK=/dev/vda only deliberately inside the VM'
@@ -144,6 +170,12 @@ vm-ansible-ping:
 ansible-check:
 	@scripts/ansible-check.sh
 
+config-check:
+	@scripts/config-check.sh
+
+secret-check:
+	@scripts/secret-check.sh
+
 ansible-live-ping:
 	@scripts/ansible-live-ping.sh
 
@@ -164,6 +196,9 @@ mount-plan:
 
 filesystem-plan:
 	@scripts/ansible-filesystem-plan.sh
+
+destructive-safety-check:
+	@scripts/ansible-destructive-safety-check.sh
 
 vm-shutdown:
 	@scripts/vm-shutdown.sh

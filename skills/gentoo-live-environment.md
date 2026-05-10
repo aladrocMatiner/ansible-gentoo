@@ -31,6 +31,7 @@ Prefer `make preflight` for the combined check. Preflight should verify:
 - Internet connectivity.
 - DNS resolution.
 - Correct system time.
+- Root SSH access when a controller will run Ansible over the network.
 - UEFI availability via `/sys/firmware/efi`.
 - Available disks via `lsblk`.
 - Available memory.
@@ -47,8 +48,9 @@ Use `make check-network` when available.
 Verify:
 
 - At least one network interface has carrier or a configured connection.
-- The live ISO has an IP address.
+- The live ISO has a global IP address.
 - A default route exists.
+- The controller can reach SSH when Ansible will run over the network.
 - Outbound HTTPS works.
 - Required hosts for Gentoo mirrors, Codex bootstrap method, GURU, npm, or binary release download are reachable.
 

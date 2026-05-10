@@ -5,10 +5,10 @@
 - [x] Validate with `openspec validate define-install-configuration-schema --strict`.
 
 ## Implementation
-- [ ] Define machine-readable schema format.
-- [ ] Define canonical variable names and Makefile/Ansible mapping.
-- [ ] Document defaults and no-default variables.
-- [ ] Document unsupported combinations.
-- [ ] Update Makefile-control-plane and Ansible skills.
-- [ ] Update docs.
-- [ ] Validate schema with config validation report once implemented.
+- [x] Define machine-readable schema format.
+- [x] Define canonical variable names and Makefile/Ansible mapping.
+- [x] Document defaults and no-default variables.
+- [x] Document unsupported combinations.
+- [x] Update Makefile-control-plane and Ansible skills.
+- [x] Update docs.
+- [x] Validate schema with config validation report once implemented.

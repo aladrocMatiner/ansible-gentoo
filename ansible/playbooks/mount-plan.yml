@@ -4,6 +4,7 @@
   gather_facts: true
   roles:
     - role: common/disk_detection
+    - role: common/disk_safety
     - role: common/install_plan
     - role: common/partition_plan
     - role: common/mount_plan

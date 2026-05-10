@@ -61,9 +61,13 @@ The install plan targets still do not install Gentoo. They use the official Gent
 - Distribution facts gathered by Ansible.
 - CPU architecture and kernel.
 - UEFI availability from `/sys/firmware/efi`.
+- Root SSH session evidence.
 - DNS resolver configuration.
+- DNS resolution for `distfiles.gentoo.org`.
 - Default route.
+- Global IP addresses.
 - Network addresses.
+- UTC clock year sanity for TLS and signature checks.
 - Visible block devices from `lsblk`.
 - Visible disks for later explicit operator selection.
 
@@ -82,6 +86,10 @@ Ansible may create temporary connection files in the live ISO session. Those fil
 - `make ansible-live-ping ANSIBLE_LIVE_HOST=...` fails: verify the live ISO has SSH enabled, the address is reachable, and the selected port is correct.
 - Local VM discovery fails: verify the VM is running on the libvirt managed network with `make vm-ip`.
 - Ansible cannot find roles: verify commands are run from the repository root so `ansible.cfg` is loaded.
+- Preflight reports no global IP address: configure live ISO networking before continuing.
+- Preflight reports no default route: fix live ISO routing before downloads or installer steps.
+- Preflight reports DNS failure: fix `/etc/resolv.conf` or DHCP-provided DNS before downloads.
+- Preflight reports an old clock: synchronize time before TLS or signature verification.
 - `/dev/vda` is missing in the local VM summary: verify the VM was started through `make vm-start` and the qcow2 disk exists with `make vm-disk` before using VM disk examples.
 - `/sys/firmware/efi` is missing: the live ISO target was not booted in UEFI mode. For the local VM, stop it with `make vm-destroy`, regenerate it with `make vm-define`, then restart and bootstrap SSH.
 - Gentoo release evidence is missing: verify the VM booted the official Gentoo live ISO configured by `VM_ISO`.

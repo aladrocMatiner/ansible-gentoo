@@ -1,93 +1,17 @@
 ---
-- name: Require explicit install disk for partition plan
+- name: Require shared disk safety report for partition plan
   ansible.builtin.assert:
     that:
-      - install_disk is defined
-      - install_disk | string | length > 0
-    fail_msg: "INSTALL_DISK/install_disk is required for partition-plan and has no default."
-    success_msg: "INSTALL_DISK was provided explicitly."
+      - disk_safety_report is defined
+      - disk_safety_report.read_only | bool
+    fail_msg: "partition-plan requires common/disk_safety to run before common/partition_plan."
+    success_msg: "Shared disk safety report is available."
 
-- name: Match selected disk for partition plan
+- name: Store partition plan disk facts from safety report
   ansible.builtin.set_fact:
-    partition_plan_matching_disks: >-
-      {{
-        disk_detection_report.blockdevices
-        | selectattr('path', 'equalto', install_disk)
-        | list
-      }}
-
-- name: Require selected disk to match exactly one detected disk
-  ansible.builtin.assert:
-    that:
-      - partition_plan_matching_disks | length == 1
-    fail_msg: "INSTALL_DISK={{ install_disk }} must match exactly one detected disk."
-    success_msg: "INSTALL_DISK={{ install_disk }} matched exactly one detected disk."
-
-- name: Store selected disk identity
-  ansible.builtin.set_fact:
-    partition_plan_disk: "{{ partition_plan_matching_disks | first }}"
-
-- name: Require selected path to be a disk
-  ansible.builtin.assert:
-    that:
-      - partition_plan_disk.type == "disk"
-    fail_msg: "INSTALL_DISK={{ install_disk }} is type {{ partition_plan_disk.type | default('unknown') }}, expected disk."
-    success_msg: "Selected install disk is a disk."
-
-- name: Collect selected disk child partitions
-  ansible.builtin.set_fact:
-    partition_plan_children: "{{ partition_plan_disk.children | default([]) }}"
-
-- name: Collect selected disk mountpoints
-  ansible.builtin.set_fact:
-    partition_plan_disk_mountpoints: "{{ partition_plan_disk.mountpoints | default([]) | select('string') | list }}"
-
-- name: Fail if selected disk has mountpoints
-  ansible.builtin.assert:
-    that:
-      - partition_plan_disk_mountpoints | length == 0
-    fail_msg: "Selected disk has mountpoints: {{ partition_plan_disk_mountpoints }}"
-    success_msg: "Selected disk itself has no mountpoints."
-
-- name: Read selected disk descendants as a flat inventory
-  ansible.builtin.command:
-    argv:
-      - lsblk
-      - --json
-      - --list
-      - --bytes
-      - --output
-      - NAME,PATH,TYPE,SIZE,MODEL,SERIAL,FSTYPE,MOUNTPOINTS,UUID,PARTTYPENAME
-      - "{{ install_disk }}"
-  register: partition_plan_lsblk_flat
-  changed_when: false
-
-- name: Parse selected disk flat inventory
-  ansible.builtin.set_fact:
-    partition_plan_flat_report: "{{ partition_plan_lsblk_flat.stdout | from_json }}"
-
-- name: Collect selected disk descendants
-  ansible.builtin.set_fact:
-    partition_plan_all_descendants: >-
-      {{
-        partition_plan_flat_report.blockdevices
-        | rejectattr('path', 'equalto', install_disk)
-        | list
-      }}
-    partition_plan_mounted_descendants: []
-
-- name: Add mounted selected disk descendants
-  ansible.builtin.set_fact:
-    partition_plan_mounted_descendants: "{{ partition_plan_mounted_descendants + [item] }}"
-  loop: "{{ partition_plan_all_descendants }}"
-  when: item.mountpoints | default([]) | select('string') | list | length > 0
-
-- name: Fail if selected disk has mounted descendants
-  ansible.builtin.assert:
-    that:
-      - partition_plan_mounted_descendants | length == 0
-    fail_msg: "Selected disk has mounted descendants: {{ partition_plan_mounted_descendants }}"
-    success_msg: "Selected disk has no mounted descendants."
+    partition_plan_disk: "{{ disk_safety_disk }}"
+    partition_plan_children: "{{ disk_safety_children }}"
+    partition_plan_all_descendants: "{{ disk_safety_all_descendants }}"
 
 - name: Derive read-only partition plan
   ansible.builtin.set_fact:
@@ -99,7 +23,7 @@
       selected_disk: "{{ partition_plan_disk }}"
       existing_children: "{{ partition_plan_children }}"
       existing_descendants: "{{ partition_plan_all_descendants }}"
-      would_destroy_existing_data: "{{ (partition_plan_children | length > 0) or (partition_plan_disk.fstype is defined and partition_plan_disk.fstype not in [none, '']) }}"
+      would_destroy_existing_data: "{{ disk_safety_report.would_destroy_existing_data }}"
       partition_table: gpt
       planned_partitions:
         - number: 1

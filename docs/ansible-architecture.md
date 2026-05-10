@@ -199,10 +199,12 @@ Shared roles live under `roles/common/` or an equivalent shared structure.
 
 Currently implemented read-only planning roles:
 
+- `make config-check` with `config/install-schema.yml`: validates operator configuration defaults, allowed values, no-default disk behavior, mount paths, destructive confirmation variables, and secret-risk inputs before any live target or disk workflow runs.
 - `common/live_preflight`: validates the live ISO environment over SSH.
 - `common/disk_detection`: reports visible block devices without selecting or modifying a disk.
+- `common/disk_safety`: validates explicit disk input, conservative syntax, optional destructive confirmation, disk identity, disk type, disk mount state, and mounted descendants without mutating disks.
 - `common/install_plan`: prints a profile-aware OpenRC or systemd plan without defaulting `install_disk`; it supports `FILESYSTEM=ext4` and `FILESYSTEM=btrfs` as read-only plan variants.
-- `common/partition_plan`: requires explicit `INSTALL_DISK` and prints the exact read-only GPT plan for ext4 or Btrfs without writing.
+- `common/partition_plan`: reuses `common/disk_safety`, requires explicit `INSTALL_DISK`, and prints the exact read-only GPT plan for ext4 or Btrfs without writing.
 - `common/mount_plan`: requires explicit `INSTALL_DISK`, reuses partition-plan safety checks, and prints the read-only target root, EFI, and Btrfs subvolume mount layout without mounting or creating directories.
 - `common/filesystem_plan`: reuses mount-plan output and prints the read-only EFI/root filesystem creation plan without running `mkfs.*`, `wipefs`, or Btrfs subvolume commands.
 

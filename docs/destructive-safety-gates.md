@@ -1,0 +1,51 @@
+# Destructive Safety Gates
+
+`make destructive-safety-check` runs the shared disk safety gate without mutating disks. It is a rehearsal for future destructive apply targets and is intentionally stricter than read-only plan targets.
+
+## Run
+
+For the local libvirt VM only:
+
+```sh
+make destructive-safety-check INSTALL_DISK=/dev/vda I_UNDERSTAND_THIS_WIPES_DISK=yes
+```
+
+For a network target, use the disk path reported by that target:
+
+```sh
+make destructive-safety-check ANSIBLE_LIVE_HOST=192.0.2.10 INSTALL_DISK=/dev/<target-disk> I_UNDERSTAND_THIS_WIPES_DISK=yes
+```
+
+This target does not run `parted`, `sgdisk`, `fdisk`, `wipefs`, `mkfs.*`, `mount`, `umount`, `chroot`, `grub-install`, or `efibootmgr`.
+
+## Checks
+
+The shared `common/disk_safety` role verifies:
+
+- `INSTALL_DISK` is set explicitly and has no default,
+- disk syntax is conservative and contains no wildcard or shell metacharacters,
+- destructive confirmation is present when required,
+- the selected path matches exactly one detected block device,
+- the selected path is type `disk`,
+- the selected disk itself is not mounted,
+- descendants under the selected disk are not mounted,
+- disk identity and existing descendants are reported before any future destructive action.
+
+## Relationship To Plan Targets
+
+`partition-plan`, `mount-plan`, and `filesystem-plan` reuse the same `common/disk_safety` role without requiring destructive confirmation. Future apply targets must reuse the same role with confirmation enabled before doing any disk mutation.
+
+Preview output is not confirmation. Operators must still pass `I_UNDERSTAND_THIS_WIPES_DISK=yes` to destructive apply workflows when those workflows are implemented.
+
+## Failure Modes
+
+- `DISK_UNSAFE`: missing disk, unsafe syntax, no exact detected match, non-disk path, mounted disk, or mounted descendant.
+- `DESTRUCTIVE_CONFIRMATION_MISSING`: confirmation is required but `I_UNDERSTAND_THIS_WIPES_DISK=yes` is absent.
+- SSH target discovery failure: set `ANSIBLE_LIVE_HOST=...` for a network target or start/bootstrap the local libvirt VM.
+
+## Recovery
+
+- Re-run `make detect-disks` against the same target.
+- Verify the disk model, size, serial, partitions, filesystems, and mountpoints.
+- Unmount target descendants manually only when you are certain they belong to the test environment.
+- Re-run `make destructive-safety-check` before any future destructive target.

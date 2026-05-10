@@ -82,7 +82,7 @@ The default network mode is the libvirt managed `default` network. `make vm-ip` 
 
 `make vm-rsync` copies the repository to `/root/gentoo-ai-installer/` by default. If `VM_RSYNC_DEST` is overridden, it must remain under `/root/gentoo-ai-installer/`; this prevents `rsync --delete` from targeting unrelated guest paths. The rsync filter excludes `.env`, `.ssh`, private key patterns, token/credential files, ISO artifacts, runtime artifacts, logs, and temporary files.
 
-`make ansible-live-ping` and `make ansible-live-preflight` are the first project Ansible handoff targets. In this VM workflow, they use the local libvirt target discovered by the wrappers. In the reusable network workflow, pass `ANSIBLE_LIVE_HOST=...` to target a non-libvirt live ISO. They validate SSH connectivity and gather read-only live ISO facts. They do not install Gentoo, select an install disk, partition, format, mount target filesystems, or modify `/dev/vda`.
+`make ansible-live-ping` and `make ansible-live-preflight` are the first project Ansible handoff targets. In this VM workflow, they use the local libvirt target discovered by the wrappers. In the reusable network workflow, pass `ANSIBLE_LIVE_HOST=...` to target a non-libvirt live ISO. They validate SSH connectivity, root access, global IP addressing, default route, DNS, clock sanity, UEFI evidence, and read-only live ISO facts. They do not install Gentoo, select an install disk, partition, format, mount target filesystems, or modify `/dev/vda`.
 
 `make detect-disks` and `make install-plan` are also read-only. To plan against the VM disk, pass it deliberately:
 

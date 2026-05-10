@@ -155,8 +155,9 @@ Shared roles:
 - `common/preflight`: verify live ISO, amd64, UEFI, network, time, tools, and root privileges.
 - `common/live_target`: verify controller-to-target SSH, Python availability, official live ISO evidence, amd64, UEFI, network, DNS, and time without assuming libvirt.
 - `common/disk_detection`: read-only disk identity and partition reporting.
+- `common/disk_safety`: shared disk safety gates for explicit disk input, conservative disk syntax, disk identity, mount-state checks, mounted-descendant rejection, and destructive confirmation validation.
 - `common/install_plan`: profile-aware read-only plan output that follows the official Gentoo AMD64 Handbook baseline and does not select a disk by default.
-- `common/partition_plan`: read-only GPT partition plan that requires explicit `install_disk` and reports ext4 or Btrfs root layout without writing.
+- `common/partition_plan`: read-only GPT partition plan that reuses `common/disk_safety`, requires explicit `install_disk`, and reports ext4 or Btrfs root layout without writing.
 - `common/mount_plan`: read-only mount layout plan that reuses partition-plan safety checks and reports root, EFI, and Btrfs subvolume mountpoints without running `mount`, `umount`, or `mkdir`.
 - `common/filesystem_plan`: read-only filesystem creation plan that reuses mount-plan output and reports EFI/root filesystems and Btrfs subvolumes without running `mkfs.*`, `wipefs`, or Btrfs subvolume commands.
 - `common/disk_safety`: shared assertions for `install_disk`, confirmation variables, disk identity, VM guest mode, and fail-closed behavior.
@@ -365,7 +366,7 @@ These targets define the expected control-plane contract for future Ansible inst
 Target expectations:
 
 - `make ansible-live-ping`: validate SSH-based Ansible connectivity to the booted official live ISO target. Use `ANSIBLE_LIVE_HOST=...` for real network targets; omit it only for local libvirt VM discovery.
-- `make ansible-live-preflight`: run read-only live ISO checks for architecture, kernel, Gentoo release evidence, UEFI availability, network, DNS, routes, and block devices.
+- `make ansible-live-preflight`: run read-only live ISO checks for architecture, kernel, Gentoo release evidence, UEFI availability, root SSH access, global IP address, DNS resolution, default route, clock sanity, and block devices.
 - `make ansible-check`: validate Ansible availability, inventory, variables, playbooks, roles, and syntax.
 - `make detect-disks`: run read-only Ansible disk inventory from inside the live ISO without selecting an install disk.
 - `make ansible-dry-run PROFILE=openrc`: run the supported OpenRC check-mode workflow through the shared flow.
@@ -443,6 +444,7 @@ When phase 2 Ansible behavior changes, documentation must change in the same imp
 - If the live ISO preflight role, inventory, SSH targeting, checks, or Makefile targets change, update `docs/ansible-live-preflight.md`, `docs/libvirt-manual-install-test.md`, and the active OpenSpec `tasks.md`.
 - If shared role boundaries or init-specific behavior changes, update `docs/ansible-architecture.md`.
 - If Ansible quality standards change, update `.ansible-lint`, `scripts/ansible-check.sh`, `docs/ansible-architecture.md`, this skill, and the active OpenSpec tasks together.
+- If configuration schema or validation behavior changes, update `config/install-schema.yml`, `docs/install-configuration.md`, this skill, `skills/makefile-control-plane.md`, and the active OpenSpec tasks together.
 - If execution assumptions change, document controller/target behavior. Reusable installer docs must remain remote/network-first; local VM/libvirt docs must remain clearly labeled as test harness docs.
 - If Makefile targets such as `make ansible-check`, `make ansible-dry-run PROFILE=...`, `make install-plan PROFILE=...`, `make install-openrc`, `make install-systemd`, or `make final-checks` change, update this skill and `skills/makefile-control-plane.md`.
 - If destructive Ansible tasks change, update `agents/safety-review-agent.md`, disk safety skills, and OpenSpec `tasks.md` before marking implementation complete.

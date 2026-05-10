@@ -5,10 +5,10 @@
 - [x] Validate with `openspec validate implement-config-validation-report --strict`.
 
 ## Implementation
-- [ ] Add Makefile target for config validation.
-- [ ] Consume install configuration schema.
-- [ ] Validate supported variables and combinations.
-- [ ] Check secret-policy violations without printing secrets.
-- [ ] Use logging/error taxonomy codes.
-- [ ] Update docs and skills.
-- [ ] Validate read-only behavior.
+- [x] Add Makefile target for config validation.
+- [x] Consume install configuration schema.
+- [x] Validate supported variables and combinations.
+- [x] Check secret-policy violations without printing secrets.
+- [x] Use logging/error taxonomy codes.
+- [x] Update docs and skills.
+- [x] Validate read-only behavior.

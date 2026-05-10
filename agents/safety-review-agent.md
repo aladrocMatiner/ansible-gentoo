@@ -175,6 +175,7 @@ For Ansible playbooks, roles, and tasks:
 - Destructive tasks must require an explicit confirmation variable.
 - OpenRC and systemd flows must use the same shared destructive safety gates.
 - Safety checks must be implemented once and reused rather than copied into init-specific roles.
+- Destructive disk apply targets must reuse `common/disk_safety` or an approved successor before mutation.
 - Disk model, size, serial, and current partition table must be gathered and displayed before partitioning.
 - Playbooks must support `--check` where practical.
 - Tasks that cannot honestly support check mode must provide plan output and skip mutation in dry-run.

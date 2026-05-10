@@ -20,6 +20,22 @@ make ansible-check
 
 This syntax-checks implemented playbooks and runs `ansible-lint` when it is installed.
 
+Validate installer configuration before connecting to a target:
+
+```sh
+make config-check
+```
+
+Configuration rules are documented in `docs/install-configuration.md`.
+
+Check for accidental high-risk secrets before committing:
+
+```sh
+make secret-check
+```
+
+Secret handling rules are documented in `docs/secret-input-policy.md`.
+
 Current Ansible planning targets run from the operator machine over SSH into a booted official Gentoo live ISO. For a real network target, pass `ANSIBLE_LIVE_HOST=<address>` and optionally `ANSIBLE_LIVE_USER=root ANSIBLE_LIVE_PORT=22`. When `ANSIBLE_LIVE_HOST` is empty, the wrapper targets discover the local libvirt VM as the test target.
 
 Current libvirt manual test targets:

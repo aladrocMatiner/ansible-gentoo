@@ -1,0 +1,110 @@
+---
+schema_version: 1
+project: gentoo-ai-installer
+description: Canonical operator configuration schema for the Gentoo installer.
+
+variables:
+  PROFILE:
+    ansible_names:
+      - profile
+      - init_system
+    default: openrc
+    allowed:
+      - openrc
+      - systemd
+    required_for:
+      - plan
+      - apply
+    notes: Selects the init variant. Shared Ansible roles must use this to dispatch only genuinely init-specific behavior.
+
+  FILESYSTEM:
+    ansible_names:
+      - filesystem
+    default: ext4
+    allowed:
+      - ext4
+      - btrfs
+    required_for:
+      - plan
+      - apply
+    notes: Selects the approved root filesystem layout.
+
+  BOOT_MODE:
+    ansible_names:
+      - boot_mode
+    default: uefi
+    allowed:
+      - uefi
+    required_for:
+      - plan
+      - apply
+    notes: BIOS boot is outside v1 scope.
+
+  INSTALL_DISK:
+    ansible_names:
+      - install_disk
+    default: null
+    required_for:
+      - destructive_apply
+    no_default: true
+    notes: Must be an explicit disk path discovered on the target live ISO. VM examples such as /dev/vda are valid only inside the local libvirt guest.
+
+  HOSTNAME:
+    ansible_names:
+      - hostname
+    default: gentoo
+    required_for:
+      - apply
+    notes: Target system hostname.
+
+  ADMIN_USER:
+    ansible_names:
+      - admin_user
+    default: null
+    required_for:
+      - users
+    notes: Optional admin account name. Passwords or private keys must not be passed through this schema.
+
+  ENABLE_SSH:
+    ansible_names:
+      - enable_ssh
+    default: "no"
+    allowed:
+      - "yes"
+      - "no"
+    required_for:
+      - apply
+    notes: Controls installed-system SSH policy once that workflow is implemented.
+
+  TARGET_MOUNT:
+    ansible_names:
+      - target_mount
+    default: /mnt/gentoo
+    required_for:
+      - apply
+    notes: Live ISO mountpoint for the target root.
+
+  EFI_MOUNT:
+    ansible_names:
+      - efi_mount
+    default: /mnt/gentoo/boot/efi
+    required_for:
+      - apply
+    notes: Live ISO mountpoint for the target EFI system partition.
+
+  I_UNDERSTAND_THIS_WIPES_DISK:
+    ansible_names:
+      - confirm_wipe_disk
+    default: null
+    allowed:
+      - "yes"
+    required_for:
+      - destructive_apply
+    no_default: true
+    notes: Required only for destructive disk apply workflows.
+
+unsupported_v1:
+  - bios_boot
+  - luks
+  - default_install_disk
+  - custom_iso
