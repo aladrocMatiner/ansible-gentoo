@@ -1,0 +1,320 @@
+---
+- name: Require fstab prerequisites
+  ansible.builtin.assert:
+    that:
+      - disk_safety_report is defined
+      - install_plan_filesystem is defined
+      - install_plan_filesystem in ['ext4', 'btrfs']
+    fail_msg: "FSTAB_INVALID: fstab generation requires install_plan and disk_safety reports."
+    success_msg: "Fstab prerequisites are present."
+
+- name: Derive fstab partition paths
+  ansible.builtin.set_fact:
+    fstab_target_root: "{{ target_mount | default('/mnt/gentoo') }}"
+    fstab_partition_suffix: "{{ 'p' if (install_disk | regex_search('[0-9]$')) else '' }}"
+
+- name: Store fstab source partitions
+  ansible.builtin.set_fact:
+    fstab_efi_partition: "{{ install_disk }}{{ fstab_partition_suffix }}1"
+    fstab_root_partition: "{{ install_disk }}{{ fstab_partition_suffix }}2"
+
+- name: Validate fstab target paths
+  ansible.builtin.assert:
+    that:
+      - fstab_target_root == '/mnt/gentoo'
+      - fstab_target_root != '/'
+      - fstab_efi_partition is match('^/dev/.+')
+      - fstab_root_partition is match('^/dev/.+')
+      - fstab_efi_partition != fstab_root_partition
+    fail_msg: "FSTAB_INVALID: target root or partition paths are outside the approved layout."
+    success_msg: "Fstab target root and source partitions are approved."
+
+- name: Verify target root is mounted before fstab generation
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - "{{ fstab_target_root }}"
+      - --noheadings
+      - --output
+      - TARGET,SOURCE,FSTYPE,OPTIONS
+  register: fstab_target_findmnt
+  changed_when: false
+  failed_when: fstab_target_findmnt.rc != 0
+  check_mode: false
+
+- name: Read EFI filesystem UUID
+  ansible.builtin.command:
+    argv:
+      - blkid
+      - -s
+      - UUID
+      - -o
+      - value
+      - "{{ fstab_efi_partition }}"
+  register: fstab_efi_uuid
+  changed_when: false
+  failed_when: fstab_efi_uuid.stdout | trim | length == 0
+  check_mode: false
+
+- name: Read EFI filesystem type
+  ansible.builtin.command:
+    argv:
+      - blkid
+      - -s
+      - TYPE
+      - -o
+      - value
+      - "{{ fstab_efi_partition }}"
+  register: fstab_efi_type
+  changed_when: false
+  failed_when: fstab_efi_type.stdout not in ['vfat', 'fat']
+  check_mode: false
+
+- name: Read ext4 root filesystem UUID
+  ansible.builtin.command:
+    argv:
+      - blkid
+      - -s
+      - UUID
+      - -o
+      - value
+      - "{{ fstab_root_partition }}"
+  register: fstab_ext4_root_uuid
+  changed_when: false
+  failed_when: fstab_ext4_root_uuid.stdout | trim | length == 0
+  check_mode: false
+  when: install_plan_filesystem == 'ext4'
+
+- name: Read ext4 root filesystem type
+  ansible.builtin.command:
+    argv:
+      - blkid
+      - -s
+      - TYPE
+      - -o
+      - value
+      - "{{ fstab_root_partition }}"
+  register: fstab_ext4_root_type
+  changed_when: false
+  failed_when: fstab_ext4_root_type.stdout != 'ext4'
+  check_mode: false
+  when: install_plan_filesystem == 'ext4'
+
+- name: Read Btrfs root filesystem identity
+  ansible.builtin.command:
+    argv:
+      - btrfs
+      - filesystem
+      - show
+      - "{{ fstab_root_partition }}"
+  register: fstab_btrfs_show
+  changed_when: false
+  failed_when: fstab_btrfs_show.rc != 0 or fstab_btrfs_show.stdout is not search('uuid:')
+  check_mode: false
+  when: install_plan_filesystem == 'btrfs'
+
+- name: Extract Btrfs root filesystem UUID
+  ansible.builtin.set_fact:
+    fstab_btrfs_uuid_matches: "{{ fstab_btrfs_show.stdout | regex_findall('uuid:\\s*([0-9A-Fa-f-]+)') }}"
+  when: install_plan_filesystem == 'btrfs'
+
+- name: Validate Btrfs root filesystem UUID extraction
+  ansible.builtin.assert:
+    that:
+      - fstab_btrfs_uuid_matches | length >= 1
+      - fstab_btrfs_uuid_matches[0] is match('^[0-9A-Fa-f-]+$')
+    fail_msg: "FSTAB_INVALID: Btrfs root filesystem UUID could not be extracted from btrfs filesystem show output."
+    success_msg: "Btrfs root filesystem UUID is verified."
+  when: install_plan_filesystem == 'btrfs'
+
+- name: Store verified root filesystem identity
+  ansible.builtin.set_fact:
+    fstab_root_uuid_value: >-
+      {{
+        (fstab_ext4_root_uuid.stdout | trim)
+        if install_plan_filesystem == 'ext4'
+        else
+        fstab_btrfs_uuid_matches[0]
+      }}
+    fstab_root_type_value: "{{ install_plan_filesystem }}"
+
+- name: Validate root filesystem UUID
+  ansible.builtin.assert:
+    that:
+      - fstab_root_uuid_value | length > 0
+      - fstab_root_uuid_value != 'None'
+      - fstab_root_uuid_value is match('^[0-9A-Fa-f-]+$')
+      - fstab_root_type_value == install_plan_filesystem
+    fail_msg: "FSTAB_INVALID: root filesystem UUID or type could not be verified."
+    success_msg: "Root filesystem UUID and type are verified."
+
+- name: Define approved Btrfs fstab subvolumes
+  ansible.builtin.set_fact:
+    fstab_btrfs_subvolumes:
+      - name: "@"
+        mountpoint: /
+      - name: "@home"
+        mountpoint: /home
+      - name: "@var"
+        mountpoint: /var
+      - name: "@var_log"
+        mountpoint: /var/log
+      - name: "@var_cache"
+        mountpoint: /var/cache
+      - name: "@snapshots"
+        mountpoint: /.snapshots
+  when: install_plan_filesystem == 'btrfs'
+
+- name: Build ext4 fstab entries
+  ansible.builtin.set_fact:
+    fstab_entries:
+      - uuid: "{{ fstab_root_uuid_value }}"
+        mountpoint: /
+        fstype: ext4
+        options: defaults
+        dump: 0
+        passno: 1
+      - uuid: "{{ fstab_efi_uuid.stdout | trim }}"
+        mountpoint: /boot/efi
+        fstype: vfat
+        options: defaults
+        dump: 0
+        passno: 2
+  when: install_plan_filesystem == 'ext4'
+
+- name: Initialize Btrfs fstab entries
+  ansible.builtin.set_fact:
+    fstab_entries: []
+  when: install_plan_filesystem == 'btrfs'
+
+- name: Add Btrfs fstab entries
+  ansible.builtin.set_fact:
+    fstab_entries: >-
+      {{
+        fstab_entries
+        + [
+          {
+            'uuid': fstab_root_uuid_value,
+            'mountpoint': item.mountpoint,
+            'fstype': 'btrfs',
+            'options': 'noatime,compress=zstd,subvol=' ~ item.name,
+            'dump': 0,
+            'passno': 0
+          }
+        ]
+      }}
+  loop: "{{ fstab_btrfs_subvolumes }}"
+  when: install_plan_filesystem == 'btrfs'
+
+- name: Add Btrfs EFI fstab entry
+  ansible.builtin.set_fact:
+    fstab_entries: >-
+      {{
+        fstab_entries
+        + [
+          {
+            'uuid': fstab_efi_uuid.stdout | trim,
+            'mountpoint': '/boot/efi',
+            'fstype': 'vfat',
+            'options': 'defaults',
+            'dump': 0,
+            'passno': 2
+          }
+        ]
+      }}
+  when: install_plan_filesystem == 'btrfs'
+
+- name: Validate generated fstab entries
+  ansible.builtin.assert:
+    that:
+      - fstab_entries | length >= 2
+      - fstab_entries | selectattr('uuid', 'equalto', '') | list | length == 0
+      - fstab_entries | selectattr('mountpoint', 'equalto', '/boot/efi') | list | length == 1
+      - install_plan_filesystem != 'btrfs' or (fstab_entries | selectattr('mountpoint', 'equalto', '/') | first).options is search('subvol=@')
+      - install_plan_filesystem != 'btrfs' or (fstab_entries | map(attribute='mountpoint') | list | sort) == ['/', '/.snapshots', '/boot/efi', '/home', '/var', '/var/cache', '/var/log'] | sort
+    fail_msg: "FSTAB_INVALID: generated fstab entries do not match the approved {{ install_plan_filesystem }} policy."
+    success_msg: "Generated fstab entries match the approved policy."
+
+- name: Stat existing target fstab
+  ansible.builtin.stat:
+    path: "{{ fstab_target_root }}/etc/fstab"
+  register: fstab_existing
+
+- name: Backup existing target fstab once
+  ansible.builtin.copy:
+    src: "{{ fstab_target_root }}/etc/fstab"
+    dest: "{{ fstab_target_root }}/etc/fstab.gentoo-ai-installer.bak"
+    remote_src: true
+    mode: "0644"
+    force: false
+  when:
+    - not ansible_check_mode
+    - fstab_existing.stat.exists
+
+- name: Write target fstab
+  ansible.builtin.template:
+    src: fstab.j2
+    dest: "{{ fstab_target_root }}/etc/fstab"
+    mode: "0644"
+  register: fstab_write
+  when: not ansible_check_mode
+
+- name: Define fstab audit run id
+  ansible.builtin.set_fact:
+    fstab_run_id: "{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}"
+
+- name: Define fstab audit log path
+  ansible.builtin.set_fact:
+    fstab_log_dir: "{{ project_root | default(lookup('ansible.builtin.env', 'PWD'), true) }}/logs/install-runs/{{ fstab_run_id }}/fstab"
+
+- name: Create local fstab log directory
+  ansible.builtin.file:
+    path: "{{ fstab_log_dir }}"
+    state: directory
+    mode: "0750"
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Record fstab generation evidence
+  ansible.builtin.copy:
+    dest: "{{ fstab_log_dir }}/fstab.json"
+    mode: "0640"
+    content: |
+      {
+        "filesystem": {{ install_plan_filesystem | to_json }},
+        "install_disk": {{ install_disk | to_json }},
+        "root_partition": {{ fstab_root_partition | to_json }},
+        "efi_partition": {{ fstab_efi_partition | to_json }},
+        "root_uuid": {{ fstab_root_uuid_value | to_json }},
+        "efi_uuid": {{ (fstab_efi_uuid.stdout | trim) | to_json }},
+        "target_root_mount": {{ fstab_target_findmnt.stdout | to_json }},
+        "entries": {{ fstab_entries | to_nice_json }},
+        "changed": {{ (fstab_write is defined and fstab_write is changed) | to_json }},
+        "final_checks_input": true,
+        "install_report_input": true
+      }
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Build fstab generation report
+  ansible.builtin.set_fact:
+    fstab_report:
+      changed: "{{ (not ansible_check_mode) and (fstab_write is defined and fstab_write is changed) }}"
+      filesystem: "{{ install_plan_filesystem }}"
+      root_partition: "{{ fstab_root_partition }}"
+      efi_partition: "{{ fstab_efi_partition }}"
+      root_uuid: "{{ fstab_root_uuid_value }}"
+      efi_uuid: "{{ fstab_efi_uuid.stdout | trim }}"
+      entries: "{{ fstab_entries }}"
+      final_checks_input: true
+      install_report_input: true
+      logs: "{{ fstab_log_dir }}/"
+
+- name: Print fstab generation report
+  ansible.builtin.debug:
+    msg: "{{ fstab_report }}"

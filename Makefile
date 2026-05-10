@@ -75,7 +75,7 @@ export INSTALL_DISK
 
 .PHONY: help \
 	vm-check vm-disk vm-define vm-start vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
-	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system \
+	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -110,6 +110,7 @@ help:
 		'  make prepare-chroot Mount pseudo-filesystems and prepare DNS for chroot tasks' \
 		'  make configure-portage Configure minimal Portage baseline and sync official Gentoo repo' \
 		'  make configure-system Configure target hostname, timezone, locale, and keymap' \
+		'  make generate-fstab Generate UUID-based target /etc/fstab' \
 		'  make vm-shutdown     Request clean guest shutdown' \
 		'  make vm-destroy      Stop the configured VM without deleting artifacts' \
 		'  make vm-clean        Undefine VM and delete generated artifacts after confirmation' \
@@ -245,6 +246,9 @@ configure-portage:
 
 configure-system:
 	@scripts/ansible-configure-system.sh
+
+generate-fstab:
+	@scripts/ansible-generate-fstab.sh
 
 vm-shutdown:
 	@scripts/vm-shutdown.sh

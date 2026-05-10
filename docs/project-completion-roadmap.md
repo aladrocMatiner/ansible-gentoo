@@ -24,7 +24,7 @@ The official Gentoo AMD64 Handbook remains the baseline procedure. Project-speci
 
 ## Current Implemented Foundation
 
-Implemented read-only or test infrastructure:
+Implemented infrastructure and installer workflow layers:
 
 1. libvirt VM workflow for safe official-ISO testing.
 2. Live ISO Ansible preflight.
@@ -33,8 +33,16 @@ Implemented read-only or test infrastructure:
 5. Partition plan.
 6. Mount plan.
 7. Filesystem plan.
+8. Shared destructive safety gates.
+9. Partition and filesystem apply targets with explicit confirmation.
+10. Target mount handling for ext4 and approved Btrfs subvolumes.
+11. Stage3 download, signature/checksum verification, and extraction.
+12. Chroot pseudo-filesystem and DNS preparation.
+13. Portage baseline configuration.
+14. Hostname, timezone, locale, and keymap configuration.
+15. UUID-based fstab generation.
 
-These workflows do not partition, format, mount target filesystems, extract stage3, chroot, create users, enable target services, or install bootloaders.
+Read-only planning targets do not mutate the live ISO target. Destructive and target-mutating targets are exposed through Makefile targets and are gated by explicit variables, shared safety checks, or target-root assertions depending on the risk level.
 
 ## Remaining Changes
 

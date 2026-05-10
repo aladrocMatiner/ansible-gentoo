@@ -116,7 +116,7 @@ Shared roles:
 - `common/portage`: configure conservative Portage baseline shared by both variants, including `make.conf`, official Gentoo repo sync, variant profile selection, GURU-disabled policy, pending config-update reporting, and evidence logs.
 - `common/locale_timezone_hostname`: configure target hostname, timezone, locale generation, OpenRC/systemd keymap files, and report inputs for final checks and install reports.
 - `common/package_install`: install packages from shared or variant package lists.
-- `common/fstab`: generate UUID-based fstab entries.
+- `common/fstab`: generate UUID-based fstab entries for ext4 root or the approved Btrfs subvolume layout plus `/boot/efi`.
 - `common/kernel`: install `gentoo-kernel-bin` in the target.
 - `common/bootloader`: install and configure GRUB for UEFI with shared confirmation gates.
 - `common/users`: create configured users and credentials through explicit confirmation and secret-safe input.

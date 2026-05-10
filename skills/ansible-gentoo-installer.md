@@ -177,7 +177,7 @@ Shared roles:
 - `common/portage`: configure minimal Portage baseline shared by both init systems, including conservative `make.conf`, official Gentoo repo sync, variant profile selection, GURU-disabled policy, pending config-update reporting, and evidence logs.
 - `common/locale_timezone_hostname`: configure target hostname, timezone, locale generation, OpenRC/systemd keymap files, and report inputs for final checks and install reports.
 - `common/package_install`: install packages from shared and variant package lists.
-- `common/fstab`: generate stable UUID-based fstab entries.
+- `common/fstab`: generate stable UUID-based fstab entries for ext4 root or the approved Btrfs subvolume layout plus `/boot/efi`, validate UUIDs, and write only under `/mnt/gentoo`.
 - `common/kernel`: install `gentoo-kernel-bin`.
 - `common/bootloader`: install and configure GRUB for UEFI through shared safety gates.
 - `common/users`: create users and credentials through secret-safe mechanisms.
@@ -451,6 +451,7 @@ When phase 2 Ansible behavior changes, documentation must change in the same imp
 - If disk detection or install-plan behavior changes, update `docs/ansible-install-plan.md`, `skills/gentoo-disk-planning.md`, and the active OpenSpec `tasks.md`.
 - If partition-plan behavior changes, update `docs/ansible-partition-plan.md`, `skills/gentoo-disk-planning.md`, `skills/makefile-control-plane.md`, and active OpenSpec tasks.
 - If filesystem plan options change, document `FILESYSTEM`, defaults, Btrfs subvolumes, and ext4 behavior in docs and skills together.
+- If fstab generation changes, update `docs/ansible-fstab-generation.md`, `docs/btrfs-layout-policy.md` if Btrfs entries change, `skills/makefile-control-plane.md`, and the active OpenSpec tasks together.
 - If a role or playbook intentionally differs from the official Gentoo AMD64 Handbook flow, document the reason in the relevant OpenSpec change and `docs/ansible-architecture.md`.
 - If the live ISO preflight role, inventory, SSH targeting, checks, or Makefile targets change, update `docs/ansible-live-preflight.md`, `docs/libvirt-manual-install-test.md`, and the active OpenSpec `tasks.md`.
 - If shared role boundaries or init-specific behavior changes, update `docs/ansible-architecture.md`.

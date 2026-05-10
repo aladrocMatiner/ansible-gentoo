@@ -224,6 +224,7 @@ Semi-dangerous targets:
 - `make prepare-chroot`
 - `make configure-portage`
 - `make configure-system`
+- `make generate-fstab`
 - `make vm-disk`
 - `make vm-define`
 - `make vm-start`
@@ -249,6 +250,7 @@ Expected behavior:
 - `make prepare-chroot`: require mounted `/mnt/gentoo` with extracted stage3 markers, mount or verify pseudo-filesystems only under `/mnt/gentoo`, prepare target DNS, validate DNS with a read-only chroot lookup, and print before/after mount state.
 - `make configure-portage`: manage conservative target `make.conf`, install official Gentoo repo configuration, run official Gentoo repo sync, select the matching OpenRC/systemd profile from variant variables, keep GURU disabled, report pending config updates, and skip broad `@world`.
 - `make configure-system`: configure target hostname, timezone, UTF-8 locale, and OpenRC/systemd console keymap files under `/mnt/gentoo`; generate the locale and refresh target env only when locale files change.
+- `make generate-fstab`: require explicit `INSTALL_DISK`, verify mounted target filesystems and UUIDs, and write only `/mnt/gentoo/etc/fstab` with ext4 or approved Btrfs subvolume entries plus `/boot/efi`.
 - `make vm-disk`: create or preserve the project-local qcow2 VM disk.
 - `make vm-define`: define the project-owned libvirt domain from reviewed project-local inputs.
 - `make vm-start`: start the project-owned VM from the official Gentoo live ISO.
@@ -270,6 +272,8 @@ Expected behavior:
 `make configure-portage` is target-mutating because it writes Portage configuration, syncs repository metadata, and changes profile selection in the mounted target root. It must require prepared `/mnt/gentoo`, use variant variables for profile selection, avoid overlays unless approved, and never run `emerge @world` by default.
 
 `make configure-system` is target-mutating because it writes identity and locale files under `/mnt/gentoo`. It must refuse target roots other than `/mnt/gentoo`, validate hostname/timezone/locale/keymap inputs, avoid changing the live ISO hostname, and record evidence for final checks and install reports.
+
+`make generate-fstab` is target-mutating because it writes `/mnt/gentoo/etc/fstab`. It must require explicit `INSTALL_DISK`, refuse target roots other than `/mnt/gentoo`, validate root and EFI UUIDs, preserve a backup of an existing fstab, and keep Btrfs entries aligned with `docs/btrfs-layout-policy.md`.
 
 Future destructive targets should print or call a read-only preview before accepting confirmation. Preview output must not set `I_UNDERSTAND_THIS_WIPES_DISK=yes` or any equivalent confirmation.
 

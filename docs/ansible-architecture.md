@@ -211,6 +211,7 @@ Currently implemented shared roles and workflows:
 - `common/chroot`: verifies extracted stage3 markers, prepares Handbook-aligned pseudo-filesystem mounts under `/mnt/gentoo`, copies resolver configuration safely, validates DNS with a read-only chroot lookup, and records before/after mount evidence.
 - `common/portage`: manages conservative `make.conf`, official Gentoo repo configuration, repo sync, OpenRC/systemd profile selection from variant variables, GURU-disabled policy, pending config-update reporting, and Portage evidence logs.
 - `common/locale_timezone_hostname`: configures target hostname, timezone, UTF-8 locale, OpenRC/systemd console keymap files, locale generation, env update, and evidence for final checks and install reports.
+- `common/fstab`: generates UUID-based `/mnt/gentoo/etc/fstab` entries for ext4 root or the approved Btrfs subvolume layout plus `/boot/efi`, validates UUIDs, and records evidence for final checks and install reports.
 
 ## Init-specific Roles
 Init-specific roles must be thin and explicit.

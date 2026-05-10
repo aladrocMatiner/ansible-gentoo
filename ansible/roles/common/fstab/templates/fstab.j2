@@ -1,0 +1,6 @@
+# Managed by gentoo-ai-installer.
+# Generated from verified filesystem UUIDs.
+
+{% for entry in fstab_entries %}
+UUID={{ entry.uuid }}	{{ entry.mountpoint }}	{{ entry.fstype }}	{{ entry.options }}	{{ entry.dump }} {{ entry.passno }}
+{% endfor %}

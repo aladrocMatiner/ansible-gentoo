@@ -68,4 +68,11 @@ Destructive formatting, only after review and confirmation:
 make format PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda I_UNDERSTAND_THIS_WIPES_DISK=yes
 ```
 
+Target mounting and fstab generation:
+
+```sh
+make mount-target PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda
+make generate-fstab PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda
+```
+
 Inside the local libvirt VM, `/dev/vda` is the disposable guest disk. On real network targets, use the disk path reported by `make detect-disks`.
