@@ -10,7 +10,7 @@ This skill defines setup rules and expectations. It does not implement scripts.
 ## 2. When to Use This Skill
 Use this skill:
 
-- After amd64 OpenRC stage3 extraction.
+- After amd64 OpenRC or systemd stage3 extraction.
 - After chroot preparation is complete.
 - Before installing `gentoo-kernel-bin`, GRUB, NetworkManager, users, and services.
 - When designing future Ansible `portage` and package-installation roles.
@@ -20,10 +20,10 @@ Use this skill:
 - Target root path, normally `/mnt/gentoo`.
 - Confirmed chroot readiness.
 - v1 architecture: amd64.
-- v1 init system: OpenRC.
+- v1 init system: OpenRC or systemd, selected with `PROFILE`.
 - v1 boot mode: UEFI.
 - v1 filesystem: ext4 by default, or Btrfs when explicitly planned with `FILESYSTEM=btrfs`.
-- Required packages for `gentoo-kernel-bin`, GRUB, EFI boot support, NetworkManager, editor, privilege escalation, syslog, and cron.
+- Required packages for `gentoo-kernel-bin`, GRUB, EFI boot support, NetworkManager, editor, privilege escalation, and init-specific syslog/cron policy.
 - Network and DNS status.
 - Mirror selection.
 - Whether Codex was bootstrapped in the live ISO only.
@@ -65,9 +65,9 @@ If memory is low, reduce parallelism before package installation.
 ## 7. `ACCEPT_LICENSE` Guidance
 Keep license policy explicit:
 
-- Start with the Gentoo default license behavior unless a required package needs a specific license.
-- Do not set broad license acceptance without operator approval.
-- Document any non-default license acceptance and why it is required.
+- Use an explicit minimal policy for v1: `-* @FREE @BINARY-REDISTRIBUTABLE`.
+- Do not expand license acceptance beyond this baseline without operator approval.
+- Document any broader license acceptance and why it is required.
 - Do not accept licenses for Codex in the installed system unless Codex is explicitly being installed there, which is out of scope for v1.
 
 ## 8. USE Flags Policy
@@ -80,18 +80,22 @@ Policy:
 - Prefer package-specific flags later if needed instead of global flags.
 - Record every non-default global flag and its reason.
 
-The v1 target is a simple working OpenRC system with GRUB, NetworkManager, and `gentoo-kernel-bin`.
+The v1 target is a simple working OpenRC or systemd console system with GRUB, NetworkManager, and `gentoo-kernel-bin`.
 
 ## 9. Profile Selection
 Profile selection must:
 
-- Use an amd64 OpenRC profile.
-- Avoid systemd profiles in v1.
+- Use an amd64 profile matching `PROFILE=openrc` or `PROFILE=systemd`.
 - Avoid experimental profile changes during initial install.
 - Be visible in logs and output artifacts.
-- Be applied through `make select-profile` when available.
+- Be applied through shared `make configure-portage` logic, or a later `make select-profile` target if it is split out.
 
-If the selected profile is not clearly amd64 and OpenRC-compatible, stop and reselect.
+Current variant data:
+
+- `PROFILE=openrc`: `default/linux/amd64/23.0`
+- `PROFILE=systemd`: `default/linux/amd64/23.0/systemd`
+
+If the selected profile is not clearly amd64 and does not match the requested init system, stop and reselect.
 
 ## 10. Mirrors and Repos
 Mirrors and repository setup should:
@@ -102,7 +106,7 @@ Mirrors and repository setup should:
 - Avoid custom repositories in the installed system unless explicitly required.
 - Record selected mirrors for reproducibility.
 
-Repository sync should be exposed through `make sync-portage`.
+Repository sync is currently part of `make configure-portage`. A later `make sync-portage` target may split that operation if OpenSpec approves it.
 
 ## 11. GURU Overlay Policy
 GURU overlay may be used for Codex in the live environment, but should not be blindly enabled in the installed Gentoo system.
@@ -152,15 +156,15 @@ These targets define the expected control-plane contract for Portage setup. If a
 
 Target expectations:
 
-- `make configure-portage`: write minimal `make.conf` and repo settings into the target.
-- `make select-profile`: select and show the amd64 OpenRC profile.
-- `make sync-portage`: sync official Gentoo repository metadata.
+- `make configure-portage`: implemented target that writes minimal `make.conf`, installs official Gentoo repo settings, syncs official Gentoo repository metadata, selects the amd64 OpenRC or systemd profile matching `PROFILE`, reports pending protected config updates, and confirms GURU is disabled.
+- `make select-profile`: planned split target that would select and show the amd64 profile.
+- `make sync-portage`: planned split target that would sync official Gentoo repository metadata.
 - `make install-base-packages`: install the v1 base package set.
 
 The operator should not be asked to run raw `emerge`, `eselect profile`, or repository commands when Makefile targets exist.
 
 ## 14. Failure Modes
-- Wrong profile selected, especially a systemd profile.
+- Wrong profile selected for the requested init system.
 - Network or DNS fails during repository sync.
 - Mirrors are unreachable or stale.
 - `make.conf` contains overly aggressive CPU-specific flags.
@@ -173,7 +177,7 @@ The operator should not be asked to run raw `emerge`, `eselect profile`, or repo
 - Disk space is insufficient for package installation.
 
 ## 15. Recovery Advice
-- Re-check the selected profile and confirm it is amd64 OpenRC.
+- Re-check the selected profile and confirm it is amd64 and matches `PROFILE`.
 - Re-run network, DNS, and time checks before syncing.
 - Switch mirrors through documented targets if sync fails.
 - Reduce `MAKEOPTS` if builds fail due to memory pressure.
@@ -191,7 +195,7 @@ This skill should produce or request:
 - Selected `MAKEOPTS`.
 - `ACCEPT_LICENSE` policy.
 - Global `USE` flag list and reasons.
-- Selected amd64 OpenRC profile.
+- Selected amd64 OpenRC or systemd profile.
 - Mirror and repository summary.
 - Confirmation that GURU is not blindly enabled in the installed system.
 - Base package list with reasons.

@@ -45,6 +45,14 @@ variables:
       - stage3
     notes: Live-ISO-local cache for stage3 downloads and verification metadata. Must not be inside TARGET_MOUNT.
 
+  PORTAGE_GENTOO_MIRRORS:
+    ansible_names:
+      - portage_gentoo_mirrors
+    default: https://distfiles.gentoo.org
+    required_for:
+      - portage
+    notes: HTTPS Gentoo distfiles mirror written to target make.conf. v1 treats this as a single URL value.
+
   BOOT_MODE:
     ansible_names:
       - boot_mode

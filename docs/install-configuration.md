@@ -40,6 +40,7 @@ make config-check CONFIG_DESTRUCTIVE=yes INSTALL_DISK=/dev/vda I_UNDERSTAND_THIS
 | `FILESYSTEM` | `ext4` | Must be `ext4` or `btrfs`. |
 | `STAGE3_MIRROR` | `https://distfiles.gentoo.org/releases/amd64/autobuilds` | Must be an HTTPS base URL for Gentoo stage3 metadata. |
 | `STAGE3_CACHE_DIR` | `/tmp/gentoo-ai-installer/stage3` | Must be an absolute live-ISO-local path outside `TARGET_MOUNT`. |
+| `PORTAGE_GENTOO_MIRRORS` | `https://distfiles.gentoo.org` | Must be an HTTPS Gentoo distfiles mirror URL written to target `make.conf`. |
 | `BOOT_MODE` | `uefi` | Must be `uefi`; BIOS is outside v1 scope. |
 | `HOSTNAME` | `gentoo` | Must be a simple Linux hostname. |
 | `ADMIN_USER` | unset | Optional; must be a conservative local username when set. |

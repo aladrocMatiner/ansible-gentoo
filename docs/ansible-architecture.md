@@ -197,7 +197,7 @@ Shared roles live under `roles/common/` or an equivalent shared structure.
 - `ssh`: SSH package framework and init-specific enablement dispatch.
 - `final_checks`: read-only validation before reboot.
 
-Currently implemented read-only planning roles:
+Currently implemented shared roles and workflows:
 
 - `make config-check` with `config/install-schema.yml`: validates operator configuration defaults, allowed values, no-default disk behavior, mount paths, destructive confirmation variables, and secret-risk inputs before any live target or disk workflow runs.
 - `common/live_preflight`: validates the live ISO environment over SSH.
@@ -209,6 +209,7 @@ Currently implemented read-only planning roles:
 - `common/filesystem_plan`: reuses mount-plan output and prints the read-only EFI/root filesystem creation plan without running `mkfs.*`, `wipefs`, or Btrfs subvolume commands.
 - `common/stage3`: selects the official amd64 OpenRC or systemd stage3, verifies signed metadata, verifies SHA512 checksum, and extracts only into mounted `/mnt/gentoo`.
 - `common/chroot`: verifies extracted stage3 markers, prepares Handbook-aligned pseudo-filesystem mounts under `/mnt/gentoo`, copies resolver configuration safely, validates DNS with a read-only chroot lookup, and records before/after mount evidence.
+- `common/portage`: manages conservative `make.conf`, official Gentoo repo configuration, repo sync, OpenRC/systemd profile selection from variant variables, GURU-disabled policy, pending config-update reporting, and Portage evidence logs.
 
 ## Init-specific Roles
 Init-specific roles must be thin and explicit.

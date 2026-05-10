@@ -1,0 +1,7 @@
+---
+init_system: openrc
+stage3_variant: openrc
+portage_profile_path: default/linux/amd64/23.0
+portage_profile_description: Gentoo amd64 OpenRC default profile
+portage_global_use_flags: ""
+portage_accept_license: "-* @FREE @BINARY-REDISTRIBUTABLE"

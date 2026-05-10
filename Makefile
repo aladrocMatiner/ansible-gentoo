@@ -31,6 +31,7 @@ PROFILE ?= openrc
 FILESYSTEM ?= ext4
 STAGE3_MIRROR ?= https://distfiles.gentoo.org/releases/amd64/autobuilds
 STAGE3_CACHE_DIR ?= /tmp/gentoo-ai-installer/stage3
+PORTAGE_GENTOO_MIRRORS ?= https://distfiles.gentoo.org
 
 export LIBVIRT_URI
 export VM_NET_MODE
@@ -63,11 +64,12 @@ export PROFILE
 export FILESYSTEM
 export STAGE3_MIRROR
 export STAGE3_CACHE_DIR
+export PORTAGE_GENTOO_MIRRORS
 export INSTALL_DISK
 
 .PHONY: help \
 	vm-check vm-disk vm-define vm-start vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
-	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install prepare-chroot \
+	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -100,6 +102,7 @@ help:
 		'  make mount-target   Mount formatted target root/ESP for stage3 extraction' \
 		'  make stage3-install Download, verify, and extract official Gentoo stage3' \
 		'  make prepare-chroot Mount pseudo-filesystems and prepare DNS for chroot tasks' \
+		'  make configure-portage Configure minimal Portage baseline and sync official Gentoo repo' \
 		'  make vm-shutdown     Request clean guest shutdown' \
 		'  make vm-destroy      Stop the configured VM without deleting artifacts' \
 		'  make vm-clean        Undefine VM and delete generated artifacts after confirmation' \
@@ -143,6 +146,7 @@ help:
 		'  FILESYSTEM=$(FILESYSTEM)' \
 		'  STAGE3_MIRROR=$(STAGE3_MIRROR)' \
 		'  STAGE3_CACHE_DIR=$(STAGE3_CACHE_DIR)' \
+		'  PORTAGE_GENTOO_MIRRORS=$(PORTAGE_GENTOO_MIRRORS)' \
 		'  INSTALL_DISK has no default; pass INSTALL_DISK=/dev/vda only deliberately inside the VM'
 
 vm-check:
@@ -225,6 +229,9 @@ stage3-install:
 
 prepare-chroot:
 	@scripts/ansible-prepare-chroot.sh
+
+configure-portage:
+	@scripts/ansible-configure-portage.sh
 
 vm-shutdown:
 	@scripts/vm-shutdown.sh

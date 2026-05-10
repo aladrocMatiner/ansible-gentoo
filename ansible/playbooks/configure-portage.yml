@@ -1,0 +1,12 @@
+---
+- name: Configure Gentoo Portage baseline
+  hosts: gentoo_live
+  gather_facts: true
+  pre_tasks:
+    - name: Load init-specific Portage variables
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../group_vars/{{ profile }}.yml"
+  roles:
+    - role: common/live_preflight
+    - role: common/chroot
+    - role: common/portage

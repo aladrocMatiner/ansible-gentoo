@@ -1,0 +1,17 @@
+# Managed by gentoo-ai-installer.
+# Conservative Portage baseline for a first amd64 installation.
+# Do not place secrets in this file.
+
+COMMON_FLAGS="{{ portage_common_flags }}"
+CFLAGS="${COMMON_FLAGS}"
+CXXFLAGS="${COMMON_FLAGS}"
+FCFLAGS="${COMMON_FLAGS}"
+FFLAGS="${COMMON_FLAGS}"
+
+MAKEOPTS="-j{{ portage_makeopts_jobs }}"
+USE="{{ portage_global_use_flags }}"
+ACCEPT_LICENSE="{{ portage_accept_license }}"
+GENTOO_MIRRORS="{{ portage_gentoo_mirrors }}"
+
+# Keep build output language stable for troubleshooting.
+LC_MESSAGES=C.UTF-8
