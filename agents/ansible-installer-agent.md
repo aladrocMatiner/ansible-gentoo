@@ -114,6 +114,7 @@ Shared roles:
 - `common/stage3`: provide shared download, checksum, signature, architecture, variant validation, and guarded extraction into verified `/mnt/gentoo`.
 - `common/chroot`: prepare Handbook-aligned pseudo-filesystem mounts under `/mnt/gentoo`, copy resolver configuration safely, validate DNS with a read-only chroot lookup, report before/after mount state, and guard later target-mutating operations.
 - `common/portage`: configure conservative Portage baseline shared by both variants, including `make.conf`, official Gentoo repo sync, variant profile selection, GURU-disabled policy, pending config-update reporting, and evidence logs.
+- `common/locale_timezone_hostname`: configure target hostname, timezone, locale generation, OpenRC/systemd keymap files, and report inputs for final checks and install reports.
 - `common/package_install`: install packages from shared or variant package lists.
 - `common/fstab`: generate UUID-based fstab entries.
 - `common/kernel`: install `gentoo-kernel-bin` in the target.

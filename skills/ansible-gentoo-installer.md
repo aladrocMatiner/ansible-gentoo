@@ -121,6 +121,9 @@ Expected variables:
 - `stage3_variant`: must match `init_system`.
 - `portage_profile_path`: variant profile path selected by shared `common/portage`.
 - `portage_gentoo_mirrors`: HTTPS distfiles mirror written to target `make.conf`.
+- `timezone`: target timezone under `/usr/share/zoneinfo`.
+- `locale`: target UTF-8 locale.
+- `keymap`: target console keymap.
 - `enable_ssh`: whether to install and enable SSH.
 - `target_mount: /mnt/gentoo`
 - `efi_mount: /mnt/gentoo/boot/efi`
@@ -172,6 +175,7 @@ Shared roles:
 - `common/stage3`: download, verify, validate variant, and extract official stage3 into verified `/mnt/gentoo`.
 - `common/chroot`: prepare Handbook-aligned pseudo-filesystem mounts under `/mnt/gentoo`, copy resolver configuration safely, validate DNS with a read-only chroot lookup, report before/after mount state, and guard later target-mutating operations.
 - `common/portage`: configure minimal Portage baseline shared by both init systems, including conservative `make.conf`, official Gentoo repo sync, variant profile selection, GURU-disabled policy, pending config-update reporting, and evidence logs.
+- `common/locale_timezone_hostname`: configure target hostname, timezone, locale generation, OpenRC/systemd keymap files, and report inputs for final checks and install reports.
 - `common/package_install`: install packages from shared and variant package lists.
 - `common/fstab`: generate stable UUID-based fstab entries.
 - `common/kernel`: install `gentoo-kernel-bin`.

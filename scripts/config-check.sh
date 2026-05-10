@@ -47,6 +47,38 @@ validate_hostname() {
   [[ "$value" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$ ]] || add_error CONFIG_INVALID "HOSTNAME must be a simple Linux hostname using letters, digits, and hyphens"
 }
 
+validate_timezone() {
+  local value=$1
+
+  [[ -n "$value" ]] || {
+    add_error CONFIG_INVALID "TIMEZONE must not be empty"
+    return
+  }
+  [[ "$value" != /* ]] || add_error CONFIG_INVALID "TIMEZONE must be relative to /usr/share/zoneinfo, not absolute"
+  [[ "$value" != *".."* ]] || add_error CONFIG_INVALID "TIMEZONE must not contain parent traversal"
+  [[ "$value" =~ ^[A-Za-z0-9_+.-]+(/[A-Za-z0-9_+.-]+)*$ ]] || add_error CONFIG_INVALID "TIMEZONE must look like UTC or Europe/Stockholm"
+}
+
+validate_locale() {
+  local value=$1
+
+  [[ -n "$value" ]] || {
+    add_error CONFIG_INVALID "LOCALE must not be empty"
+    return
+  }
+  [[ "$value" =~ ^[A-Za-z][A-Za-z0-9_@.-]*\.UTF-8$ ]] || add_error CONFIG_INVALID "LOCALE must be a UTF-8 locale such as en_US.UTF-8"
+}
+
+validate_keymap() {
+  local value=$1
+
+  [[ -n "$value" ]] || {
+    add_error CONFIG_INVALID "KEYMAP must not be empty"
+    return
+  }
+  [[ "$value" =~ ^[A-Za-z0-9_-]+$ ]] || add_error CONFIG_INVALID "KEYMAP must be a simple console keymap name such as us"
+}
+
 validate_username() {
   local label=$1
   local value=$2
@@ -91,7 +123,7 @@ validate_install_disk_if_set() {
 validate_no_secret_like_values() {
   local label value
 
-  for label in HOSTNAME ADMIN_USER TARGET_MOUNT EFI_MOUNT INSTALL_DISK STAGE3_MIRROR STAGE3_CACHE_DIR PORTAGE_GENTOO_MIRRORS; do
+  for label in HOSTNAME TIMEZONE LOCALE KEYMAP ADMIN_USER TARGET_MOUNT EFI_MOUNT INSTALL_DISK STAGE3_MIRROR STAGE3_CACHE_DIR PORTAGE_GENTOO_MIRRORS; do
     value=${!label:-}
     [[ -z "$value" ]] && continue
     if [[ "$value" == *"-----BEGIN "* || "$value" == sk-* || "$value" == *" API KEY "* ]]; then
@@ -114,6 +146,9 @@ profile=${PROFILE:-openrc}
 filesystem=${FILESYSTEM:-ext4}
 boot_mode=${BOOT_MODE:-uefi}
 target_hostname=${HOSTNAME:-gentoo}
+timezone=${TIMEZONE:-UTC}
+locale=${LOCALE:-en_US.UTF-8}
+keymap=${KEYMAP:-us}
 admin_user=${ADMIN_USER:-}
 enable_ssh=${ENABLE_SSH:-no}
 target_mount=${TARGET_MOUNT:-/mnt/gentoo}
@@ -149,6 +184,9 @@ is_yes_no "$config_requires_install_disk" || add_error CONFIG_INVALID "CONFIG_RE
 is_yes_no "$config_destructive" || add_error CONFIG_INVALID "CONFIG_DESTRUCTIVE must be yes or no"
 
 validate_hostname "$target_hostname"
+validate_timezone "$timezone"
+validate_locale "$locale"
+validate_keymap "$keymap"
 validate_username ADMIN_USER "$admin_user"
 validate_mount_path TARGET_MOUNT "$target_mount"
 validate_mount_path EFI_MOUNT "$efi_mount"
@@ -192,6 +230,9 @@ printf '  STAGE3_CACHE_DIR: %s\n' "$stage3_cache_dir"
 printf '  PORTAGE_GENTOO_MIRRORS: %s\n' "$portage_gentoo_mirrors"
 printf '  BOOT_MODE: %s\n' "$boot_mode"
 printf '  HOSTNAME: %s\n' "$target_hostname"
+printf '  TIMEZONE: %s\n' "$timezone"
+printf '  LOCALE: %s\n' "$locale"
+printf '  KEYMAP: %s\n' "$keymap"
 printf '  ADMIN_USER: %s\n' "${admin_user:-<unset>}"
 printf '  ENABLE_SSH: %s\n' "$enable_ssh"
 printf '  TARGET_MOUNT: %s\n' "$target_mount"

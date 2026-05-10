@@ -81,6 +81,30 @@ variables:
       - apply
     notes: Target system hostname.
 
+  TIMEZONE:
+    ansible_names:
+      - timezone
+    default: UTC
+    required_for:
+      - apply
+    notes: Target timezone under /usr/share/zoneinfo, for example UTC or Europe/Stockholm.
+
+  LOCALE:
+    ansible_names:
+      - locale
+    default: en_US.UTF-8
+    required_for:
+      - apply
+    notes: Target UTF-8 locale written to /etc/locale.gen and /etc/env.d/02locale.
+
+  KEYMAP:
+    ansible_names:
+      - keymap
+    default: us
+    required_for:
+      - apply
+    notes: Console keymap written to OpenRC keymaps config or systemd vconsole config.
+
   ADMIN_USER:
     ansible_names:
       - admin_user

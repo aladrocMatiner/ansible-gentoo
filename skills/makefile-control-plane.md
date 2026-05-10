@@ -66,6 +66,9 @@ Required project variables:
 - `STAGE3_MIRROR`
 - `STAGE3_CACHE_DIR`
 - `PORTAGE_GENTOO_MIRRORS`
+- `TIMEZONE`
+- `LOCALE`
+- `KEYMAP`
 - `I_UNDERSTAND_THIS_WIPES_DISK`
 
 VM/libvirt variables:
@@ -102,6 +105,9 @@ Recommended defaults:
 - `STAGE3_MIRROR=https://distfiles.gentoo.org/releases/amd64/autobuilds`
 - `STAGE3_CACHE_DIR=/tmp/gentoo-ai-installer/stage3`
 - `PORTAGE_GENTOO_MIRRORS=https://distfiles.gentoo.org`
+- `TIMEZONE=UTC`
+- `LOCALE=en_US.UTF-8`
+- `KEYMAP=us`
 
 Recommended VM/libvirt defaults:
 
@@ -143,6 +149,9 @@ Rules:
 - `STAGE3_MIRROR` must be an HTTPS Gentoo stage3 metadata base URL; mirror overrides must not bypass verification.
 - `STAGE3_CACHE_DIR` must be a live-ISO-local absolute path outside `TARGET_MOUNT`.
 - `PORTAGE_GENTOO_MIRRORS` must be an HTTPS Gentoo distfiles mirror URL written to target `make.conf`; v1 treats it as a single URL value.
+- `TIMEZONE` must be a relative target zoneinfo path such as `UTC` or `Europe/Stockholm`.
+- `LOCALE` must be a UTF-8 locale such as `en_US.UTF-8`.
+- `KEYMAP` must be a simple console keymap name such as `us`.
 - Variables containing secrets must not be printed or committed.
 - `VM_DISK` must be a project-relative qcow2 path under `VM_DIR`.
 - `VM_DIR` must not be the project root, `/dev`, absolute, symlinked, or contain parent traversal.
@@ -214,6 +223,7 @@ Semi-dangerous targets:
 - `make stage3-install`
 - `make prepare-chroot`
 - `make configure-portage`
+- `make configure-system`
 - `make vm-disk`
 - `make vm-define`
 - `make vm-start`
@@ -238,6 +248,7 @@ Expected behavior:
 - `make mount-target`: mount explicitly provided partitions to explicitly provided target paths after mount-state checks; for Btrfs it must mount root with `subvol=@` and the approved subvolumes from `docs/btrfs-layout-policy.md`.
 - `make prepare-chroot`: require mounted `/mnt/gentoo` with extracted stage3 markers, mount or verify pseudo-filesystems only under `/mnt/gentoo`, prepare target DNS, validate DNS with a read-only chroot lookup, and print before/after mount state.
 - `make configure-portage`: manage conservative target `make.conf`, install official Gentoo repo configuration, run official Gentoo repo sync, select the matching OpenRC/systemd profile from variant variables, keep GURU disabled, report pending config updates, and skip broad `@world`.
+- `make configure-system`: configure target hostname, timezone, UTF-8 locale, and OpenRC/systemd console keymap files under `/mnt/gentoo`; generate the locale and refresh target env only when locale files change.
 - `make vm-disk`: create or preserve the project-local qcow2 VM disk.
 - `make vm-define`: define the project-owned libvirt domain from reviewed project-local inputs.
 - `make vm-start`: start the project-owned VM from the official Gentoo live ISO.
@@ -257,6 +268,8 @@ Expected behavior:
 `make prepare-chroot` is destructive-adjacent because it creates bind/pseudo-filesystem mounts and writes target resolver configuration under `/mnt/gentoo`. It must refuse target roots other than `/mnt/gentoo`, never mount outside the target root, avoid arbitrary chroot execution, and remain idempotent for already-correct mounts.
 
 `make configure-portage` is target-mutating because it writes Portage configuration, syncs repository metadata, and changes profile selection in the mounted target root. It must require prepared `/mnt/gentoo`, use variant variables for profile selection, avoid overlays unless approved, and never run `emerge @world` by default.
+
+`make configure-system` is target-mutating because it writes identity and locale files under `/mnt/gentoo`. It must refuse target roots other than `/mnt/gentoo`, validate hostname/timezone/locale/keymap inputs, avoid changing the live ISO hostname, and record evidence for final checks and install reports.
 
 Future destructive targets should print or call a read-only preview before accepting confirmation. Preview output must not set `I_UNDERSTAND_THIS_WIPES_DISK=yes` or any equivalent confirmation.
 

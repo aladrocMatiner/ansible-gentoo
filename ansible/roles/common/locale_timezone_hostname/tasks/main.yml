@@ -1,0 +1,256 @@
+---
+- name: Define target identity facts
+  ansible.builtin.set_fact:
+    system_target_root: "{{ target_mount | default('/mnt/gentoo') }}"
+    target_hostname: "{{ hostname | default('gentoo') }}"
+    target_timezone: "{{ timezone | default('UTC') }}"
+    target_locale: "{{ locale | default('en_US.UTF-8') }}"
+    target_keymap: "{{ keymap | default('us') }}"
+
+- name: Validate target identity inputs
+  ansible.builtin.assert:
+    that:
+      - profile is defined
+      - profile in ['openrc', 'systemd']
+      - init_system is defined
+      - init_system == profile
+      - system_target_root == '/mnt/gentoo'
+      - system_target_root != '/'
+      - target_hostname is match('^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$')
+      - target_timezone is match('^[A-Za-z0-9_+.-]+(/[A-Za-z0-9_+.-]+)*$')
+      - not (target_timezone is search('\\.\\.'))
+      - target_locale is match('^[A-Za-z][A-Za-z0-9_@.-]*\\.UTF-8$')
+      - target_keymap is match('^[A-Za-z0-9_-]+$')
+    fail_msg: "SYSTEM_CONFIG_INVALID: hostname, timezone, locale, keymap, init system, or target root is invalid."
+    success_msg: "Target identity inputs are valid."
+
+- name: Require extracted stage3 before target identity configuration
+  ansible.builtin.stat:
+    path: "{{ system_target_root }}/{{ item }}"
+  loop:
+    - etc
+    - usr
+    - var
+    - root
+  register: system_stage3_markers
+
+- name: Validate extracted stage3 before target identity configuration
+  ansible.builtin.assert:
+    that:
+      - system_stage3_markers.results | selectattr('stat.exists') | list | length == system_stage3_markers.results | length
+    fail_msg: "SYSTEM_CONFIG_INVALID: stage3 markers are missing under /mnt/gentoo."
+    success_msg: "Stage3 markers exist under /mnt/gentoo."
+
+- name: Verify target timezone file exists
+  ansible.builtin.stat:
+    path: "{{ system_target_root }}/usr/share/zoneinfo/{{ target_timezone }}"
+  register: system_timezone_file
+
+- name: Validate target timezone file
+  ansible.builtin.assert:
+    that:
+      - system_timezone_file.stat.exists
+      - system_timezone_file.stat.isreg
+    fail_msg: "SYSTEM_CONFIG_INVALID: timezone {{ target_timezone }} does not exist under target /usr/share/zoneinfo."
+    success_msg: "Target timezone file exists."
+
+- name: Verify target keymap exists
+  ansible.builtin.command:
+    argv:
+      - find
+      - "{{ system_target_root }}/usr/share/keymaps"
+      - -name
+      - "{{ target_keymap }}.map*"
+      - -type
+      - f
+      - -print
+      - -quit
+  register: system_keymap_file
+  changed_when: false
+  failed_when: system_keymap_file.stdout | trim | length == 0
+  check_mode: false
+
+- name: Write target hostname file
+  ansible.builtin.copy:
+    dest: "{{ system_target_root }}/etc/hostname"
+    mode: "0644"
+    content: "{{ target_hostname }}\n"
+  register: system_hostname_copy
+  when: not ansible_check_mode
+
+- name: Configure OpenRC hostname
+  ansible.builtin.copy:
+    dest: "{{ system_target_root }}/etc/conf.d/hostname"
+    mode: "0644"
+    content: |
+      # Managed by gentoo-ai-installer.
+      hostname="{{ target_hostname }}"
+  register: system_openrc_hostname
+  when:
+    - not ansible_check_mode
+    - profile == 'openrc'
+
+- name: Link target localtime
+  ansible.builtin.file:
+    src: "/usr/share/zoneinfo/{{ target_timezone }}"
+    dest: "{{ system_target_root }}/etc/localtime"
+    state: link
+    force: true
+    follow: false
+  register: system_localtime_linked
+  when: not ansible_check_mode
+
+- name: Configure target locale.gen
+  ansible.builtin.template:
+    src: locale.gen.j2
+    dest: "{{ system_target_root }}/etc/locale.gen"
+    mode: "0644"
+  register: system_locale_gen
+  when: not ansible_check_mode
+
+- name: Configure target locale environment
+  ansible.builtin.template:
+    src: 02locale.j2
+    dest: "{{ system_target_root }}/etc/env.d/02locale"
+    mode: "0644"
+  register: system_locale_env
+  when: not ansible_check_mode
+
+- name: Generate target locale when locale.gen changed
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ system_target_root }}"
+      - /usr/sbin/locale-gen
+  register: system_locale_gen_run
+  changed_when: true
+  failed_when: system_locale_gen_run.rc != 0
+  when:
+    - not ansible_check_mode
+    - system_locale_gen.changed
+
+- name: Refresh target environment after locale change
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ system_target_root }}"
+      - /usr/sbin/env-update
+  register: system_env_update
+  changed_when: true
+  failed_when: system_env_update.rc != 0
+  when:
+    - not ansible_check_mode
+    - system_locale_env.changed
+
+- name: Configure OpenRC console keymap
+  ansible.builtin.copy:
+    dest: "{{ system_target_root }}/etc/conf.d/keymaps"
+    mode: "0644"
+    content: |
+      # Managed by gentoo-ai-installer.
+      keymap="{{ target_keymap }}"
+  register: system_openrc_keymap
+  when:
+    - not ansible_check_mode
+    - profile == 'openrc'
+
+- name: Configure systemd console keymap
+  ansible.builtin.copy:
+    dest: "{{ system_target_root }}/etc/vconsole.conf"
+    mode: "0644"
+    content: |
+      # Managed by gentoo-ai-installer.
+      KEYMAP={{ target_keymap }}
+  register: system_systemd_keymap
+  when:
+    - not ansible_check_mode
+    - profile == 'systemd'
+
+- name: Read configured target hostname
+  ansible.builtin.slurp:
+    src: "{{ system_target_root }}/etc/hostname"
+  register: system_hostname_file
+  when: not ansible_check_mode
+
+- name: Read configured target localtime link
+  ansible.builtin.command:
+    argv:
+      - readlink
+      - "{{ system_target_root }}/etc/localtime"
+  register: system_localtime_link
+  changed_when: false
+  failed_when: system_localtime_link.rc != 0
+  check_mode: false
+  when: not ansible_check_mode
+
+- name: Define target identity audit run id
+  ansible.builtin.set_fact:
+    system_config_run_id: "{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}"
+
+- name: Define target identity audit log path
+  ansible.builtin.set_fact:
+    system_config_log_dir: "{{ project_root | default(lookup('ansible.builtin.env', 'PWD'), true) }}/logs/install-runs/{{ system_config_run_id }}/system-config"
+
+- name: Create local target identity log directory
+  ansible.builtin.file:
+    path: "{{ system_config_log_dir }}"
+    state: directory
+    mode: "0750"
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Record target identity evidence
+  ansible.builtin.copy:
+    dest: "{{ system_config_log_dir }}/identity.json"
+    mode: "0640"
+    content: |
+      {
+        "profile": {{ profile | to_json }},
+        "init_system": {{ init_system | to_json }},
+        "target_root": {{ system_target_root | to_json }},
+        "hostname": {{ (system_hostname_file.content | b64decode | trim) | to_json }},
+        "timezone": {{ target_timezone | to_json }},
+        "localtime_link": {{ system_localtime_link.stdout | to_json }},
+        "locale": {{ target_locale | to_json }},
+        "keymap": {{ target_keymap | to_json }},
+        "locale_gen_ran": {{ (system_locale_gen_run is defined and system_locale_gen_run is changed) | to_json }},
+        "env_update_ran": {{ (system_env_update is defined and system_env_update is changed) | to_json }},
+        "final_checks_input": true,
+        "install_report_input": true
+      }
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Build target identity report
+  ansible.builtin.set_fact:
+    system_config_report:
+      changed: >-
+        {{
+          (not ansible_check_mode) and (
+            (system_hostname_copy is defined and system_hostname_copy is changed) or
+            (system_openrc_hostname is defined and system_openrc_hostname is changed) or
+            (system_localtime_linked is defined and system_localtime_linked is changed) or
+            (system_locale_gen is defined and system_locale_gen is changed) or
+            (system_locale_env is defined and system_locale_env is changed) or
+            (system_locale_gen_run is defined and system_locale_gen_run is changed) or
+            (system_env_update is defined and system_env_update is changed) or
+            (system_openrc_keymap is defined and system_openrc_keymap is changed) or
+            (system_systemd_keymap is defined and system_systemd_keymap is changed)
+          )
+        }}
+      profile: "{{ profile }}"
+      hostname: "{{ target_hostname }}"
+      timezone: "{{ target_timezone }}"
+      locale: "{{ target_locale }}"
+      keymap: "{{ target_keymap }}"
+      final_checks_input: true
+      install_report_input: true
+      logs: "{{ system_config_log_dir }}/"
+
+- name: Print target identity report
+  ansible.builtin.debug:
+    msg: "{{ system_config_report }}"

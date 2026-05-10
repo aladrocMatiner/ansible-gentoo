@@ -43,6 +43,9 @@ make config-check CONFIG_DESTRUCTIVE=yes INSTALL_DISK=/dev/vda I_UNDERSTAND_THIS
 | `PORTAGE_GENTOO_MIRRORS` | `https://distfiles.gentoo.org` | Must be an HTTPS Gentoo distfiles mirror URL written to target `make.conf`. |
 | `BOOT_MODE` | `uefi` | Must be `uefi`; BIOS is outside v1 scope. |
 | `HOSTNAME` | `gentoo` | Must be a simple Linux hostname. |
+| `TIMEZONE` | `UTC` | Must be a relative path under target `/usr/share/zoneinfo`, such as `UTC` or `Europe/Stockholm`. |
+| `LOCALE` | `en_US.UTF-8` | Must be a UTF-8 locale generated inside the target. |
+| `KEYMAP` | `us` | Must be a simple console keymap name available in target `/usr/share/keymaps`. |
 | `ADMIN_USER` | unset | Optional; must be a conservative local username when set. |
 | `ENABLE_SSH` | `no` | Must be `yes` or `no`. |
 | `TARGET_MOUNT` | `/mnt/gentoo` | Must be an absolute path and must not be `/`. |

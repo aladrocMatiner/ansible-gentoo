@@ -21,6 +21,9 @@ ANSIBLE_LIVE_PORT ?= 22
 ANSIBLE_LIVE_USER ?= root
 BOOT_MODE ?= uefi
 HOSTNAME = gentoo
+TIMEZONE ?= UTC
+LOCALE ?= en_US.UTF-8
+KEYMAP ?= us
 ADMIN_USER ?=
 ENABLE_SSH ?= no
 TARGET_MOUNT ?= /mnt/gentoo
@@ -54,6 +57,9 @@ export ANSIBLE_LIVE_PORT
 export ANSIBLE_LIVE_USER
 export BOOT_MODE
 export HOSTNAME
+export TIMEZONE
+export LOCALE
+export KEYMAP
 export ADMIN_USER
 export ENABLE_SSH
 export TARGET_MOUNT
@@ -69,7 +75,7 @@ export INSTALL_DISK
 
 .PHONY: help \
 	vm-check vm-disk vm-define vm-start vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
-	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage \
+	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -103,6 +109,7 @@ help:
 		'  make stage3-install Download, verify, and extract official Gentoo stage3' \
 		'  make prepare-chroot Mount pseudo-filesystems and prepare DNS for chroot tasks' \
 		'  make configure-portage Configure minimal Portage baseline and sync official Gentoo repo' \
+		'  make configure-system Configure target hostname, timezone, locale, and keymap' \
 		'  make vm-shutdown     Request clean guest shutdown' \
 		'  make vm-destroy      Stop the configured VM without deleting artifacts' \
 		'  make vm-clean        Undefine VM and delete generated artifacts after confirmation' \
@@ -137,6 +144,9 @@ help:
 		'  ANSIBLE_LIVE_USER=$(ANSIBLE_LIVE_USER)' \
 		'  BOOT_MODE=$(BOOT_MODE)' \
 		'  HOSTNAME=$(HOSTNAME)' \
+		'  TIMEZONE=$(TIMEZONE)' \
+		'  LOCALE=$(LOCALE)' \
+		'  KEYMAP=$(KEYMAP)' \
 		'  ADMIN_USER=$(ADMIN_USER)' \
 		'  ENABLE_SSH=$(ENABLE_SSH)' \
 		'  TARGET_MOUNT=$(TARGET_MOUNT)' \
@@ -232,6 +242,9 @@ prepare-chroot:
 
 configure-portage:
 	@scripts/ansible-configure-portage.sh
+
+configure-system:
+	@scripts/ansible-configure-system.sh
 
 vm-shutdown:
 	@scripts/vm-shutdown.sh
