@@ -143,6 +143,21 @@ def copy_evidence(run_dir: Path, bundle_dir: Path) -> tuple[list[str], list[str]
         shutil.copyfile(source, destination)
         included.append(relative)
 
+    manual_dir = run_dir / "manual-steps"
+    if manual_dir.exists():
+        if not manual_dir.is_dir() or manual_dir.is_symlink():
+            die("INSTALL_AUDIT_INVALID", f"manual steps path is not a safe directory: {manual_dir}")
+        for source in sorted(manual_dir.glob("*.json")):
+            if not source.is_file() or source.is_symlink():
+                die("INSTALL_AUDIT_INVALID", f"manual step evidence path is not a regular file: {source}")
+            text = source.read_text(encoding="utf-8", errors="replace")
+            reject_secret_text(source, text)
+            relative = str(source.relative_to(run_dir))
+            destination = evidence_root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, destination)
+            included.append(relative)
+
     return included, missing
 
 

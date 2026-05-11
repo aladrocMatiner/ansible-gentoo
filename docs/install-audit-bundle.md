@@ -53,9 +53,12 @@ The generator copies known evidence files from the run directory:
 - system package and service evidence,
 - user/access evidence,
 - bootloader evidence,
-- final reboot readiness evidence.
+- final reboot readiness evidence,
+- recorded manual intervention notes under `manual-steps/*.json`.
 
 Missing files are listed in `manifest.json`; missing optional evidence does not fail bundle generation.
+
+Manual intervention notes are included only when they were recorded through `make record-manual-step`. They are scanned for secret-like fields and values before being copied into the bundle.
 
 ## Secret Safety
 

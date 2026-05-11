@@ -28,6 +28,9 @@ printf 'Validating install resume plan for run %s\n' "$INSTALL_STATE_RUN_ID"
 printf 'Last completed phase: %s\n' "$INSTALL_STATE_LAST_PHASE"
 printf 'Install disk from state: %s\n' "$INSTALL_STATE_INSTALL_DISK"
 printf 'Profile/filesystem from state: %s/%s\n' "$INSTALL_STATE_PROFILE" "$INSTALL_STATE_FILESYSTEM"
+if [[ "${INSTALL_STATE_MANUAL_REVALIDATION_REQUIRED:-no}" == "yes" ]]; then
+  printf '%s\n' 'Manual intervention was recorded; this resume plan is the required revalidation step.'
+fi
 printf '%s\n' 'This target is read-only for the live ISO target.'
 printf '%s\n' 'Resume validation does not satisfy destructive confirmations for later targets.'
 

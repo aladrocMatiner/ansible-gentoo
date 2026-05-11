@@ -20,6 +20,7 @@ Agents must check documentation before finishing, correct stale documentation th
 - Script added or changed: update `docs/` or relevant `skills/`; document arguments, environment variables, safety checks, examples, and failure modes.
 - Ansible playbook or role added or changed: update Ansible documentation; document variables, required inventory, safety gates, controller-to-target SSH assumptions, and execution target.
 - VM/libvirt workflow changed: update VM docs; document ISO path, disk path, libvirt URI, network mode, serial console behavior, SSH bootstrap, cleanup behavior, and whether behavior is implemented or planned.
+- Manual intervention or resume behavior changed: update `docs/manual-escape-hatch-policy.md`, `docs/install-state-and-resume-checkpoints.md`, `docs/install-audit-bundle.md`, and relevant agent or skill files.
 - Codex bootstrap changed: update Codex bootstrap docs; document install method, token handling, validation, and cleanup.
 - Safety rule changed: update safety docs and relevant agent or skill files.
 - OpenSpec workflow changed: update OpenSpec workflow docs.
@@ -70,6 +71,8 @@ Playbooks and roles must document required variables. Dangerous playbooks must d
 The reusable network Ansible installer is the product. VM/libvirt scripts, SSH bootstrap helpers, and local artifact directories are test harness pieces used to validate the installer. Shared Ansible roles and Makefile targets must not depend on a libvirt domain name, VM-only IP discovery, `./var/libvirt/`, or `/dev/vda` except in VM-specific tests and examples.
 
 Future Ansible installer behavior must use the official Gentoo AMD64 Handbook as the baseline installation procedure: <https://wiki.gentoo.org/wiki/Handbook:AMD64>. Agents may adapt Handbook steps into reusable Ansible roles, but must preserve the project safety model, Makefile control-plane rule, OpenSpec review flow, and v1 assumptions.
+
+Manual intervention is a recovery path, not a safety bypass. If an operator changes installation state outside automation, agents must route the record through `make record-manual-step`, keep the note non-secret, require `make install-resume-plan` or the relevant read-only checks before resuming, and preserve destructive confirmations for later targets.
 
 ## 11. Ansible reuse-first architecture
 Future Ansible implementation must reuse shared roles, tasks, variables, handlers, templates, validation logic, safety gates, and documentation across OpenRC and systemd console installation flows whenever behavior is common.

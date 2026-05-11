@@ -37,6 +37,7 @@ Do not use this skill to bypass OpenSpec or safety review for destructive automa
 - Boot kernel command line policy: `docs/boot-kernel-commandline-policy.md`.
 - Download cache and mirror policy: `docs/download-cache-and-mirror-policy.md`.
 - Portage world update policy: `docs/portage-world-update-policy.md`.
+- Manual escape hatch policy: `docs/manual-escape-hatch-policy.md`.
 - Btrfs policy, when `FILESYSTEM=btrfs`, is shared across init systems and documented in `docs/btrfs-layout-policy.md`: root `@`, `@home`, `@var`, `@var_log`, `@var_cache`, and `@snapshots`; root must mount with `subvol=@`.
 - Project Handbook choices: NetworkManager for v1 networking, GRUB for UEFI, EFI mounted at `/boot/efi` in the installed system, and `gentoo-kernel-bin` with required installkernel/initramfs support.
 - Planned shared guardrails: install configuration schema, config validation report, target system baseline, installed time sync policy, installed SSH policy, boot kernel command line policy, download/cache mirror policy, Portage world update policy, destructive previews, audit bundles, secret input policy, logging/error taxonomy, Handbook traceability, live ISO network bootstrap hardening, host requirements, cleanup/reset policy, manual escape hatch, libvirt matrix validation, first-boot validation, and install report summary. Implemented install state checkpoints are written through `common/install_state`.
@@ -296,7 +297,7 @@ Required gates:
 - Confirm installer roles and Makefile targets remain represented in `config/handbook-traceability.json`; regenerate `docs/handbook-traceability.md` with `make handbook-trace` when phases, roles, targets, safety gates, or project deviations change.
 - Confirm logs, state files, and audit bundles do not contain secrets.
 - Confirm operator variables pass the shared config validation before apply workflows.
-- Confirm manual intervention is recorded and revalidated before resume.
+- Confirm manual intervention is recorded through `make record-manual-step`, preserved as non-secret run evidence, and revalidated with `make install-resume-plan` or the relevant read-only checks before resume.
 - Confirm bootloader/kernel tasks follow the shared boot command line policy.
 - Confirm SSH and time-sync behavior follows target policies and remains init-specific only where needed.
 
@@ -446,6 +447,8 @@ Local `local-*` targets are fallback/diagnostic paths for running Ansible inside
 - systemd role calls `rc-update` or `rc-service`.
 - Check mode output differs materially from apply behavior.
 - Logs are missing or contain secrets.
+- Manual intervention occurred but was not recorded before automation resumed.
+- Manual revalidation was skipped after state was marked as requiring revalidation.
 - Ansible task hides dangerous commands in `shell` or `command`.
 - Final checks are skipped before reboot.
 
@@ -458,6 +461,7 @@ Local `local-*` targets are fallback/diagnostic paths for running Ansible inside
 - Move duplicated OpenRC/systemd logic into common roles or variant variables before continuing.
 - Add asserts for target root, install disk, boot mode, and confirmation variables.
 - Preserve logs after failure and inspect state before retrying.
+- If manual recovery is needed, record the non-secret reason and next action with `make record-manual-step`, then rerun `make install-resume-plan` before continuing.
 - If a task writes to the wrong path, stop immediately and collect evidence before further mutation.
 - If logs contain secrets, remove them from tracked files and do not commit them.
 
@@ -495,4 +499,5 @@ When phase 2 Ansible behavior changes, documentation must change in the same imp
 - If Makefile targets such as `make ansible-check`, `make ansible-dry-run PROFILE=...`, `make install-plan PROFILE=...`, `make install-openrc`, `make install-systemd`, or `make final-checks` change, update this skill and `skills/makefile-control-plane.md`.
 - If destructive Ansible tasks change, update `agents/safety-review-agent.md`, disk safety skills, and OpenSpec `tasks.md` before marking implementation complete.
 - If variables such as `install_disk`, `confirm_wipe_disk`, or the Makefile confirmation variable `I_UNDERSTAND_THIS_WIPES_DISK` change, update variable documentation, safety gates, examples, failure modes, and recovery advice together.
+- If manual intervention handling changes, update `docs/manual-escape-hatch-policy.md`, `docs/install-state-and-resume-checkpoints.md`, `docs/install-audit-bundle.md`, this skill, `skills/makefile-control-plane.md`, and active OpenSpec tasks together.
 - Before finishing, confirm logs documentation still states where logs are stored and that secrets must not be logged.

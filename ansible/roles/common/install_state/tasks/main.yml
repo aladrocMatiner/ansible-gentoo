@@ -140,6 +140,8 @@
       last_completed_phase: "{{ install_state_phase }}"
       checkpoints: "{{ install_state_existing.checkpoints | default({}) | combine({install_state_phase: install_state_checkpoint}, recursive=true) }}"
       resume_checkpoint: "{{ install_state_resume_checkpoint }}"
+      manual_interventions: "{{ install_state_existing.manual_interventions | default([]) }}"
+      manual_intervention_requires_revalidation: "{{ false if install_state_phase == 'resume-plan' else (install_state_existing.manual_intervention_requires_revalidation | default(false)) }}"
       resume_policy:
         requires_current_fact_match: true
         destructive_confirmation_still_required: true

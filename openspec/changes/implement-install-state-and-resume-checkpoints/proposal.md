@@ -10,6 +10,7 @@ This is needed before broad apply workflows because partitioning, formatting, mo
 - Record phase checkpoints for preflight, disk detection, install plan, partition plan/apply, filesystem plan/apply, mount target, stage3, chroot, Portage, fstab, kernel, packages/services, users, bootloader, final checks, and VM validation.
 - Add Makefile-mediated status/report targets, with no operator-facing ad-hoc state commands.
 - Require resume checks to revalidate disk identity, filesystem UUIDs, mount state, selected profile, filesystem type, and confirmation state before continuing.
+- Preserve recorded manual intervention markers and clear the revalidation flag only after a read-only resume validation succeeds.
 - Ensure resume never bypasses destructive confirmations.
 - Keep secrets out of state files and logs.
 

@@ -78,6 +78,9 @@ Required project variables:
 - `ROOT_PASSWORD_HASH_FILE`
 - `I_UNDERSTAND_BOOTLOADER_CHANGES`
 - `I_UNDERSTAND_THIS_WIPES_DISK`
+- `MANUAL_STEP_SUMMARY`
+- `MANUAL_STEP_REASON`
+- `MANUAL_STEP_NEXT_ACTION`
 
 VM/libvirt variables:
 
@@ -166,6 +169,8 @@ Rules:
 - `ADMIN_USER` must have no useful default for user-creation workflows; `make configure-users` must require it explicitly.
 - `ADMIN_PASSWORD_HASH_FILE`, `ROOT_PASSWORD_HASH_FILE`, and `ADMIN_AUTHORIZED_KEYS_FILE` are local input file paths only. The Makefile may report whether they are set, but it must not print their contents.
 - `I_UNDERSTAND_BOOTLOADER_CHANGES=yes` is required for GRUB/EFI workflows that may update persistent EFI boot entries.
+- `MANUAL_STEP_SUMMARY` and `MANUAL_STEP_REASON` are required only for `make record-manual-step`; they must describe non-secret operator intervention and should not be printed by help output.
+- `MANUAL_STEP_NEXT_ACTION` may override the default revalidation instruction for `make record-manual-step`; it must remain non-secret and should point back to Makefile-mediated checks or plans.
 - Variables containing secrets must not be printed or committed.
 - `VM_DISK` must be a project-relative qcow2 path under `VM_DIR`.
 - `VM_DIR` must not be the project root, `/dev`, absolute, symlinked, or contain parent traversal.
@@ -180,7 +185,7 @@ Rules:
 - VM definitions should pass serial console kernel args so `make vm-console` is usable with the official live ISO.
 
 ## 6. Safe Targets
-Safe targets are read-only or validation-only. They must not modify disks, target root, boot entries, users, passwords, or services.
+Safe targets are read-only, validation-only, or local evidence writers. They must not modify disks, target root, boot entries, users, passwords, or services.
 
 The target lists below define the project control-plane contract. A target is available only when it exists in the current `Makefile`; otherwise treat it as planned and do not present it in `README.md` as runnable.
 
@@ -210,6 +215,7 @@ Required safe targets:
 - `make final-checks`
 - `make install-state`
 - `make install-resume-plan`
+- `make record-manual-step`
 - `make install-audit`
 - `make install-report`
 - `make cleanup-plan`
@@ -253,6 +259,7 @@ Expected behavior:
 - `make final-checks`: require explicit `ADMIN_USER`, run read-only reboot readiness checks, write a secret-safe local report, and never reboot automatically.
 - `make install-state`: print the current non-secret install state summary from `var/state/current-install.json`.
 - `make install-resume-plan`: read saved install state, reject secret-like state content, and validate current live ISO disk/profile/filesystem facts without resuming or satisfying destructive confirmations.
+- `make record-manual-step`: record a non-secret manual intervention note under `logs/install-runs/<run-id>/manual-steps/`, mark current state as requiring revalidation, and require `MANUAL_STEP_SUMMARY` plus `MANUAL_STEP_REASON`.
 - `make install-audit`: generate a secret-scanned local audit bundle under `logs/install-runs/<run-id>/audit-bundle/` from the current install state.
 - `make install-report`: generate a human-readable, secret-safe Markdown summary under `logs/install-runs/<run-id>/install-report.md` from current state and evidence.
 - `make cleanup-plan`: print cleanup candidates for `CLEAN_SCOPE=state|logs|audit|stage3-cache|test-run` without deleting.
@@ -435,6 +442,7 @@ Rules:
 - `make vm-ssh`
 - `make vm-clean`
 - `make final-checks`
+- `make record-manual-step MANUAL_STEP_SUMMARY="Reviewed target state" MANUAL_STEP_REASON="Automation paused for manual inspection"`
 
 ## 12. Examples of Bad Targets
 - `make setup`
@@ -459,6 +467,8 @@ Rules:
 - A destructive target lacks `I_UNDERSTAND_THIS_WIPES_DISK=yes`.
 - A destructive target does not print disk summary output.
 - A target combines unrelated risk classes.
+- Manual intervention is performed but not recorded with `make record-manual-step` before automation resumes.
+- Manual notes include secrets or command transcripts with credentials.
 - A cleanup target deletes an unchecked path.
 - An Ansible target runs without showing check/plan output first.
 - Codex bootstrap stores tokens in tracked files.
@@ -475,6 +485,7 @@ Rules:
 - Add disk summary output before destructive work.
 - Add a safety confirmation script before destructive targets.
 - Add `make install-plan` or `make partition-plan` before apply targets.
+- Record non-secret manual recovery notes with `make record-manual-step`, then rerun `make install-resume-plan` and the relevant read-only plan before continuing.
 - Stop and rerun safe inventory targets if disk identity changes.
 - Review dangerous targets with `agents/safety-review-agent.md` before use.
 - If secrets are written to project files, remove them immediately and keep them out of commits.
@@ -500,3 +511,4 @@ When Makefile behavior changes, documentation must change in the same commit or 
 - If `make ansible-check` behavior changes, update Ansible docs, `.ansible-lint` expectations, `skills/ansible-gentoo-installer.md`, and active OpenSpec tasks.
 - If `FILESYSTEM` behavior changes, update target help, variable defaults, install-plan docs, disk-planning docs, and safety notes in the same change.
 - If failure modes or recovery behavior changes in implementation, update the `Failure Modes` and `Recovery Advice` sections here before finishing.
+- If manual intervention, resume-state, or audit evidence behavior changes, update `docs/manual-escape-hatch-policy.md`, `docs/install-state-and-resume-checkpoints.md`, `docs/install-audit-bundle.md`, this skill, and active OpenSpec tasks together.

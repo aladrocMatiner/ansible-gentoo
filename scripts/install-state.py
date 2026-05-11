@@ -113,6 +113,11 @@ def command_show(args: argparse.Namespace) -> None:
     print(f"Last completed phase: {state.get('last_completed_phase') or '<none>'}")
     print(f"Completed phases: {', '.join(str(item) for item in completed) if completed else '<none>'}")
     print(f"Resume checkpoint: {'available' if state.get('resume_checkpoint') else 'missing'}")
+    manual_interventions = state.get("manual_interventions")
+    if not isinstance(manual_interventions, list):
+        manual_interventions = []
+    print(f"Manual interventions recorded: {len(manual_interventions)}")
+    print(f"Manual revalidation required: {'yes' if state.get('manual_intervention_requires_revalidation') else 'no'}")
     print(f"Next safe action: {state.get('next_safe_action') or '<review docs>'}")
     print("Resume policy: destructive confirmations are still required; state never acts as confirmation.")
 
@@ -145,6 +150,7 @@ def command_resume_vars(args: argparse.Namespace) -> None:
         "INSTALL_STATE_PROFILE": str(profile),
         "INSTALL_STATE_FILESYSTEM": str(filesystem),
         "INSTALL_STATE_LAST_PHASE": str(state.get("last_completed_phase") or ""),
+        "INSTALL_STATE_MANUAL_REVALIDATION_REQUIRED": "yes" if state.get("manual_intervention_requires_revalidation") else "no",
     }
     for key, value in values.items():
         print(f"{key}={shlex.quote(value)}")

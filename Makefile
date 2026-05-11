@@ -49,6 +49,9 @@ I_UNDERSTAND_DELETE_INSTALL_STATE ?=
 I_UNDERSTAND_CLEANUP_DELETE ?=
 CLEAN_SCOPE ?= state
 CLEAN_RUN_ID ?=
+MANUAL_STEP_SUMMARY ?=
+MANUAL_STEP_REASON ?=
+MANUAL_STEP_NEXT_ACTION ?= Run make install-resume-plan and relevant read-only checks before resuming automation.
 
 export LIBVIRT_URI
 export VM_NET_MODE
@@ -100,10 +103,13 @@ export I_UNDERSTAND_DELETE_INSTALL_STATE
 export I_UNDERSTAND_CLEANUP_DELETE
 export CLEAN_SCOPE
 export CLEAN_RUN_ID
+export MANUAL_STEP_SUMMARY
+export MANUAL_STEP_REASON
+export MANUAL_STEP_NEXT_ACTION
 
 .PHONY: help \
 	vm-check vm-disk vm-define vm-start vm-start-installed vm-validate-first-boot vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
-	ansible-check config-check host-check secret-check handbook-trace ansible-live-ping ansible-live-preflight local-live-preflight local-detect-disks local-install-plan local-partition-plan detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-preview partition-preview format-preview mount-preview bootloader-preview users-preview destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan install-run-clean install-audit install-report cleanup-plan clean-state clean-logs clean-audit clean-stage3-cache reset-test-run \
+	ansible-check config-check host-check secret-check handbook-trace ansible-live-ping ansible-live-preflight local-live-preflight local-detect-disks local-install-plan local-partition-plan detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-preview partition-preview format-preview mount-preview bootloader-preview users-preview destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan record-manual-step install-run-clean install-audit install-report cleanup-plan clean-state clean-logs clean-audit clean-stage3-cache reset-test-run \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -163,6 +169,7 @@ help:
 		'  make install-systemd DESTRUCTIVE: run full systemd basic console install' \
 		'  make install-state   Show current non-secret install state checkpoint summary' \
 		'  make install-resume-plan Validate current target facts against saved install state' \
+		'  make record-manual-step Record non-secret manual intervention note; requires MANUAL_STEP_SUMMARY and MANUAL_STEP_REASON' \
 		'  make install-run-clean Delete current install state pointer after confirmation' \
 		'  make install-audit   Generate a secret-safe audit bundle for the current run' \
 		'  make install-report  Generate a human-readable secret-safe install summary' \
@@ -233,7 +240,9 @@ help:
 		'  I_UNDERSTAND_DELETE_INSTALL_STATE must be DELETE for make install-run-clean' \
 		'  I_UNDERSTAND_CLEANUP_DELETE must be DELETE for cleanup targets' \
 		'  CLEAN_SCOPE=$(CLEAN_SCOPE)' \
-		'  CLEAN_RUN_ID=$(CLEAN_RUN_ID)'
+		'  CLEAN_RUN_ID=$(CLEAN_RUN_ID)' \
+		'  MANUAL_STEP_SUMMARY is required for make record-manual-step and not printed' \
+		'  MANUAL_STEP_REASON is required for make record-manual-step and not printed'
 
 vm-check:
 	@scripts/vm-check-libvirt.sh
@@ -398,6 +407,9 @@ install-state:
 
 install-resume-plan:
 	@scripts/ansible-install-resume-plan.sh
+
+record-manual-step:
+	@scripts/record-manual-step.py --state-file "$(INSTALL_STATE_FILE)" record
 
 install-run-clean:
 	@scripts/install-state.py --state-file "$(INSTALL_STATE_FILE)" clean --confirm "$(I_UNDERSTAND_DELETE_INSTALL_STATE)"

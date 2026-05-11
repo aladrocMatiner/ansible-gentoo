@@ -33,10 +33,10 @@ After manual intervention:
 
 ## Makefile Integration
 
-Planned target:
+Implemented target:
 
 ```sh
-make record-manual-step
+make record-manual-step MANUAL_STEP_SUMMARY="Reviewed target state" MANUAL_STEP_REASON="Automation paused for manual inspection"
 ```
 
-If implemented, it must write project-local non-secret notes and must not execute arbitrary operator commands.
+It writes project-local non-secret JSON under `logs/install-runs/<run-id>/manual-steps/`, updates `var/state/current-install.json`, mirrors state to the run-local `state.json`, and must not execute arbitrary operator commands.

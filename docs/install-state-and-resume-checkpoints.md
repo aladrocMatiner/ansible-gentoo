@@ -35,6 +35,15 @@ Validate the current live ISO target against the saved resume checkpoint:
 make install-resume-plan
 ```
 
+Record a non-secret manual recovery note before resuming after operator intervention:
+
+```sh
+make record-manual-step MANUAL_STEP_SUMMARY="Reviewed target state" MANUAL_STEP_REASON="Automation paused for manual inspection"
+```
+
+After recording a manual step, rerun `make install-resume-plan` before continuing.
+The resume plan clears the manual revalidation flag only after the current target facts match the saved checkpoint. It does not satisfy destructive confirmations for later targets.
+
 For a network target, pass the same SSH target variables used by other Ansible workflows:
 
 ```sh
@@ -62,6 +71,8 @@ The shared `common/install_state` role records:
 - target root and EFI mount paths,
 - selected install disk when known,
 - per-phase evidence paths,
+- recorded manual intervention paths,
+- whether manual intervention requires revalidation,
 - the latest disk safety checkpoint when available.
 
 The disk safety checkpoint includes selected disk identity, descendant partition state, filesystem types, UUIDs, and mountpoints.
@@ -72,6 +83,7 @@ The disk safety checkpoint includes selected disk identity, descendant partition
 
 - reads `var/state/current-install.json`,
 - rejects state files with secret-like fields or values,
+- reports whether manual intervention requires revalidation,
 - extracts the saved disk, profile, filesystem, and checkpoint,
 - connects to the same kind of live ISO target over SSH,
 - runs `common/disk_detection`,
@@ -79,6 +91,8 @@ The disk safety checkpoint includes selected disk identity, descendant partition
 - fails if current disk, partition, filesystem UUID, mount, profile, or filesystem facts differ from state.
 
 The target allows mounted descendants during comparison because a partially completed install may have `/mnt/gentoo` mounted. Those mounts must match the checkpoint.
+
+If `manual_intervention_requires_revalidation` is true, `make install-resume-plan` is the required read-only revalidation step. Successful resume validation rewrites the state checkpoint with that flag cleared; later destructive targets still require their normal confirmation variables.
 
 ## Failure Modes
 

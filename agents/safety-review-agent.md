@@ -15,6 +15,8 @@ The project can destroy data if disk operations are wrong. Safety review is mand
 - Ensure Ansible tasks fail closed when target identity or confirmation state is uncertain.
 - Ensure Ansible safety gates are shared and reused across OpenRC and systemd flows.
 - Reject duplicated or inconsistent destructive safety logic.
+- Verify manual intervention records cannot satisfy or bypass destructive confirmations.
+- Verify manual intervention notes are non-secret and force read-only revalidation before automation resumes.
 - Produce a structured review decision: `APPROVED`, `APPROVED WITH CHANGES`, or `REJECTED`.
 
 ## 3. Non-goals
@@ -133,6 +135,7 @@ Before handling secrets:
 - Prefer environment variables, prompt-based input, or interactive login.
 - Ansible variable files must not contain plaintext passwords or API tokens.
 - Cleanup targets must remove only known secret paths.
+- Manual intervention notes must not contain secrets, password hashes, private keys, tokens, local credentials, or full command transcripts with credentials.
 - If a secret is leaked into a tracked file, the final decision must be `REJECTED` until the leak is removed.
 
 ## Documentation maintenance responsibilities
@@ -160,6 +163,7 @@ The Makefile is the public control plane. Safety review must verify:
 - Plan targets must exist before apply targets, such as `partition-plan` before `partition`.
 - Destructive or high-risk apply targets must have a read-only preview target or embed equivalent preview output before accepting confirmation.
 - Preview targets must not set or persist `I_UNDERSTAND_THIS_WIPES_DISK`, `I_UNDERSTAND_BOOTLOADER_CHANGES`, `confirm_wipe_disk`, or equivalent confirmations.
+- `make record-manual-step` must record only non-secret project-local notes, mark state as requiring revalidation, and never execute operator-provided commands.
 - User and password previews must show only non-secret metadata; they must not print password hashes, authorized key contents, private keys, or local secret file paths.
 - Destructive targets must fail closed when required variables are missing.
 - Cleanup targets must validate paths before deletion.
@@ -182,6 +186,7 @@ For Ansible playbooks, roles, and tasks:
 - Safety checks must be implemented once and reused rather than copied into init-specific roles.
 - Destructive disk apply targets must reuse `common/disk_safety` or an approved successor before mutation.
 - Resumed destructive apply targets must reuse the checkpoint comparison in `common/disk_safety` or an approved successor.
+- Manual intervention state must require `make install-resume-plan` or an equivalent read-only validation before resume, and it must not replace `confirm_wipe_disk`, `I_UNDERSTAND_THIS_WIPES_DISK`, or bootloader confirmations.
 - Disk model, size, serial, and current partition table must be gathered and displayed before partitioning.
 - Playbooks must support `--check` where practical.
 - Tasks that cannot honestly support check mode must provide plan output and skip mutation in dry-run.
