@@ -19,7 +19,7 @@ Agents must check documentation before finishing, correct stale documentation th
 - Makefile target added, changed, or removed: update `README.md` or `docs/`, and update `skills/makefile-control-plane.md` if the behavior is reusable.
 - Script added or changed: update `docs/` or relevant `skills/`; document arguments, environment variables, safety checks, examples, and failure modes.
 - Ansible playbook or role added or changed: update Ansible documentation; document variables, required inventory, safety gates, controller-to-target SSH assumptions, and execution target.
-- VM/libvirt workflow changed: update VM docs; document ISO path, disk path, libvirt URI, network mode, serial console behavior, SSH bootstrap, cleanup behavior, and whether behavior is implemented or planned.
+- VM/libvirt workflow changed: update VM docs; document ISO path, disk path, optional `VM_TEST_IMAGE_NAME` local test labels, libvirt URI, network mode, serial console behavior, SSH bootstrap, cleanup behavior, and whether behavior is implemented or planned.
 - Manual intervention or resume behavior changed: update `docs/manual-escape-hatch-policy.md`, `docs/install-state-and-resume-checkpoints.md`, `docs/install-audit-bundle.md`, and relevant agent or skill files.
 - Codex bootstrap changed: update Codex bootstrap docs; document install method, token handling, validation, and cleanup.
 - Safety rule changed: update safety docs and relevant agent or skill files.
@@ -116,7 +116,9 @@ VM docs must explain:
 
 - `./gentoo.iso`.
 - `./var/libvirt/`.
+- Case-specific VM naming from fixed platform `amd64`, `PROFILE`, `FILESYSTEM`, and optional `VM_TEST_IMAGE_NAME`.
 - qcow2 disk safety.
+- Optional `VM_TEST_IMAGE_NAME` labels when manual test image or test-line names affect generated VM artifacts.
 - libvirt URI and network mode.
 - managed-network IP discovery or SSH forwarding behavior.
 - `make vm-bootstrap-ssh`.

@@ -2,7 +2,7 @@
 
 Cleanup is Makefile-mediated and scoped. It deletes only generated project artifacts after explicit confirmation.
 
-The VM cleanup path remains `make vm-clean`; it undefines only the configured project-owned libvirt domain and removes generated VM artifacts. The cleanup targets in this document handle installer state, run logs, audit bundles, and stage3 cache files.
+The VM cleanup path remains `make vm-clean`; it undefines only the configured project-owned libvirt domain and removes generated VM artifacts plus the selected case state pointer under `var/state/libvirt/<case-domain>/current-install.json`. The cleanup targets in this document handle non-VM-specific installer state, run logs, audit bundles, and stage3 cache files.
 
 `STAGE3_CACHE_DIR` is a live-target path in the normal SSH-driven installer flow. Stage3 cache cleanup therefore runs through Ansible against the live ISO target.
 
@@ -46,6 +46,8 @@ If `CLEAN_RUN_ID` is unset, cleanup uses the run id in `var/state/current-instal
 - `audit`: deletes only `logs/install-runs/<run-id>/audit-bundle/`.
 - `stage3-cache`: deletes target-local `STAGE3_CACHE_DIR` over Ansible only when it is under `/tmp/gentoo-ai-installer/`.
 - `test-run`: deletes the configured state file and non-audit logs for the selected run.
+
+`make vm-clean` is separate from these scopes. It deletes only the selected VM case artifacts and that case's current state pointer; it does not delete historical `logs/install-runs/` evidence or audit bundles.
 
 Audit bundles are preserved by default. They are deleted only by `make clean-audit` or another explicit `audit` scope.
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 PROJECT_MARKER="gentoo-ai-installer-managed-domain"
+VM_PLATFORM="amd64"
 
 die() {
   printf '%s: %s\n' "${SCRIPT_NAME:-vm-libvirt}" "$*" >&2
@@ -144,9 +145,30 @@ assert_safe_generated_file() {
   fi
 }
 
+assert_conservative_name() {
+  local label=$1
+  local name=$2
+  [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$ ]] || die "$label must be a conservative libvirt-safe name: $name"
+}
+
 assert_safe_name() {
   local name=$1
-  [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$ ]] || die "VM_NAME must be a conservative libvirt domain name: $name"
+  assert_conservative_name VM_NAME "$name"
+}
+
+assert_safe_test_image_name() {
+  local name=$1
+  local lower
+
+  [[ -n "$name" ]] || return 0
+  assert_conservative_name VM_TEST_IMAGE_NAME "$name"
+  [[ "$name" != *".."* ]] || die "VM_TEST_IMAGE_NAME must not contain parent traversal-like segments: $name"
+  lower=${name,,}
+  case "$lower" in
+    *secret*|*token*|*passwd*|*password*|*apikey*|*api_key*|*api-key*|*private*|*credential*|*credentials*)
+      die "VM_TEST_IMAGE_NAME looks secret-like; use a non-sensitive manual test label"
+      ;;
+  esac
 }
 
 assert_project_root_xml_safe() {
@@ -183,6 +205,73 @@ assert_host() {
 assert_network_name() {
   local network=$1
   [[ "$network" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$ ]] || die "VM_NETWORK must be a conservative libvirt network name: $network"
+}
+
+validate_case_selection() {
+  case "$PROFILE" in
+    openrc|systemd) ;;
+    *) die "PROFILE must be 'openrc' or 'systemd', got: $PROFILE" ;;
+  esac
+  case "$FILESYSTEM" in
+    ext4|btrfs) ;;
+    *) die "FILESYSTEM must be 'ext4' or 'btrfs', got: $FILESYSTEM" ;;
+  esac
+}
+
+case_ssh_host_port() {
+  case "$PROFILE/$FILESYSTEM" in
+    openrc/ext4) printf '%s\n' 2222 ;;
+    openrc/btrfs) printf '%s\n' 2223 ;;
+    systemd/ext4) printf '%s\n' 2224 ;;
+    systemd/btrfs) printf '%s\n' 2225 ;;
+    *) die "unsupported VM case for SSH port derivation: $PROFILE/$FILESYSTEM" ;;
+  esac
+}
+
+derive_case_vm_name() {
+  local base_name=$1
+  local test_image_name=$2
+  local prefix
+
+  if [[ "$base_name" == *"-amd64-"* ]]; then
+    die "VM_NAME must be the base name, not a full case name; use PROFILE and FILESYSTEM to select the case: $base_name"
+  fi
+  assert_conservative_name VM_NAME "$base_name"
+  assert_safe_test_image_name "$test_image_name"
+
+  prefix=$base_name
+  if [[ -n "$test_image_name" ]]; then
+    prefix="${prefix}-${test_image_name}"
+  fi
+
+  printf '%s-%s-%s-%s\n' "$prefix" "$VM_PLATFORM" "$PROFILE" "$FILESYSTEM"
+}
+
+default_base_disk_path() {
+  local dir=$1
+  local base_name=$2
+  printf '%s/%s.qcow2\n' "$dir" "$base_name"
+}
+
+is_default_disk_path() {
+  local configured=$1
+  local dir=$2
+  local base_name=$3
+
+  [[ -z "$configured" ]] && return 0
+  [[ "$configured" == "$(default_base_disk_path "$dir" "$base_name")" ]] && return 0
+  [[ "$configured" == "${dir}/gentoo-test.qcow2" ]] && return 0
+  [[ "$configured" == "var/libvirt/gentoo-test.qcow2" ]] && return 0
+  return 1
+}
+
+is_default_state_path() {
+  local configured=$1
+
+  [[ -z "$configured" ]] && return 0
+  [[ "$configured" == "var/state/current-install.json" ]] && return 0
+  [[ "$configured" == "./var/state/current-install.json" ]] && return 0
+  return 1
 }
 
 assert_install_disk_input() {
@@ -302,18 +391,50 @@ xml_escape() {
 }
 
 load_vm_config() {
+  local derived_vm_name
+
   LIBVIRT_URI=${LIBVIRT_URI:-qemu:///system}
   VM_NET_MODE=${VM_NET_MODE:-network}
-  VM_NAME=${VM_NAME:-gentoo-ai-installer}
+  PROFILE=${PROFILE:-openrc}
+  FILESYSTEM=${FILESYSTEM:-ext4}
+  validate_case_selection
+  if [[ "${VM_CASE_DERIVED:-no}" == yes ]]; then
+    VM_BASE_NAME=${VM_BASE_NAME:-gentoo-test}
+  else
+    VM_BASE_NAME=${VM_NAME:-gentoo-test}
+  fi
+  VM_TEST_IMAGE_NAME=${VM_TEST_IMAGE_NAME:-}
   VM_ISO=${VM_ISO:-gentoo.iso}
   VM_DIR=${VM_DIR:-var/libvirt}
-  VM_DISK=${VM_DISK:-${VM_DIR}/gentoo-ai-installer.qcow2}
+  VM_CASE_KEY="${VM_PLATFORM}-${PROFILE}-${FILESYSTEM}"
+  derived_vm_name=$(derive_case_vm_name "$VM_BASE_NAME" "$VM_TEST_IMAGE_NAME")
+  if [[ "${VM_CASE_DERIVED:-no}" == yes ]]; then
+    [[ "${VM_NAME:-}" == "$derived_vm_name" ]] || die "derived VM_NAME does not match selected case: ${VM_NAME:-unset} != $derived_vm_name"
+  else
+    VM_NAME=$derived_vm_name
+  fi
+  assert_safe_name "$VM_NAME"
+  VM_CASE_DERIVED=yes
+  VM_CASE_NAME="$VM_NAME"
+  if is_default_disk_path "${VM_DISK:-}" "$VM_DIR" "$VM_BASE_NAME"; then
+    VM_DISK="${VM_DIR}/${VM_NAME}.qcow2"
+  else
+    VM_DISK=${VM_DISK:-${VM_DIR}/${VM_NAME}.qcow2}
+  fi
+  if [[ -z "${ANSIBLE_LIVE_HOST:-}" ]] && is_default_state_path "${INSTALL_STATE_FILE:-}"; then
+    INSTALL_STATE_FILE="var/state/libvirt/${VM_NAME}/current-install.json"
+    export INSTALL_STATE_FILE
+  fi
   VM_DISK_SIZE=${VM_DISK_SIZE:-40G}
   VM_RAM=${VM_RAM:-4096}
   VM_CPUS=${VM_CPUS:-2}
   VM_NETWORK=${VM_NETWORK:-default}
   VM_SSH_HOST=${VM_SSH_HOST:-127.0.0.1}
-  VM_SSH_HOST_PORT=${VM_SSH_HOST_PORT:-2222}
+  if [[ "${VM_SSH_HOST_PORT:-2222}" == 2222 ]]; then
+    VM_SSH_HOST_PORT=$(case_ssh_host_port)
+  else
+    VM_SSH_HOST_PORT=${VM_SSH_HOST_PORT:-2222}
+  fi
   VM_SSH_GUEST_PORT=${VM_SSH_GUEST_PORT:-22}
   VM_SSH_USER=${VM_SSH_USER:-root}
   VM_BOOT_MODE=${VM_BOOT_MODE:-uefi}
@@ -324,13 +445,22 @@ load_vm_config() {
   VM_NVRAM="${VM_NVRAM_DIR}/${VM_NAME}_VARS.fd"
   VM_KERNEL="${VM_DIR}/${VM_NAME}-gentoo-kernel"
   VM_INITRD="${VM_DIR}/${VM_NAME}-gentoo-initrd"
-  VM_LOG_DIR="logs/libvirt"
+  VM_LOG_DIR="logs/libvirt/${VM_NAME}"
+  VM_KNOWN_HOSTS="${VM_LOG_DIR}/known_hosts"
+  export VM_CASE_DERIVED VM_BASE_NAME VM_PLATFORM VM_CASE_KEY VM_CASE_NAME
+  export VM_NAME VM_TEST_IMAGE_NAME VM_DIR VM_DISK VM_XML VM_NVRAM_DIR VM_NVRAM VM_KERNEL VM_INITRD VM_LOG_DIR VM_KNOWN_HOSTS
+  export VM_SSH_HOST_PORT PROFILE FILESYSTEM INSTALL_STATE_FILE
 }
 
 validate_vm_config() {
   assert_project_root_xml_safe
+  validate_case_selection
+  assert_conservative_name VM_BASE_NAME "$VM_BASE_NAME"
+  assert_safe_test_image_name "$VM_TEST_IMAGE_NAME"
   assert_safe_name "$VM_NAME"
+  [[ "$VM_CASE_KEY" == "${VM_PLATFORM}-${PROFILE}-${FILESYSTEM}" ]] || die "VM case key is inconsistent: $VM_CASE_KEY"
   assert_safe_rel_dir VM_DIR "$VM_DIR"
+  assert_safe_rel_dir VM_LOG_DIR "$VM_LOG_DIR"
   assert_safe_disk "$VM_DIR" "$VM_DISK"
   case "$VM_BOOT_MODE" in
     uefi) ;;
@@ -415,6 +545,40 @@ domain_artifact_dirs() {
   sed -n "s/.*<artifact-dir>\\([^<]*\\)<\\/artifact-dir>.*/\\1/p"
 }
 
+domain_metadata_values() {
+  local tag=$1
+  sed -n "s/.*<${tag}>\\([^<]*\\)<\\/${tag}>.*/\\1/p"
+}
+
+require_domain_metadata_value() {
+  local xml=$1
+  local tag=$2
+  local expected=$3
+  local values=()
+
+  if [[ -z "$expected" ]]; then
+    printf '%s\n' "$xml" | grep -Eq "<${tag}([[:space:]][^>]*)?/>|<${tag}([[:space:]][^>]*)?></${tag}>" || die "project domain metadata <$tag> does not match selected case: expected empty"
+    return 0
+  fi
+
+  mapfile -t values < <(printf '%s\n' "$xml" | domain_metadata_values "$tag")
+  [[ "${#values[@]}" -eq 1 ]] || die "project domain must have exactly one <$tag> metadata value; found ${#values[@]}: $VM_NAME"
+  [[ "${values[0]}" == "$expected" ]] || die "project domain metadata <$tag> does not match selected case: ${values[0]} != $expected"
+}
+
+require_project_domain_metadata_matches_case() {
+  local xml
+
+  xml=$(domain_xml)
+  require_domain_metadata_value "$xml" "base-name" "$VM_BASE_NAME"
+  require_domain_metadata_value "$xml" "test-image-name" "$VM_TEST_IMAGE_NAME"
+  require_domain_metadata_value "$xml" "platform" "$VM_PLATFORM"
+  require_domain_metadata_value "$xml" "profile" "$PROFILE"
+  require_domain_metadata_value "$xml" "filesystem" "$FILESYSTEM"
+  require_domain_metadata_value "$xml" "case-key" "$VM_CASE_KEY"
+  require_domain_metadata_value "$xml" "case-domain" "$VM_NAME"
+}
+
 require_project_domain_matches_config() {
   local xml resolved_iso abs_iso abs_disk abs_nvram abs_kernel abs_initrd abs_dir source
   local disk_sources=()
@@ -423,6 +587,7 @@ require_project_domain_matches_config() {
 
   xml=$(domain_xml)
   require_project_marker_and_no_host_block_devices
+  require_project_domain_metadata_matches_case
   printf '%s\n' "$xml" | grep -Eq "<loader[^>]*type=['\"]pflash['\"]" || die "project domain is not configured with OVMF UEFI firmware; stop it if running, then run make vm-define to regenerate it"
 
   resolved_iso=$(resolve_iso_path "$VM_ISO")
@@ -495,17 +660,38 @@ require_ansible_live_target() {
 
 validate_artifact_paths() {
   assert_safe_rel_dir VM_DIR "$VM_DIR"
+  assert_safe_rel_dir VM_LOG_DIR "$VM_LOG_DIR"
   assert_safe_disk "$VM_DIR" "$VM_DISK"
   assert_safe_generated_file VM_XML "$VM_XML"
   assert_safe_generated_file VM_NVRAM "$VM_NVRAM"
   assert_safe_generated_file VM_KERNEL "$VM_KERNEL"
   assert_safe_generated_file VM_INITRD "$VM_INITRD"
+  assert_safe_generated_file VM_KNOWN_HOSTS "$VM_KNOWN_HOSTS"
 }
 
 ensure_artifact_dirs() {
   validate_artifact_paths
-  mkdir -p -- "$VM_DIR" "$VM_NVRAM_DIR"
+  mkdir -p -- "$VM_DIR" "$VM_NVRAM_DIR" "$VM_LOG_DIR"
   validate_artifact_paths
+}
+
+print_vm_identity() {
+  printf 'libvirt VM case:\n'
+  printf '  selected case: %s\n' "$VM_CASE_KEY"
+  printf '  base name: %s\n' "$VM_BASE_NAME"
+  if [[ -n "$VM_TEST_IMAGE_NAME" ]]; then
+    printf '  test image label: %s\n' "$VM_TEST_IMAGE_NAME"
+  fi
+  printf '  domain: %s\n' "$VM_NAME"
+  printf '  disk: %s\n' "$VM_DISK"
+  printf '  state file: %s\n' "${INSTALL_STATE_FILE:-}"
+  printf '  network mode: %s\n' "$VM_NET_MODE"
+  if [[ "$VM_NET_MODE" == user ]]; then
+    printf '  SSH forwarding: %s:%s -> guest port %s\n' "$VM_SSH_HOST" "$VM_SSH_HOST_PORT" "$VM_SSH_GUEST_PORT"
+  else
+    printf '  libvirt network: %s\n' "$VM_NETWORK"
+  fi
+  printf '  libvirt URI: %s\n' "$LIBVIRT_URI"
 }
 
 print_config() {
@@ -515,6 +701,9 @@ print_config() {
   resolved_kernel_args=$(resolve_kernel_args "$resolved_iso")
 
   printf 'libvirt VM configuration:\n'
+  printf '  selected case: %s\n' "$VM_CASE_KEY"
+  printf '  VM_BASE_NAME: %s\n' "$VM_BASE_NAME"
+  printf '  VM_TEST_IMAGE_NAME: %s\n' "${VM_TEST_IMAGE_NAME:-}"
   printf '  LIBVIRT_URI: %s\n' "$LIBVIRT_URI"
   printf '  VM_NAME: %s\n' "$VM_NAME"
   printf '  VM_ISO: %s\n' "$resolved_iso"
@@ -525,6 +714,8 @@ print_config() {
   printf '  VM_CPUS: %s\n' "$VM_CPUS"
   printf '  VM_BOOT_MODE: %s\n' "$VM_BOOT_MODE"
   printf '  VM_NET_MODE: %s\n' "$VM_NET_MODE"
+  printf '  INSTALL_STATE_FILE: %s\n' "${INSTALL_STATE_FILE:-}"
+  printf '  VM_LOG_DIR: %s\n' "$VM_LOG_DIR"
   printf '  VM_KERNEL_ARGS: %s\n' "$resolved_kernel_args"
   if [[ "$VM_NET_MODE" == user ]]; then
     printf '  SSH forwarding: %s:%s -> guest port %s\n' "$VM_SSH_HOST" "$VM_SSH_HOST_PORT" "$VM_SSH_GUEST_PORT"

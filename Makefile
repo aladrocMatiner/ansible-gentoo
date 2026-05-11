@@ -2,10 +2,11 @@ SHELL := /usr/bin/env bash
 
 LIBVIRT_URI ?= qemu:///system
 VM_NET_MODE ?= network
-VM_NAME ?= gentoo-ai-installer
+VM_NAME ?= gentoo-test
+VM_TEST_IMAGE_NAME ?=
 VM_ISO ?= gentoo.iso
 VM_DIR ?= var/libvirt
-VM_DISK ?= $(VM_DIR)/gentoo-ai-installer.qcow2
+VM_DISK ?= $(VM_DIR)/gentoo-test.qcow2
 VM_DISK_SIZE ?= 40G
 VM_RAM ?= 4096
 VM_CPUS ?= 2
@@ -68,6 +69,7 @@ VM_E2E_RESET_DISK ?= no
 export LIBVIRT_URI
 export VM_NET_MODE
 export VM_NAME
+export VM_TEST_IMAGE_NAME
 export VM_ISO
 export VM_DIR
 export VM_DISK
@@ -132,13 +134,14 @@ export VM_TEST_MATRIX_RUN_TARGET_PLANS
 export VM_E2E_RESET_DISK
 
 .PHONY: help \
-	vm-check vm-disk vm-define vm-start vm-start-installed vm-validate-first-boot vm-e2e-plan vm-e2e-install vm-test-matrix vm-test-matrix-plan vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
+	vm-list-cases vm-check vm-disk vm-define vm-start vm-start-installed vm-validate-first-boot vm-e2e-plan vm-e2e-install vm-test-matrix vm-test-matrix-plan vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
 	ansible-check config-check host-check real-hardware-check release-check secret-check handbook-trace ansible-live-ping ansible-live-preflight local-live-preflight local-detect-disks local-install-plan local-partition-plan detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-preview partition-preview format-preview mount-preview bootloader-preview users-preview destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan record-manual-step install-run-clean install-audit install-report cleanup-plan clean-state clean-logs clean-audit clean-stage3-cache reset-test-run \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
 	@printf '%s\n' \
 		'gentoo-ai-installer targets:' \
+		'  make vm-list-cases   List supported amd64 PROFILE/FILESYSTEM VM cases and generated artifacts' \
 		'  make vm-check        Verify libvirt tools, ISO, UEFI, network mode, and safe paths' \
 		'  make vm-disk         Create the project-local qcow2 VM disk if missing' \
 		'  make vm-define       Generate and define the libvirt domain' \
@@ -220,12 +223,14 @@ help:
 		'  make qemu-clean      Alias for vm-clean' \
 		'' \
 		'VM variables:' \
+		'  VM case defaults to amd64-$(PROFILE)-$(FILESYSTEM) using PROFILE=$(PROFILE) and FILESYSTEM=$(FILESYSTEM)' \
 		'  LIBVIRT_URI=$(LIBVIRT_URI)' \
 		'  VM_NET_MODE=$(VM_NET_MODE)' \
-		'  VM_NAME=$(VM_NAME)' \
+		'  VM_NAME=$(VM_NAME) (base name; VM targets derive <base>[-VM_TEST_IMAGE_NAME]-amd64-PROFILE-FILESYSTEM)' \
+		'  VM_TEST_IMAGE_NAME=$(VM_TEST_IMAGE_NAME) (optional manual test image label)' \
 		'  VM_ISO=$(VM_ISO)' \
 		'  VM_DIR=$(VM_DIR)' \
-		'  VM_DISK=$(VM_DISK)' \
+		'  VM_DISK=$(VM_DISK) (VM targets derive a case-specific disk when left at the default)' \
 		'  VM_DISK_SIZE=$(VM_DISK_SIZE)' \
 		'  VM_RAM=$(VM_RAM)' \
 		'  VM_CPUS=$(VM_CPUS)' \
@@ -281,6 +286,9 @@ help:
 
 vm-check:
 	@scripts/vm-check-libvirt.sh
+
+vm-list-cases:
+	@scripts/vm-list-cases.sh
 
 vm-disk:
 	@scripts/vm-create-disk.sh

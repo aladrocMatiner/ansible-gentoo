@@ -58,7 +58,7 @@ The install plan proves high-level intent, but it is not precise enough to be us
 ## Acceptance Criteria
 - `make partition-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda` prints a read-only ext4 partition plan.
 - `make partition-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda` prints a read-only Btrfs partition and subvolume plan.
-- `make partition-plan PROFILE=systemd FILESYSTEM=btrfs INSTALL_DISK=/dev/vda` prints a read-only systemd/Btrfs plan through shared logic.
+- `make partition-plan PROFILE=systemd FILESYSTEM=btrfs INSTALL_DISK=/dev/vda` prints a read-only amd64 systemd/Btrfs plan through shared logic for the local VM harness.
 - `make partition-plan` fails when `INSTALL_DISK` is missing.
 - `make partition-plan ANSIBLE_LIVE_HOST=... INSTALL_DISK=...` works without requiring libvirt VM discovery.
 - The partition plan reports selected disk path, type, size, model, serial when available, current filesystems, current mountpoints, current children, and nested descendants.

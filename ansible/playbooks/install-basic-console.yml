@@ -8,7 +8,7 @@
   pre_tasks:
     - name: Define shared install run id
       ansible.builtin.set_fact:
-        install_run_id: "{{ ansible_date_time.iso8601_basic_short }}"
+        install_run_id: "{{ lookup('ansible.builtin.pipe', 'date -u +%Y%m%dT%H%M%S%NZ') }}-{{ profile | default('openrc') }}-{{ filesystem | default('ext4') }}"
 
     - name: Report shared orchestration sequence
       ansible.builtin.debug:

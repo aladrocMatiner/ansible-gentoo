@@ -8,15 +8,34 @@
     fail_msg: "INSTALL_STATE_INVALID: install_state_phase must be a conservative phase name."
     success_msg: "Install state phase name is valid."
 
-- name: Define install state paths
+- name: Define install state root and requested state file
   ansible.builtin.set_fact:
-    install_state_run_id: "{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}"
     install_state_project_root: "{{ project_root | default(lookup('ansible.builtin.env', 'PWD'), true) }}"
+    install_state_requested_current_file: "{{ install_state_checkpoint_file | default(lookup('ansible.builtin.env', 'INSTALL_STATE_FILE'), true) | default('var/state/current-install.json', true) }}"
+    install_state_env_profile: "{{ lookup('ansible.builtin.env', 'PROFILE') | default('', true) }}"
+    install_state_env_filesystem: "{{ lookup('ansible.builtin.env', 'FILESYSTEM') | default('', true) }}"
+
+- name: Define install state default run id
+  ansible.builtin.set_fact:
+    install_state_default_run_id: "{{ lookup('ansible.builtin.pipe', 'date -u +%Y%m%dT%H%M%S%NZ') }}-{{ profile | default(install_state_env_profile, true) | default('unknown', true) }}-{{ filesystem | default(install_state_env_filesystem, true) | default('unknown', true) }}"
+
+- name: Validate install state file path
+  ansible.builtin.assert:
+    that:
+      - install_state_requested_current_file is match('^var/state/')
+      - install_state_requested_current_file is not search('(^|/)\\.\\.(/|$)')
+      - install_state_requested_current_file is not search('[\\n\\r\\t]')
+    fail_msg: "INSTALL_STATE_INVALID: install state file must be a project-relative path under var/state/."
+    success_msg: "Install state file path is project-local."
+
+- name: Define install state run id
+  ansible.builtin.set_fact:
+    install_state_run_id: "{{ install_run_id | default(install_state_default_run_id, true) }}"
 
 - name: Define install state files
   ansible.builtin.set_fact:
     install_state_run_dir: "{{ install_state_project_root }}/logs/install-runs/{{ install_state_run_id }}"
-    install_state_current_file: "{{ install_state_project_root }}/var/state/current-install.json"
+    install_state_current_file: "{{ install_state_project_root }}/{{ install_state_requested_current_file }}"
     install_state_run_file: "{{ install_state_project_root }}/logs/install-runs/{{ install_state_run_id }}/state.json"
     install_state_events_file: "{{ install_state_project_root }}/logs/install-runs/{{ install_state_run_id }}/events.jsonl"
 
@@ -27,6 +46,7 @@
     mode: "0750"
   loop:
     - "{{ install_state_project_root }}/var/state"
+    - "{{ install_state_current_file | dirname }}"
     - "{{ install_state_run_dir }}"
   delegate_to: localhost
   become: false
@@ -89,8 +109,8 @@
 
 - name: Normalize install state summary inputs
   ansible.builtin.set_fact:
-    install_state_profile: "{{ profile | default(install_state_existing.profile | default('')) }}"
-    install_state_filesystem: "{{ filesystem | default(install_state_existing.filesystem | default('')) }}"
+    install_state_profile: "{{ profile | default(install_state_env_profile, true) | default(install_state_existing.profile | default(''), true) }}"
+    install_state_filesystem: "{{ filesystem | default(install_state_env_filesystem, true) | default(install_state_existing.filesystem | default(''), true) }}"
     install_state_boot_mode: "{{ boot_mode | default(install_state_existing.boot_mode | default('uefi')) }}"
     install_state_target_mount: "{{ target_mount | default(install_state_existing.target_mount | default('/mnt/gentoo')) }}"
     install_state_efi_mount: "{{ efi_mount | default(install_state_existing.efi_mount | default('/mnt/gentoo/boot/efi')) }}"

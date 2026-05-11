@@ -7,6 +7,7 @@ source "$(dirname "$0")/vm-libvirt-common.sh"
 load_vm_config
 require_command qemu-img
 validate_vm_config
+print_vm_identity
 ensure_artifact_dirs
 
 if [[ -e "$VM_DISK" ]]; then

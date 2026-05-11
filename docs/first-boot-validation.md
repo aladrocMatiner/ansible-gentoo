@@ -26,7 +26,7 @@ If `FIRST_BOOT_USER` is unset, the wrapper uses `ADMIN_USER`.
 
 The target:
 
-- stops the current project-owned VM if it is running,
+- requests a clean shutdown first if the current project-owned VM is running,
 - redefines the domain to boot from the installed qcow2 disk while preserving the per-VM OVMF NVRAM file,
 - starts the VM without live ISO kernel/initrd boot,
 - discovers the libvirt-managed IP address,
@@ -34,6 +34,8 @@ The target:
 - runs read-only Ansible checks against the installed system.
 
 Run `make vm-define` later to restore the official live ISO boot definition.
+
+If the VM does not shut down cleanly within `VM_SHUTDOWN_TIMEOUT` seconds, the target fails rather than force-destroying the live ISO. The shutdown helper tries SSH `sync; poweroff` when a batch SSH connection is available, then falls back to libvirt ACPI shutdown. This protects recently written boot files on ext4 and keeps the first-boot test representative of a real reboot.
 
 ## Checks
 
@@ -65,6 +67,7 @@ logs/install-runs/<run-id>/first-boot/validation.json
 ## Failure Modes
 
 - State is not complete: rerun or point `INSTALL_STATE_FILE` at the completed run state.
+- Clean shutdown timeout: inspect the console, increase `VM_SHUTDOWN_TIMEOUT`, or stop the VM only after confirming the target filesystems are no longer being written.
 - SSH timeout: confirm installed SSH was enabled and authorized keys were installed.
 - No DHCP lease: inspect the VM console or libvirt network.
 - Hostname, UUID, or boot command line mismatch: boot back into the live ISO with `make vm-define && make vm-start`, mount the target, and inspect final-check evidence.

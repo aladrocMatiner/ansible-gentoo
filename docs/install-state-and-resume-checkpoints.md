@@ -6,11 +6,19 @@ State never acts as destructive confirmation. Later destructive targets still re
 
 ## Files
 
-The current state pointer is:
+The default current state pointer is:
 
 ```text
 var/state/current-install.json
 ```
+
+Local libvirt VM wrappers derive case-specific state pointers when `ANSIBLE_LIVE_HOST` is not set, for example:
+
+```text
+var/state/libvirt/gentoo-test-amd64-openrc-ext4/current-install.json
+```
+
+`INSTALL_STATE_FILE` may override the pointer, but it must remain a project-relative path under `var/state/`.
 
 Each run also writes:
 
@@ -18,6 +26,8 @@ Each run also writes:
 logs/install-runs/<run-id>/state.json
 logs/install-runs/<run-id>/events.jsonl
 ```
+
+Run ids include high-resolution UTC time plus the selected profile/filesystem when the caller does not provide `install_run_id`, so parallel VM validation runs do not share one log directory.
 
 Both `var/state/` and `logs/` are ignored by git. State files must not contain passwords, API keys, tokens, private keys, password hashes, or local credentials.
 
@@ -81,7 +91,7 @@ The disk safety checkpoint includes selected disk identity, descendant partition
 
 `make install-resume-plan` is read-only for the live ISO target. It:
 
-- reads `var/state/current-install.json`,
+- reads the configured `INSTALL_STATE_FILE`, defaulting to `var/state/current-install.json`,
 - rejects state files with secret-like fields or values,
 - reports whether manual intervention requires revalidation,
 - extracts the saved disk, profile, filesystem, and checkpoint,

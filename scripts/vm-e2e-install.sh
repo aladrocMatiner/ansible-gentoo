@@ -51,6 +51,15 @@ assert_install_disk_input "$install_disk"
 admin_user=${ADMIN_USER:-}
 validate_admin_user "$admin_user"
 [[ "${ENABLE_SSH:-no}" == yes ]] || die_code CONFIG_INVALID "vm-e2e-install requires ENABLE_SSH=yes so first-boot validation can connect to the installed system"
+admin_authorized_keys_file=${ADMIN_AUTHORIZED_KEYS_FILE:-}
+[[ -n "$admin_authorized_keys_file" ]] || die_code CONFIG_INVALID "vm-e2e-install requires ADMIN_AUTHORIZED_KEYS_FILE so first-boot validation can authenticate to the installed admin user"
+[[ -r "$admin_authorized_keys_file" && -f "$admin_authorized_keys_file" ]] || die_code CONFIG_INVALID "ADMIN_AUTHORIZED_KEYS_FILE must be a readable public-key file: $admin_authorized_keys_file"
+if grep -Eq -- '-----BEGIN [A-Z ]*PRIVATE KEY-----' "$admin_authorized_keys_file"; then
+  die_code SECRET_INPUT_INVALID "ADMIN_AUTHORIZED_KEYS_FILE must contain public keys only, not private key material"
+fi
+if ! grep -Eq -- '^[[:space:]]*(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(256|384|521)|sk-ssh-ed25519@openssh.com|sk-ecdsa-sha2-nistp256@openssh.com)[[:space:]]+' "$admin_authorized_keys_file"; then
+  die_code CONFIG_INVALID "ADMIN_AUTHORIZED_KEYS_FILE must contain at least one supported OpenSSH public key"
+fi
 
 [[ "${I_UNDERSTAND_THIS_WIPES_DISK:-}" == yes ]] || die_code DESTRUCTIVE_CONFIRMATION_MISSING "vm-e2e-install requires I_UNDERSTAND_THIS_WIPES_DISK=yes"
 [[ "${I_UNDERSTAND_BOOTLOADER_CHANGES:-}" == yes ]] || die_code DESTRUCTIVE_CONFIRMATION_MISSING "vm-e2e-install requires I_UNDERSTAND_BOOTLOADER_CHANGES=yes"
@@ -61,7 +70,7 @@ case "$vm_e2e_reset_disk" in
   *) die_code CONFIG_INVALID "VM_E2E_RESET_DISK must be yes or no" ;;
 esac
 
-timestamp=$(date -u +%Y%m%dT%H%M%SZ)
+timestamp=$(date -u +%Y%m%dT%H%M%S%NZ)
 e2e_log_dir="logs/libvirt-e2e/${timestamp}-${profile}-${filesystem}"
 mkdir -p "$e2e_log_dir"
 [[ -d "$e2e_log_dir" && ! -L "$e2e_log_dir" ]] || die_code VM_UNSAFE "E2E log directory is unsafe: $e2e_log_dir"
@@ -83,6 +92,7 @@ run_step vm-start scripts/vm-start.sh
 run_step vm-bootstrap-ssh scripts/vm-bootstrap-live-ssh.py
 run_step vm-ansible-ping scripts/vm-ansible-ping.sh
 run_step install scripts/ansible-install-basic-console.sh
+run_step vm-shutdown scripts/vm-shutdown.sh
 run_step first-boot scripts/vm-validate-first-boot.sh
 run_step install-audit scripts/install-audit-bundle.py --state-file "${INSTALL_STATE_FILE:-var/state/current-install.json}" generate
 

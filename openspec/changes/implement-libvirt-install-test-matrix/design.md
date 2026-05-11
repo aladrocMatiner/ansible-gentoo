@@ -4,12 +4,12 @@
 
 Required planned matrix:
 
-| Profile | Filesystem |
-| --- | --- |
-| `openrc` | `ext4` |
-| `openrc` | `btrfs` |
-| `systemd` | `ext4` |
-| `systemd` | `btrfs` |
+| Entry | Platform | Profile | Filesystem |
+| --- | --- | --- | --- |
+| `amd64-openrc-ext4` | `amd64` | `openrc` | `ext4` |
+| `amd64-openrc-btrfs` | `amd64` | `openrc` | `btrfs` |
+| `amd64-systemd-ext4` | `amd64` | `systemd` | `ext4` |
+| `amd64-systemd-btrfs` | `amd64` | `systemd` | `btrfs` |
 
 ## Test Phases
 
@@ -34,7 +34,9 @@ Implemented targets:
 - `make vm-test-matrix`
 - `make vm-test-matrix-plan`
 
-`make vm-test-matrix-plan` enumerates all four entries, validates entry configuration, writes evidence under `logs/libvirt-matrix/<timestamp>/`, and does not create disks or domains. `make vm-test-matrix` is an alias for the same read-only planner.
+`make vm-test-matrix-plan` enumerates all four amd64 entries, validates entry configuration, writes evidence under `logs/libvirt-matrix/<timestamp>/`, and does not create disks or domains. `make vm-test-matrix` is an alias for the same read-only planner.
+
+`VM_TEST_IMAGE_NAME=<image-name>` is optional. When set, the planner inserts it between `VM_NAME` and the `amd64` platform segment in planned domain and disk names. The value must be a conservative label, not a path, ISO filename, token, or secret.
 
 Optional read-only target plan validation is available with:
 

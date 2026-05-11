@@ -72,7 +72,22 @@ first_boot_user=${FIRST_BOOT_USER:-$admin_user}
 first_boot_timeout=${FIRST_BOOT_TIMEOUT:-180}
 assert_positive_int FIRST_BOOT_TIMEOUT "$first_boot_timeout"
 
-scripts/vm-start-installed.sh
+start_installed_domain=yes
+if domain_exists; then
+  require_project_marker_and_no_host_block_devices
+  require_project_domain_metadata_matches_case
+  state=$(virsh --connect "$LIBVIRT_URI" domstate "$VM_NAME" 2>/dev/null || true)
+  xml=$(domain_xml)
+  if [[ "$state" == running && "$xml" == *"<boot-mode>installed-disk</boot-mode>"* ]]; then
+    start_installed_domain=no
+  fi
+fi
+
+if [[ "$start_installed_domain" == yes ]]; then
+  scripts/vm-start-installed.sh
+else
+  printf 'vm-validate-first-boot: using already-running installed VM: %s\n' "$VM_NAME"
+fi
 
 if [[ "$VM_NET_MODE" == user ]]; then
   first_boot_host=$VM_SSH_HOST

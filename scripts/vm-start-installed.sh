@@ -33,6 +33,7 @@ validate_vm_config
 require_uefi_firmware
 validate_artifact_paths
 require_libvirt_connection
+print_vm_identity
 
 [[ -f "$VM_DISK" ]] || die "VM_DISK is missing; complete a VM install before first-boot validation: $VM_DISK"
 assert_qcow2_image "$VM_DISK"
@@ -44,9 +45,10 @@ fi
 
 if domain_exists; then
   require_project_marker_and_no_host_block_devices
+  require_project_domain_metadata_matches_case
   state=$(virsh --connect "$LIBVIRT_URI" domstate "$VM_NAME" 2>/dev/null || true)
   if [[ "$state" == running || "$state" == paused ]]; then
-    virsh --connect "$LIBVIRT_URI" destroy "$VM_NAME"
+    scripts/vm-shutdown.sh
   fi
   virsh --connect "$LIBVIRT_URI" undefine "$VM_NAME" --keep-nvram >/dev/null 2>&1 || virsh --connect "$LIBVIRT_URI" undefine "$VM_NAME" >/dev/null
 fi
@@ -57,8 +59,15 @@ assert_safe_generated_file VM_XML "$VM_XML"
 abs_disk=$(normalize_path "$VM_DISK")
 abs_xml=$(normalize_path "$VM_XML")
 abs_nvram=$(normalize_path "$VM_NVRAM")
-abs_dir=$(normalize_path "$VM_DIR")
 emulator=$(command -v qemu-system-x86_64)
+xml_vm_base_name=$(xml_escape "$VM_BASE_NAME")
+xml_vm_test_image_name=$(xml_escape "$VM_TEST_IMAGE_NAME")
+xml_vm_platform=$(xml_escape "$VM_PLATFORM")
+xml_profile=$(xml_escape "$PROFILE")
+xml_filesystem=$(xml_escape "$FILESYSTEM")
+xml_case_key=$(xml_escape "$VM_CASE_KEY")
+xml_case_domain=$(xml_escape "$VM_NAME")
+xml_artifact_dir=$(xml_escape "$VM_DIR")
 
 cat > "$VM_XML" <<EOF
 <domain type='kvm'>
@@ -67,7 +76,14 @@ cat > "$VM_XML" <<EOF
   <metadata>
     <gentoo-ai-installer xmlns='https://example.invalid/gentoo-ai-installer'>
       <managed>true</managed>
-      <artifact-dir>${VM_DIR}</artifact-dir>
+      <base-name>${xml_vm_base_name}</base-name>
+      <test-image-name>${xml_vm_test_image_name}</test-image-name>
+      <platform>${xml_vm_platform}</platform>
+      <profile>${xml_profile}</profile>
+      <filesystem>${xml_filesystem}</filesystem>
+      <case-key>${xml_case_key}</case-key>
+      <case-domain>${xml_case_domain}</case-domain>
+      <artifact-dir>${xml_artifact_dir}</artifact-dir>
       <boot-mode>installed-disk</boot-mode>
     </gentoo-ai-installer>
   </metadata>
@@ -95,7 +111,6 @@ cat > "$VM_XML" <<EOF
       <driver name='qemu' type='qcow2'/>
       <source file='${abs_disk}'/>
       <target dev='vda' bus='virtio'/>
-      <boot order='1'/>
     </disk>
 $(network_xml)
     <serial type='pty'>

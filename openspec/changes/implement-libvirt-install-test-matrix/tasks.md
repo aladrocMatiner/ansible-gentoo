@@ -5,7 +5,8 @@
 - [x] Validate with `openspec validate implement-libvirt-install-test-matrix --strict`.
 
 ## Implementation
-- [x] Define matrix entries for OpenRC/systemd and ext4/Btrfs.
+- [x] Define matrix entries for amd64 OpenRC/systemd and ext4/Btrfs.
+- [x] Allow an optional manual test image label in planned matrix names.
 - [x] Add Makefile target(s) for matrix planning.
 - [x] Add safe disposable disk/domain naming.
 - [x] Run read-only plan validation for each matrix entry.

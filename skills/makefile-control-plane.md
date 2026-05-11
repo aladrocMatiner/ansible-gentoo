@@ -95,6 +95,7 @@ VM/libvirt variables:
 - `LIBVIRT_URI`
 - `VM_NET_MODE`
 - `VM_NAME`
+- `VM_TEST_IMAGE_NAME`
 - `VM_ISO`
 - `VM_DIR`
 - `VM_DISK`
@@ -139,10 +140,11 @@ Recommended VM/libvirt defaults:
 
 - `LIBVIRT_URI=qemu:///system`
 - `VM_NET_MODE=network`
-- `VM_NAME=gentoo-ai-installer`
+- `VM_NAME=gentoo-test` as the base name; VM targets derive `gentoo-test[-VM_TEST_IMAGE_NAME]-amd64-<profile>-<filesystem>`.
+- `VM_TEST_IMAGE_NAME` empty by default; optional conservative label for the manual test image or test line.
 - `VM_ISO=gentoo.iso`
 - `VM_DIR=var/libvirt`
-- `VM_DISK=$(VM_DIR)/gentoo-ai-installer.qcow2`
+- `VM_DISK=$(VM_DIR)/gentoo-test.qcow2` as a compatibility default; VM targets derive a case-specific disk when this default is not overridden.
 - `VM_DISK_SIZE=40G`
 - `VM_RAM=4096`
 - `VM_CPUS=2`
@@ -190,6 +192,9 @@ Rules:
 - `REAL_HARDWARE_*` acknowledgement variables default to `no` or unset; `make real-hardware-check` requires them before physical-machine destructive workflows are recommended.
 - Variables containing secrets must not be printed or committed.
 - `VM_DISK` must be a project-relative qcow2 path under `VM_DIR`.
+- `VM_TEST_IMAGE_NAME`, when set, must be a conservative label, not a path or secret; it may be inserted into generated VM domain, qcow2, log, and state names for manual validation images.
+- `PROFILE` and `FILESYSTEM` are the source of truth for local libvirt case selection; Makefile VM targets must not require operators to construct full case VM names manually.
+- `make vm-list-cases` must remain read-only and show generated domain, disk, state, log, and status for the four amd64 cases.
 - `VM_DIR` must not be the project root, `/dev`, absolute, symlinked, or contain parent traversal.
 - `VM_BOOT_MODE=bios` must be rejected in v1.
 - `ANSIBLE_LIVE_HOST` must not default to a VM IP or a physical host.
@@ -249,6 +254,7 @@ Required safe targets:
 - `make reset-test-run`
 - `make install-plan PROFILE=openrc`
 - `make install-plan PROFILE=systemd`
+- `make vm-list-cases`
 - `make vm-check`
 - `make vm-e2e-plan`
 - `make vm-test-matrix-plan`
@@ -301,6 +307,7 @@ Expected behavior:
 - `make stage3-install`: download, verify, and extract official Gentoo stage3 into verified `/mnt/gentoo` without chrooting or configuring Portage.
 - `make install-plan PROFILE=openrc`: summarize the planned OpenRC flow through the shared Ansible install path.
 - `make install-plan PROFILE=systemd`: summarize the planned systemd flow through the shared Ansible install path.
+- `make vm-list-cases`: read-only listing of amd64 OpenRC/systemd and ext4/Btrfs local libvirt case domains, disks, state paths, logs, ports, and current domain status.
 - `make vm-check`: read-only validation of libvirt tools, ISO resolution, UEFI firmware, network mode, and safe project-local paths.
 - `make vm-e2e-plan`: plan a full disposable libvirt install validation, require explicit `/dev/vda`, `ADMIN_USER`, and `ENABLE_SSH=yes`, integrate matrix planning, and avoid VM mutation.
 - `make vm-test-matrix-plan`: enumerate OpenRC/systemd and ext4/Btrfs libvirt validation entries, validate each entry's configuration, write local matrix evidence, and avoid creating disks or domains.
@@ -371,7 +378,7 @@ Expected behavior:
 - `make vm-ansible-ping`: validate Ansible SSH connectivity to the local libvirt live ISO test target without configuring Gentoo.
 - `make vm-shutdown`: request guest shutdown.
 - `make vm-destroy`: stop the configured project-owned domain without deleting artifacts.
-- `make vm-clean`: undefine the project-owned domain and delete generated VM artifacts only after typing `DELETE`.
+- `make vm-clean`: undefine the selected project-owned case domain and delete generated VM artifacts only when `I_UNDERSTAND_CLEANUP_DELETE=DELETE` is set.
 
 `make mount-target` is destructive-adjacent because mounting over a wrong path can hide data. It must print current mounts, refuse unrelated existing mounts, remain idempotent for already-correct mounts, and fail closed when ambiguity exists.
 
@@ -387,7 +394,7 @@ Expected behavior:
 
 Future destructive targets should print or call a read-only preview before accepting confirmation. Preview output must not set `I_UNDERSTAND_THIS_WIPES_DISK=yes` or any equivalent confirmation.
 
-VM targets are not allowed to touch host block devices. They must reject `/dev/*`, absolute VM disk paths, parent traversal, wildcard paths, symlinked artifact directories, non-qcow2 existing disk files, project-root artifact directories, and project root paths that would make generated libvirt XML unsafe. Existing libvirt domains with the configured name must be rejected for start, SSH, rsync, Ansible, and inspection unless they are project-owned, UEFI-configured, and match the configured official ISO plus generated artifacts for disk, NVRAM, kernel, initrd, and artifact directory. Cleanup, shutdown, destroy, and redefinition may operate on stale project-marked domains only when those domains do not reference `/dev/*` or libvirt block devices. Legacy `qemu-*` targets may exist only as compatibility aliases to `vm-*` targets.
+VM targets are not allowed to touch host block devices. They must reject `/dev/*`, absolute VM disk paths, parent traversal, wildcard paths, symlinked artifact directories, non-qcow2 existing disk files, project-root artifact directories, and project root paths that would make generated libvirt XML unsafe. Existing libvirt domains with the configured effective case name must be rejected for start, SSH, rsync, Ansible, and inspection unless they are project-owned, UEFI-configured, and match the configured official ISO plus generated artifacts for disk, NVRAM, kernel, initrd, artifact directory, and selected case metadata. Cleanup must require `I_UNDERSTAND_CLEANUP_DELETE=DELETE` and delete only validated artifacts for the selected case. Legacy `qemu-*` targets may exist only as compatibility aliases to `vm-*` targets.
 
 ## 8. Destructive Targets
 Destructive targets can destroy data, alter boot behavior, or perform broad persistent changes. They require strict gates.
@@ -543,7 +550,7 @@ When Makefile behavior changes, documentation must change in the same commit or 
 - Semi-dangerous targets must document what paths or live-environment state they may change.
 - If target names, variable names, defaults, or confirmation values change, update this skill, `README.md` or `docs/`, and the active OpenSpec `tasks.md`.
 - If VM/libvirt targets change, update `docs/libvirt-manual-install-test.md`, any QEMU migration note, and active OpenSpec tasks. Document ISO path, qcow2 path, libvirt URI, network mode, serial console, SSH bootstrap, guest `/dev/vda`, Ansible connectivity validation, and cleanup behavior.
-- If VM test matrix targets change, update `docs/libvirt-install-test-matrix.md`, `docs/libvirt-manual-install-test.md`, this skill, and active OpenSpec tasks. Document matrix entries, planned domain/disk names, logs, and which phases are implemented.
+- If VM test matrix targets change, update `docs/libvirt-install-test-matrix.md`, `docs/libvirt-manual-install-test.md`, this skill, and active OpenSpec tasks. Document matrix entries, optional manual test image labels, generated domain/disk names, logs, and which phases are implemented.
 - If VM end-to-end validation changes, update `docs/libvirt-end-to-end-install-validation.md`, `docs/libvirt-manual-install-test.md`, `docs/libvirt-install-test-matrix.md`, this skill, safety review rules, and active OpenSpec tasks. Document confirmations, logs, audit references, and first-boot expectations.
 - If release readiness behavior changes, update `docs/release-readiness.md`, README, this skill, and active OpenSpec tasks together.
 - If host requirement checks change, update `docs/supported-host-requirements.md`, `docs/libvirt-manual-install-test.md`, `docs/install-configuration.md`, and active OpenSpec tasks.

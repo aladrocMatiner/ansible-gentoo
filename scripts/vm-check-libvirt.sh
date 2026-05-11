@@ -35,11 +35,16 @@ if domain_exists; then
 fi
 
 printf 'vm-check: OK\n'
+printf '  selected case: %s\n' "$VM_CASE_KEY"
+printf '  VM_BASE_NAME: %s\n' "$VM_BASE_NAME"
+printf '  VM_TEST_IMAGE_NAME: %s\n' "${VM_TEST_IMAGE_NAME:-}"
 printf '  ISO: %s\n' "$resolved_iso"
 printf '  LIBVIRT_URI: %s\n' "$LIBVIRT_URI"
 printf '  VM_NAME: %s\n' "$VM_NAME"
 printf '  VM_DIR: %s\n' "$VM_DIR"
 printf '  VM_DISK: %s\n' "$VM_DISK"
+printf '  INSTALL_STATE_FILE: %s\n' "${INSTALL_STATE_FILE:-}"
+printf '  VM_LOG_DIR: %s\n' "$VM_LOG_DIR"
 printf '  VM_BOOT_MODE: %s\n' "$VM_BOOT_MODE"
 printf '  OVMF_CODE: %s\n' "$OVMF_CODE"
 printf '  OVMF_VARS_TEMPLATE: %s\n' "$OVMF_VARS_TEMPLATE"

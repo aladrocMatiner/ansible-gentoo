@@ -37,6 +37,7 @@ def validate() -> dict[str, str]:
     install_disk = env("INSTALL_DISK")
     admin_user = env("ADMIN_USER")
     enable_ssh = env("ENABLE_SSH", "no")
+    admin_authorized_keys_file = env("ADMIN_AUTHORIZED_KEYS_FILE")
 
     errors: list[str] = []
     if profile not in {"openrc", "systemd"}:
@@ -49,6 +50,10 @@ def validate() -> dict[str, str]:
         errors.append("ADMIN_USER must be set to a conservative installed-system user name")
     if enable_ssh != "yes":
         errors.append("ENABLE_SSH=yes is required so first-boot validation can connect to the installed VM")
+    if not admin_authorized_keys_file:
+        errors.append("ADMIN_AUTHORIZED_KEYS_FILE is required so first-boot validation can authenticate to the installed admin user")
+    elif not Path(admin_authorized_keys_file).is_file() or not os.access(admin_authorized_keys_file, os.R_OK):
+        errors.append(f"ADMIN_AUTHORIZED_KEYS_FILE must point at a readable public-key file: {admin_authorized_keys_file}")
 
     if errors:
         die("VM_E2E_INVALID", "; ".join(errors))
@@ -59,6 +64,7 @@ def validate() -> dict[str, str]:
         "install_disk": install_disk,
         "admin_user": admin_user,
         "enable_ssh": enable_ssh,
+        "admin_authorized_keys_file": "<set>",
     }
 
 
@@ -90,8 +96,8 @@ def main() -> None:
     if REPORT_DIR.is_symlink() or not REPORT_DIR.is_dir():
         die("VM_E2E_INVALID", f"report directory is unsafe: {REPORT_DIR}")
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    run_dir = REPORT_DIR / timestamp
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
+    run_dir = REPORT_DIR / f"{timestamp}-{selected['profile']}-{selected['filesystem']}"
     run_dir.mkdir(mode=0o750)
 
     matrix_result = run_matrix_plan(run_dir / "matrix-plan.log")
@@ -105,6 +111,7 @@ def main() -> None:
         "vm-bootstrap-ssh",
         "vm-ansible-ping",
         "install",
+        "vm-shutdown",
         "vm-validate-first-boot",
         "install-audit",
     ]
@@ -121,9 +128,11 @@ def main() -> None:
             "guest_install_disk": "/dev/vda",
             "host_block_devices": "forbidden",
             "destructive_execution": "requires vm-e2e-install with normal install confirmations",
+            "first_boot_handoff": "requires clean live ISO shutdown before installed-disk boot",
         },
     }
     write_json(run_dir / "e2e-plan.json", report)
+    write_json(REPORT_DIR / f"latest-plan-{selected['profile']}-{selected['filesystem']}.json", report)
     write_json(REPORT_DIR / "latest-plan.json", report)
 
     print("Libvirt end-to-end install validation plan")

@@ -9,11 +9,11 @@ Status: the direct QEMU implementation described here has been superseded by `mi
 
 ## Expected Local Files
 - `./gentoo.iso`
-- `./var/libvirt/gentoo-ai-installer.qcow2` for the active libvirt workflow
+- `./var/libvirt/gentoo-test.qcow2` for the active libvirt workflow
 
 `./gentoo.iso` is operator-provided. It may be either an official Gentoo live ISO file or an ignored artifact directory containing exactly one official `.iso` file. The project must not build a custom ISO in v1.
 
-The active VM disk image must be created as qcow2 and must remain under the configured project-local VM artifact directory. The active default is `./var/libvirt/gentoo-ai-installer.qcow2`.
+The active VM disk image must be created as qcow2 and must remain under the configured project-local VM artifact directory. The active default is `./var/libvirt/gentoo-test.qcow2`.
 
 ## Required Host Tools
 - `qemu-system-x86_64`
@@ -88,7 +88,7 @@ The active libvirt workflow supports future phase 2 Ansible testing by keeping p
 
 - ISO path: `./gentoo.iso` as a file, or `./gentoo.iso/` containing exactly one `.iso`
 - Disk directory: `./var/libvirt/` by default
-- Disk image: `./var/libvirt/gentoo-ai-installer.qcow2` by default
+- Disk image: `./var/libvirt/gentoo-test.qcow2` by default
 - Makefile target entry points
 - Logs suitable for debugging libvirt launch failures
 

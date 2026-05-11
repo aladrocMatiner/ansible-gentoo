@@ -48,8 +48,8 @@ Behavior to add:
 
 ## 3. Proposed Local Files
 - `./gentoo.iso` or `./gentoo.iso/<official-live-iso-file>.iso`
-- `./var/libvirt/gentoo-ai-installer.qcow2`
-- `./var/libvirt/gentoo-ai-installer.xml`
+- `./var/libvirt/gentoo-test.qcow2`
+- `./var/libvirt/gentoo-test.xml`
 - `./var/libvirt/nvram/`
 - `./logs/libvirt/`
 
@@ -98,10 +98,10 @@ Expected variables:
 
 - `LIBVIRT_URI ?= qemu:///system`
 - `VM_NET_MODE ?= network`
-- `VM_NAME ?= gentoo-ai-installer`
+- `VM_NAME ?= gentoo-test`
 - `VM_ISO ?= gentoo.iso`
 - `VM_DIR ?= var/libvirt`
-- `VM_DISK ?= $(VM_DIR)/gentoo-ai-installer.qcow2`
+- `VM_DISK ?= $(VM_DIR)/gentoo-test.qcow2`
 - `VM_DISK_SIZE ?= 40G`
 - `VM_RAM ?= 4096`
 - `VM_CPUS ?= 2`

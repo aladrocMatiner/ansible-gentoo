@@ -60,7 +60,18 @@ Use `make vm-validate-first-boot ADMIN_USER=<admin-user>` after a completed VM i
 
 Use `make vm-test-matrix-plan` to plan OpenRC/systemd and ext4/Btrfs libvirt validation entries without creating disks or running destructive installs; see `docs/libvirt-install-test-matrix.md`.
 
-Use `make vm-e2e-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda ADMIN_USER=<admin-user> ENABLE_SSH=yes` before running disposable full-VM validation with `make vm-e2e-install`; see `docs/libvirt-end-to-end-install-validation.md`.
+Use `make vm-e2e-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda ADMIN_USER=<admin-user> ENABLE_SSH=yes ADMIN_AUTHORIZED_KEYS_FILE=<public-key-file>` before running disposable full-VM validation with `make vm-e2e-install`; see `docs/libvirt-end-to-end-install-validation.md`.
+
+Per-case libvirt quickstarts are indexed in [docs/quickstarts/README.md](docs/quickstarts/README.md):
+
+- [amd64 OpenRC + ext4](docs/quickstarts/openrc-ext4.md)
+- [amd64 OpenRC + Btrfs](docs/quickstarts/openrc-btrfs.md)
+- [amd64 systemd + ext4](docs/quickstarts/systemd-ext4.md)
+- [amd64 systemd + Btrfs](docs/quickstarts/systemd-btrfs.md)
+
+VM targets derive case-specific domains and artifacts from platform `amd64`, `PROFILE`, and `FILESYSTEM`; use `make vm-list-cases` to inspect them before creating anything.
+
+For manual image/test-line labels, `VM_TEST_IMAGE_NAME=<name>` inserts `<name>` into the generated VM and disk names. `VM_TEST_IMAGE_NAME` is a label, not an ISO path; use `VM_ISO` for the official Gentoo live ISO location.
 
 Use `make handbook-trace` to regenerate the mapping from Makefile targets and Ansible roles to the Gentoo AMD64 Handbook; see `docs/handbook-traceability.md`.
 

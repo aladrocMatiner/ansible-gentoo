@@ -11,6 +11,26 @@ import xml.etree.ElementTree as ET
 
 PROJECT_MARKER = "gentoo-ai-installer-managed-domain"
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+COMMON_ENV_KEYS = (
+    "LIBVIRT_URI",
+    "PROFILE",
+    "FILESYSTEM",
+    "VM_CASE_DERIVED",
+    "VM_BASE_NAME",
+    "VM_TEST_IMAGE_NAME",
+    "VM_PLATFORM",
+    "VM_CASE_KEY",
+    "VM_NAME",
+    "VM_DIR",
+    "VM_DISK",
+    "VM_NVRAM",
+    "VM_KERNEL",
+    "VM_INITRD",
+    "VM_LOG_DIR",
+    "VM_KNOWN_HOSTS",
+    "VM_SSH_HOST_PORT",
+    "INSTALL_STATE_FILE",
+)
 
 
 def die(message):
@@ -68,10 +88,46 @@ def abs_path(path):
     return os.path.abspath(os.path.join(REPO_ROOT, path))
 
 
+def common_vm_config():
+    key_list = " ".join(COMMON_ENV_KEYS)
+    script = (
+        "source scripts/vm-libvirt-common.sh; "
+        "load_vm_config; "
+        "validate_vm_config; "
+        f"for name in {key_list}; do printf '%s\\0' \"${{!name}}\"; done"
+    )
+    result = subprocess.run(
+        ["bash", "-c", script],
+        cwd=REPO_ROOT,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if result.returncode != 0:
+        detail = result.stderr.decode("utf-8", errors="replace").strip() or (
+            f"common VM config derivation exited with status {result.returncode}"
+        )
+        prefix = "vm-libvirt: "
+        if detail.startswith(prefix):
+            detail = detail[len(prefix) :]
+        die(detail)
+    values = result.stdout.split(b"\0")
+    if values and values[-1] == b"":
+        values.pop()
+    if len(values) != len(COMMON_ENV_KEYS):
+        die("common VM config derivation returned an unexpected number of values")
+    decoded = {
+        key: value.decode("utf-8", errors="strict")
+        for key, value in zip(COMMON_ENV_KEYS, values)
+    }
+    os.environ.update(decoded)
+    return decoded
+
+
 def expected_artifacts():
     vm_dir = os.environ.get("VM_DIR", "var/libvirt")
-    vm_disk = os.environ.get("VM_DISK", os.path.join(vm_dir, "gentoo-ai-installer.qcow2"))
-    domain = os.environ.get("VM_NAME", "gentoo-ai-installer")
+    vm_disk = os.environ.get("VM_DISK", os.path.join(vm_dir, "gentoo-test.qcow2"))
+    domain = os.environ.get("VM_NAME", "gentoo-test")
     return {
         "vm_dir": vm_dir,
         "disk": abs_path(vm_disk),
@@ -251,8 +307,9 @@ def require_running_domain(domain, uri):
 
 
 def main():
-    uri = os.environ.get("LIBVIRT_URI", "qemu:///system")
-    domain = os.environ.get("VM_NAME", "gentoo-ai-installer")
+    config = common_vm_config()
+    uri = config["LIBVIRT_URI"]
+    domain = config["VM_NAME"]
     public_key = read_public_key()
     validate_public_key(public_key)
     require_common_vm_safety()

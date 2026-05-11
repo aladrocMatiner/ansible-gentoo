@@ -50,7 +50,7 @@ Generate a Btrfs mount plan for the local VM harness:
 make mount-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda
 ```
 
-Generate a systemd/Btrfs plan through the same shared logic for the local VM harness:
+Generate an amd64 systemd/Btrfs plan through the same shared logic for the local VM harness:
 
 ```sh
 make mount-plan PROFILE=systemd FILESYSTEM=btrfs INSTALL_DISK=/dev/vda

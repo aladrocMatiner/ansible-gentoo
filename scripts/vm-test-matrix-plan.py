@@ -19,6 +19,7 @@ MATRIX_ENTRIES = [
     ("systemd", "ext4"),
     ("systemd", "btrfs"),
 ]
+MATRIX_PLATFORM = "amd64"
 PLAN_PHASES = [
     ("install-plan", "scripts/ansible-install-plan.sh"),
     ("partition-plan", "scripts/ansible-partition-plan.sh"),
@@ -43,6 +44,23 @@ def has_unsafe_chars(value: str) -> bool:
 def validate_name(label: str, value: str) -> None:
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,62}", value):
         die("VM_MATRIX_INVALID", f"{label} must be a conservative name: {value}")
+
+
+def validate_optional_name(label: str, value: str) -> None:
+    if value:
+        validate_name(label, value)
+        if ".." in value:
+            die("VM_MATRIX_INVALID", f"{label} must not contain parent traversal-like segments: {value}")
+        lowered = value.lower()
+        secret_terms = ("secret", "token", "passwd", "password", "apikey", "api_key", "api-key", "private", "credential")
+        if any(term in lowered for term in secret_terms):
+            die("VM_MATRIX_INVALID", f"{label} looks secret-like; use a non-sensitive manual test label")
+
+
+def vm_name_prefix(base_name: str, test_image_name: str) -> str:
+    if test_image_name:
+        return f"{base_name}-{test_image_name}"
+    return base_name
 
 
 def validate_project_dir(label: str, value: str) -> Path:
@@ -70,8 +88,25 @@ def validate_install_disk(value: str) -> None:
         die("VM_MATRIX_INVALID", "VM_TEST_MATRIX_INSTALL_DISK must be /dev/vda for disposable libvirt qcow2 tests")
 
 
+def validate_no_manual_vm_disk(vm_dir: Path, vm_name: str) -> None:
+    if env("VM_CASE_DERIVED") == "yes":
+        return
+    configured = env("VM_DISK")
+    allowed = {
+        "",
+        str(vm_dir / f"{vm_name}.qcow2"),
+        str(vm_dir / "gentoo-test.qcow2"),
+        "var/libvirt/gentoo-test.qcow2",
+    }
+    if configured not in allowed:
+        die(
+            "VM_MATRIX_INVALID",
+            "vm-test-matrix-plan does not accept manual VM_DISK overrides; unset VM_DISK so each case derives its own disk",
+        )
+
+
 def entry_name(profile: str, filesystem: str) -> str:
-    return f"{profile}-{filesystem}"
+    return f"{MATRIX_PLATFORM}-{profile}-{filesystem}"
 
 
 def run_command(command: list[str], env_vars: dict[str, str], log_path: Path) -> dict[str, Any]:
@@ -99,18 +134,26 @@ def write_json(path: Path, data: dict[str, Any]) -> None:
 
 
 def main() -> None:
-    vm_name = env("VM_NAME", "gentoo-ai-installer")
+    if env("VM_CASE_DERIVED") == "yes":
+        vm_name = env("VM_BASE_NAME", "gentoo-test")
+    else:
+        vm_name = env("VM_NAME", "gentoo-test")
+    vm_test_image_name = env("VM_TEST_IMAGE_NAME", "")
     vm_dir = validate_project_dir("VM_DIR", env("VM_DIR", "var/libvirt"))
     log_root = validate_project_dir("VM_TEST_MATRIX_LOG_DIR", env("VM_TEST_MATRIX_LOG_DIR", "logs/libvirt-matrix"))
     install_disk = env("VM_TEST_MATRIX_INSTALL_DISK", "/dev/vda")
     run_target_plans = env("VM_TEST_MATRIX_RUN_TARGET_PLANS", "no")
 
     validate_name("VM_NAME", vm_name)
+    validate_optional_name("VM_TEST_IMAGE_NAME", vm_test_image_name)
+    if "-amd64-" in vm_name:
+        die("VM_MATRIX_INVALID", "VM_NAME must be the base name; use PROFILE/FILESYSTEM for case selection")
     validate_install_disk(install_disk)
+    validate_no_manual_vm_disk(vm_dir, vm_name)
     if run_target_plans not in {"yes", "no"}:
         die("VM_MATRIX_INVALID", "VM_TEST_MATRIX_RUN_TARGET_PLANS must be yes or no")
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     run_dir = log_root / timestamp
     run_dir.mkdir(mode=0o750, parents=True, exist_ok=True)
     if run_dir.is_symlink() or not run_dir.is_dir():
@@ -121,9 +164,10 @@ def main() -> None:
 
     for profile, filesystem in MATRIX_ENTRIES:
         name = entry_name(profile, filesystem)
-        matrix_vm_name = f"{vm_name}-{name}"
+        matrix_vm_name = f"{vm_name_prefix(vm_name, vm_test_image_name)}-{name}"
         validate_name("matrix VM name", matrix_vm_name)
         matrix_disk = vm_dir / f"{matrix_vm_name}.qcow2"
+        matrix_state = Path("var/state/libvirt") / matrix_vm_name / "current-install.json"
         if matrix_disk.is_absolute() or ".." in matrix_disk.parts or matrix_disk.parts[: len(vm_dir.parts)] != vm_dir.parts:
             die("VM_MATRIX_INVALID", f"matrix disk escaped VM_DIR: {matrix_disk}")
 
@@ -133,8 +177,8 @@ def main() -> None:
             "PROFILE": profile,
             "FILESYSTEM": filesystem,
             "INSTALL_DISK": install_disk,
-            "VM_NAME": matrix_vm_name,
-            "VM_DISK": str(matrix_disk),
+            "VM_NAME": vm_name,
+            "VM_TEST_IMAGE_NAME": vm_test_image_name,
         }
 
         validations = {
@@ -162,10 +206,13 @@ def main() -> None:
 
         entry_report = {
             "entry": name,
+            "platform": MATRIX_PLATFORM,
+            "test_image_name": vm_test_image_name,
             "profile": profile,
             "filesystem": filesystem,
             "vm_name": matrix_vm_name,
             "vm_disk": str(matrix_disk),
+            "install_state_file": str(matrix_state),
             "guest_install_disk": install_disk,
             "target_plan_status": target_plan_status,
             "validations": validations,
@@ -180,6 +227,8 @@ def main() -> None:
         "result": "FAIL" if failures else "PASS",
         "run_dir": str(run_dir),
         "run_target_plans": run_target_plans,
+        "platform": MATRIX_PLATFORM,
+        "test_image_name": vm_test_image_name,
         "entries": entries,
         "safety": {
             "host_block_devices": "forbidden",
@@ -196,7 +245,7 @@ def main() -> None:
     for entry in entries:
         print(
             f"  {entry['entry']}: {entry['status']} "
-            f"vm={entry['vm_name']} disk={entry['vm_disk']} guest_disk={entry['guest_install_disk']}"
+            f"vm={entry['vm_name']} disk={entry['vm_disk']} state={entry['install_state_file']} guest_disk={entry['guest_install_disk']}"
         )
     if failures:
         raise SystemExit(1)

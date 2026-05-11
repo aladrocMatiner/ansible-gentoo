@@ -19,10 +19,35 @@ Validate tools, libvirt connectivity, ISO resolution, UEFI firmware, network mod
 
 ```sh
 make host-check
+make vm-list-cases
 make vm-check
 ```
 
-`host-check` and `vm-check` are read-only. They do not create domains, disks, NVRAM files, or artifact directories. `host-check` verifies host resources and controller-side libvirt prerequisites before VM workflows; `vm-check` verifies OVMF/UEFI firmware is available and refuses an existing project domain that is not configured for OVMF UEFI boot.
+`host-check`, `vm-list-cases`, and `vm-check` are read-only. They do not create domains, disks, NVRAM files, or artifact directories. `host-check` verifies host resources and controller-side libvirt prerequisites before VM workflows; `vm-list-cases` prints the four supported amd64 case identities and generated artifacts; `vm-check` verifies OVMF/UEFI firmware is available and refuses an existing project domain that is not configured for OVMF UEFI boot.
+
+VM targets derive case-specific artifacts from `PROFILE` and `FILESYSTEM`. The default no-override case is `PROFILE=openrc FILESYSTEM=ext4`, which maps to:
+
+```text
+domain: gentoo-test-amd64-openrc-ext4
+disk: var/libvirt/gentoo-test-amd64-openrc-ext4.qcow2
+state: var/state/libvirt/gentoo-test-amd64-openrc-ext4/current-install.json
+```
+
+Use another case by passing selectors:
+
+```sh
+make vm-check PROFILE=systemd FILESYSTEM=btrfs
+make vm-start PROFILE=systemd FILESYSTEM=btrfs
+```
+
+Use `VM_TEST_IMAGE_NAME=<label>` to distinguish a manual test line:
+
+```sh
+make vm-list-cases VM_TEST_IMAGE_NAME=handbook
+make vm-start PROFILE=openrc FILESYSTEM=ext4 VM_TEST_IMAGE_NAME=handbook
+```
+
+The label is inserted before `amd64`, for example `gentoo-test-handbook-amd64-openrc-ext4`. It must be a conservative non-secret label and is not the ISO path.
 
 `vm-start` validates ISO resolution, UEFI firmware, libvirt networking, and path safety before it creates a missing disk or defines a missing domain. If those prerequisites are unavailable, it fails without creating new VM artifacts. When a matching inactive domain already exists, `vm-start` also verifies that the configured qcow2 disk, per-VM NVRAM, extracted kernel, and extracted initrd are present before asking libvirt to start it.
 
@@ -77,7 +102,7 @@ make install-plan PROFILE=openrc
 make partition-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda
 ```
 
-The default network mode is the libvirt managed `default` network. `make vm-ip` discovers the live ISO address from libvirt domain interface data or DHCP leases filtered by the configured domain MAC address. The project does not commit passwords, tokens, or private keys.
+The default network mode is the libvirt managed `default` network. `make vm-ip` discovers the live ISO address from libvirt domain interface data or DHCP leases filtered by the configured domain MAC address. It waits briefly for DHCP races; use `VM_IP_WAIT_TIMEOUT=<seconds>` only when a slow live ISO boot needs more time. The project does not commit passwords, tokens, or private keys.
 
 `make vm-ssh`, `make vm-rsync`, and the Ansible live ISO wrappers treat SSH host keys as temporary live-session keys. They disable strict host-key persistence for these VM-only connections and keep the global `ansible.cfg` host-key policy unchanged.
 
@@ -99,7 +124,14 @@ To check that supported profile/filesystem variants stay represented, run the re
 make vm-test-matrix-plan
 ```
 
-It enumerates OpenRC/ext4, OpenRC/Btrfs, systemd/ext4, and systemd/Btrfs with separate planned domain and qcow2 names. It does not create or boot those domains; see `docs/libvirt-install-test-matrix.md`.
+It enumerates amd64 OpenRC/ext4, amd64 OpenRC/Btrfs, amd64 systemd/ext4, and amd64 systemd/Btrfs with the same generated domain and qcow2 names used by executable VM targets. It does not create or boot those domains; see `docs/libvirt-install-test-matrix.md`.
+
+For one-case-at-a-time validation, use the per-case quickstarts:
+
+- [amd64 OpenRC + ext4](quickstarts/openrc-ext4.md)
+- [amd64 OpenRC + Btrfs](quickstarts/openrc-btrfs.md)
+- [amd64 systemd + ext4](quickstarts/systemd-ext4.md)
+- [amd64 systemd + Btrfs](quickstarts/systemd-btrfs.md)
 
 The next read-only checkpoint is the partition plan:
 
@@ -115,12 +147,12 @@ Stop or clean the VM:
 ```sh
 make vm-shutdown
 make vm-destroy
-make vm-clean
+make vm-clean I_UNDERSTAND_CLEANUP_DELETE=DELETE
 ```
 
-`vm-shutdown` requests a clean guest shutdown. `vm-destroy` forcibly stops only the configured domain and is a no-op when that domain is already inactive. `vm-clean` requires typing `DELETE`; it undefines only the project-owned domain and removes only generated project-local artifacts.
+`vm-shutdown` requests a clean guest shutdown and waits up to `VM_SHUTDOWN_TIMEOUT` seconds. When SSH is available it first asks the guest to run `sync; poweroff`; otherwise it falls back to libvirt ACPI shutdown. `vm-destroy` forcibly stops only the configured case domain and is a no-op when that domain is already inactive. `vm-clean` requires `I_UNDERSTAND_CLEANUP_DELETE=DELETE`; it undefines only the selected project-owned case domain and removes only validated generated artifacts plus the selected case state pointer under `var/state/libvirt/<case-domain>/current-install.json`.
 
-After a completed automated VM install, `make vm-validate-first-boot ADMIN_USER=<admin-user>` redefines the project domain to boot from the installed qcow2 disk and runs read-only installed-system checks over SSH. Run `make vm-define` afterward to restore official live ISO boot mode.
+After a completed automated VM install, run `make vm-shutdown` before first-boot validation if the live ISO is still running. `make vm-validate-first-boot ADMIN_USER=<admin-user>` then redefines the project domain to boot from the installed qcow2 disk and runs read-only installed-system checks over SSH. Run `make vm-define` afterward to restore official live ISO boot mode.
 
 For full disposable VM validation, start with:
 
@@ -133,10 +165,13 @@ make vm-e2e-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda ADMIN_USER
 ## Defaults
 
 - libvirt URI: `qemu:///system`
-- VM name: `gentoo-ai-installer`
+- VM base name: `gentoo-test`
+- default selected case: `amd64-openrc-ext4`
+- effective default domain: `gentoo-test-amd64-openrc-ext4`
+- optional manual test image label: unset; case-specific names insert `VM_TEST_IMAGE_NAME` before `amd64`
 - ISO: `gentoo.iso`
 - artifact directory: `var/libvirt`
-- disk: `var/libvirt/gentoo-ai-installer.qcow2`
+- disk: `var/libvirt/gentoo-test-amd64-openrc-ext4.qcow2` for the default case
 - disk size: `40G` using a simple `qemu-img` size value such as `64M` or `40G`
 - RAM: `4096` MB
 - CPUs: `2`
@@ -163,11 +198,13 @@ The VM disk must be a qcow2 file under the configured project-local artifact dir
 - symlinked path components,
 - existing disk files that are not qcow2.
 
-Generated domains include a project ownership marker. Targets that start, inspect, SSH into, rsync to, or bootstrap SSH in a domain refuse to operate on an existing domain with the same name unless it is marked as project-owned and matches the configured official ISO plus generated artifacts: `VM_ISO`, `VM_DISK`, per-VM NVRAM, extracted kernel, extracted initrd, and artifact directory metadata. Existing domains that reference `/dev/*` or libvirt block devices are rejected even if they carry the marker.
+Generated domains include a project ownership marker and case metadata: base name, optional test image label, platform `amd64`, selected `PROFILE`, selected `FILESYSTEM`, case key, case domain, and artifact directory. Targets that start, inspect, SSH into, rsync to, or bootstrap SSH in a domain refuse to operate on an existing domain with the same name unless it is marked as project-owned and matches the configured official ISO plus generated artifacts: `VM_ISO`, `VM_DISK`, per-VM NVRAM, extracted kernel, extracted initrd, artifact directory metadata, and selected case metadata. Existing domains that reference `/dev/*` or libvirt block devices are rejected even if they carry the marker.
 
-Cleanup, forced stop, clean shutdown, and redefinition may operate on stale project-marked domains only to remove or replace them, and only when the domain does not reference host block devices. This allows safe recovery from older project-generated domain XML while still refusing unrelated domains and host disk attachments.
+Shutdown, forced stop, and cleanup require matching selected case metadata. Redefinition may replace an inactive project-marked domain only when it does not reference host block devices; use that path to regenerate older safe project XML with current case metadata.
 
-SSH bootstrap uses the same ownership and artifact boundary: it must not open a console or write `authorized_keys` in an unrelated or stale libvirt domain with the same `VM_NAME`.
+SSH bootstrap uses the same ownership, case metadata, and artifact boundary: it must not open a console or write `authorized_keys` in an unrelated or stale libvirt domain with the same effective case domain.
+
+Older generic test domains or disks, including earlier `gentoo-ai-installer` or unsuffixed `gentoo-test` artifacts, are not deleted automatically. Inspect them separately and remove them only after confirming they are not needed; the normal `vm-clean` target cleans the currently selected case only.
 
 The VM uses UEFI only. `vm-check` must find OVMF code and vars firmware before the VM is defined. Per-VM NVRAM is generated for the domain under `./var/libvirt/nvram/` and must not point to a system firmware template as a writable file.
 

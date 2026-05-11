@@ -40,8 +40,17 @@
           - /
           - --noheadings
           - --output
-          - SOURCE,FSTYPE,OPTIONS,UUID
+          - SOURCE,FSTYPE,OPTIONS
       register: first_boot_root_mount
+      changed_when: false
+
+    - name: Read root fstab entry
+      ansible.builtin.command:
+        argv:
+          - awk
+          - $1 !~ /^#/ && $2 == "/" { print $1, $2, $3, $4; exit }
+          - /etc/fstab
+      register: first_boot_root_fstab_entry
       changed_when: false
 
     - name: Read kernel command line
@@ -131,8 +140,13 @@
       ansible.builtin.set_fact:
         first_boot_fstab: "{{ first_boot_fstab_raw.content | b64decode }}"
         first_boot_root_fields: "{{ first_boot_root_mount.stdout.split() }}"
+        first_boot_root_fstab_fields: "{{ first_boot_root_fstab_entry.stdout.split() }}"
         first_boot_nm_rc: "{{ first_boot_networkmanager_systemd.rc | default(first_boot_networkmanager_openrc.rc | default(1)) }}"
         first_boot_time_sync_status: "{{ first_boot_time_sync_systemd.stdout | default((first_boot_time_sync_openrc.rc | default(1)) == 0) }}"
+
+    - name: Store first-boot root UUID
+      ansible.builtin.set_fact:
+        first_boot_root_uuid: "{{ (first_boot_root_fstab_fields[0] | default('')) | regex_replace('^UUID=', '') }}"
 
     - name: Validate first-boot state
       ansible.builtin.assert:
@@ -141,12 +155,19 @@
           - first_boot_hostname.stdout | trim == expected_hostname
           - first_boot_uefi.stat.exists
           - first_boot_uefi.stat.isdir
-          - first_boot_root_fields | length >= 4
+          - first_boot_root_fields | length >= 3
+          - first_boot_root_fstab_fields | length >= 4
+          - first_boot_root_fstab_fields[0] is search('^UUID=')
+          - first_boot_root_uuid is match('^[0-9A-Fa-f-]+$')
           - first_boot_root_fields[1] == filesystem
-          - first_boot_fstab is search('UUID=' ~ (first_boot_root_fields[3] | regex_escape) ~ '\\s+/\\s+' ~ filesystem)
-          - first_boot_cmdline.stdout is search('root=UUID=' ~ (first_boot_root_fields[3] | regex_escape))
+          - first_boot_root_fstab_fields[1] == '/'
+          - first_boot_root_fstab_fields[2] == filesystem
+          - first_boot_fstab is search('UUID=' ~ (first_boot_root_uuid | regex_escape) ~ '\\s+/\\s+' ~ filesystem)
+          - first_boot_cmdline.stdout is search('root=UUID=' ~ (first_boot_root_uuid | regex_escape))
           - first_boot_cmdline.stdout is not search('/dev/')
           - filesystem != 'btrfs' or first_boot_cmdline.stdout is search('rootflags=subvol=@')
+          - filesystem != 'btrfs' or first_boot_root_fields[2] is search('(^|,)subvol=/@(,|$)')
+          - filesystem != 'btrfs' or first_boot_root_fstab_fields[3] is search('(^|,)subvol=@(,|$)')
           - first_boot_kernel.stdout | length > 0
           - first_boot_admin_user.rc == 0
           - first_boot_nm_rc | int == 0
@@ -179,7 +200,7 @@
             "architecture": {{ ansible_architecture | to_json }},
             "kernel": {{ first_boot_kernel.stdout | trim | to_json }},
             "root_mount": {{ first_boot_root_mount.stdout | to_json }},
-            "root_uuid": {{ first_boot_root_fields[3] | to_json }},
+            "root_uuid": {{ first_boot_root_uuid | to_json }},
             "kernel_cmdline": {{ first_boot_cmdline.stdout | to_json }},
             "uefi": {{ (first_boot_uefi.stat.exists and first_boot_uefi.stat.isdir) | to_json }},
             "networkmanager_rc": {{ (first_boot_nm_rc | int) | to_json }},
@@ -199,5 +220,5 @@
           status: PASS
           evidence: "{{ first_boot_log_dir }}/validation.json"
           hostname: "{{ first_boot_hostname.stdout | trim }}"
-          root_uuid: "{{ first_boot_root_fields[3] }}"
+          root_uuid: "{{ first_boot_root_uuid }}"
           kernel: "{{ first_boot_kernel.stdout | trim }}"

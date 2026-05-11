@@ -11,6 +11,7 @@ require_command qemu-system-x86_64
 require_command isoinfo
 validate_vm_config
 require_libvirt_connection
+print_vm_identity
 
 if ! domain_exists; then
   resolved_iso=$(resolve_iso_path "$VM_ISO")
