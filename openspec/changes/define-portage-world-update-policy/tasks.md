@@ -5,7 +5,7 @@
 - [x] Validate with `openspec validate define-portage-world-update-policy --strict`.
 
 ## Implementation
-- [ ] Update Portage baseline proposal.
-- [ ] Update package installation proposal.
-- [ ] Update final checks and install report proposals.
-- [ ] Update docs and skills.
+- [x] Update Portage baseline proposal.
+- [x] Update package installation proposal.
+- [x] Update final checks and install report proposals.
+- [x] Update docs and skills.

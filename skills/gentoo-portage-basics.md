@@ -27,6 +27,7 @@ Use this skill:
 - Network and DNS status.
 - Mirror selection.
 - Download cache and mirror policy in `docs/download-cache-and-mirror-policy.md`.
+- Portage world update policy in `docs/portage-world-update-policy.md`.
 - Whether Codex was bootstrapped in the live ISO only.
 
 ## 4. `make.conf` Principles

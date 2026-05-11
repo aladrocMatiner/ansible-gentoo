@@ -4,7 +4,7 @@
 
 This target follows the Gentoo AMD64 Handbook system tools and networking phases, with one project policy difference: `gentoo-ai-installer` uses NetworkManager as the v1 network manager instead of the Handbook's simplest `dhcpcd` example.
 
-The package and service set contributes to the v1 target baseline in `docs/target-system-baseline.md`. Installed time synchronization follows `docs/installed-time-sync-policy.md`; installed SSH follows `docs/installed-ssh-policy.md`.
+The package and service set contributes to the v1 target baseline in `docs/target-system-baseline.md`. Installed time synchronization follows `docs/installed-time-sync-policy.md`; installed SSH follows `docs/installed-ssh-policy.md`; Portage world-update behavior follows `docs/portage-world-update-policy.md`.
 
 ## Scope
 
