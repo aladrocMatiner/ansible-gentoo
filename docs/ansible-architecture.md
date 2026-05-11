@@ -202,7 +202,7 @@ Currently implemented shared roles and workflows:
 - `make config-check` with `config/install-schema.yml`: validates operator configuration defaults, allowed values, no-default disk behavior, mount paths, destructive confirmation variables, and secret-risk inputs before any live target or disk workflow runs.
 - `common/live_preflight`: validates the live ISO environment over SSH.
 - `common/disk_detection`: reports visible block devices without selecting or modifying a disk.
-- `common/disk_safety`: validates explicit disk input, conservative syntax, optional destructive confirmation, disk identity, disk type, disk mount state, and mounted descendants without mutating disks.
+- `common/disk_safety`: validates explicit disk input, conservative syntax, optional destructive confirmation, disk identity, disk type, disk mount state, mounted descendants, and opt-in resume checkpoint comparison without mutating disks.
 - `common/install_plan`: prints a profile-aware OpenRC or systemd plan without defaulting `install_disk`; it supports `FILESYSTEM=ext4` and `FILESYSTEM=btrfs` as read-only plan variants.
 - `common/partition_plan`: reuses `common/disk_safety`, requires explicit `INSTALL_DISK`, and prints the exact read-only GPT plan for ext4 or Btrfs without writing.
 - `common/mount_plan`: requires explicit `INSTALL_DISK`, reuses partition-plan safety checks, and prints the read-only target root, EFI, and Btrfs subvolume mount layout without mounting or creating directories.
@@ -349,6 +349,7 @@ Required shared gates:
 - VM guest mode does not disable confirmations or disk identity checks.
 - Destructive apply targets print or call a read-only preview before accepting confirmation.
 - Resume checkpoints never replace destructive confirmations.
+- Resumed destructive workflows must route checkpoint comparison through `common/disk_safety`; the role compares current disk identity, descendant partition state, filesystem UUIDs, mountpoints, and recorded profile/filesystem values before allowing later mutation.
 - Logs, state files, and audit bundles must reject or redact secrets.
 
 ## Cross-Cutting Guardrails

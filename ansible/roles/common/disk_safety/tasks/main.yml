@@ -126,6 +126,203 @@
     - disk_safety_allow_mounted_descendants | default(false) | bool
     - disk_safety_mounted_descendants | length > 0
 
+- name: Normalize current disk safety checkpoint facts
+  ansible.builtin.set_fact:
+    disk_safety_current_descendant_state: []
+    disk_safety_current_checkpoint:
+      install_disk: "{{ install_disk }}"
+      selected_disk:
+        path: "{{ disk_safety_disk.path | default('') }}"
+        model: "{{ disk_safety_disk.model | default('') }}"
+        serial: "{{ disk_safety_disk.serial | default('') }}"
+        size: "{{ disk_safety_disk.size | default('') }}"
+        type: "{{ disk_safety_disk.type | default('') }}"
+
+- name: Build normalized current descendant state
+  ansible.builtin.set_fact:
+    disk_safety_current_descendant_state: >-
+      {{
+        disk_safety_current_descendant_state
+        + [
+            {
+              'path': item.path | default(''),
+              'type': item.type | default(''),
+              'size': item.size | default(''),
+              'fstype': item.fstype | default(''),
+              'uuid': item.uuid | default(''),
+              'parttypename': item.parttypename | default(''),
+              'mountpoints': item.mountpoints | default([]) | select('string') | list
+            }
+          ]
+      }}
+  loop: "{{ disk_safety_all_descendants }}"
+
+- name: Sort normalized current descendant state
+  ansible.builtin.set_fact:
+    disk_safety_current_descendant_state: "{{ disk_safety_current_descendant_state | sort(attribute='path') }}"
+
+- name: Complete normalized current disk safety checkpoint facts
+  ansible.builtin.set_fact:
+    disk_safety_current_checkpoint: "{{ disk_safety_current_checkpoint | combine({'descendants': disk_safety_current_descendant_state}, recursive=true) }}"
+
+- name: Initialize resume checkpoint inputs
+  ansible.builtin.set_fact:
+    disk_safety_resume_checkpoint_file_path: "{{ disk_safety_resume_checkpoint_file | default('') | string }}"
+    disk_safety_resume_checkpoint_inline: "{{ disk_safety_resume_checkpoint | default({}) }}"
+    disk_safety_resume_checkpoint_loaded: {}
+
+- name: Load disk safety resume checkpoint file
+  ansible.builtin.include_vars:
+    file: "{{ disk_safety_resume_checkpoint_file_path }}"
+    name: disk_safety_resume_checkpoint_from_file
+  when: disk_safety_resume_checkpoint_file_path | length > 0
+
+- name: Store loaded disk safety resume checkpoint file data
+  ansible.builtin.set_fact:
+    disk_safety_resume_checkpoint_loaded: "{{ disk_safety_resume_checkpoint_from_file | default({}) }}"
+
+- name: Select effective disk safety resume checkpoint
+  ansible.builtin.set_fact:
+    disk_safety_resume_checkpoint_enabled: >-
+      {{
+        (disk_safety_resume_checkpoint_required | default(false) | bool)
+        or (disk_safety_resume_checkpoint_file_path | length > 0)
+        or (disk_safety_resume_checkpoint_inline | length > 0)
+      }}
+    disk_safety_resume_checkpoint_effective: >-
+      {{
+        disk_safety_resume_checkpoint_inline
+        if (disk_safety_resume_checkpoint_inline | length > 0)
+        else (
+          disk_safety_resume_checkpoint_loaded.disk_safety_resume_checkpoint
+          | default(disk_safety_resume_checkpoint_loaded.install_state_checkpoint
+          | default(disk_safety_resume_checkpoint_loaded.disk_safety
+          | default(disk_safety_resume_checkpoint_loaded)))
+        )
+      }}
+
+- name: Require resume checkpoint when resume validation is requested
+  ansible.builtin.assert:
+    that:
+      - disk_safety_resume_checkpoint_effective is mapping
+      - disk_safety_resume_checkpoint_effective | length > 0
+    fail_msg: "RESUME_CHECKPOINT_INVALID: destructive resume requires a non-empty disk safety checkpoint."
+    success_msg: "Resume checkpoint was provided for disk safety validation."
+  when: disk_safety_resume_checkpoint_enabled | bool
+
+- name: Normalize resume checkpoint fields
+  ansible.builtin.set_fact:
+    disk_safety_checkpoint_selected_disk: >-
+      {{
+        disk_safety_resume_checkpoint_effective.selected_disk
+        | default(disk_safety_resume_checkpoint_effective.disk | default({}))
+      }}
+    disk_safety_checkpoint_descendants: >-
+      {{
+        disk_safety_resume_checkpoint_effective.descendants
+        | default(disk_safety_resume_checkpoint_effective.existing_descendants | default([]))
+      }}
+    disk_safety_checkpoint_descendant_state: []
+  when: disk_safety_resume_checkpoint_enabled | bool
+
+- name: Require resume checkpoint disk and descendant facts
+  ansible.builtin.assert:
+    that:
+      - disk_safety_checkpoint_selected_disk is mapping
+      - disk_safety_checkpoint_selected_disk.path is defined
+      - disk_safety_checkpoint_selected_disk.size is defined
+      - disk_safety_checkpoint_descendants is iterable
+    fail_msg: "RESUME_CHECKPOINT_INVALID: checkpoint must include selected disk path, disk size, and descendant block state."
+    success_msg: "Resume checkpoint contains disk identity and descendant facts."
+  when: disk_safety_resume_checkpoint_enabled | bool
+
+- name: Build normalized resume checkpoint descendant state
+  ansible.builtin.set_fact:
+    disk_safety_checkpoint_descendant_state: >-
+      {{
+        disk_safety_checkpoint_descendant_state
+        + [
+            {
+              'path': item.path | default(''),
+              'type': item.type | default(''),
+              'size': item.size | default(''),
+              'fstype': item.fstype | default(''),
+              'uuid': item.uuid | default(''),
+              'parttypename': item.parttypename | default(''),
+              'mountpoints': item.mountpoints | default([]) | select('string') | list
+            }
+          ]
+      }}
+  loop: "{{ disk_safety_checkpoint_descendants }}"
+  when: disk_safety_resume_checkpoint_enabled | bool
+
+- name: Sort normalized resume checkpoint descendant state
+  ansible.builtin.set_fact:
+    disk_safety_checkpoint_descendant_state: "{{ disk_safety_checkpoint_descendant_state | sort(attribute='path') }}"
+  when: disk_safety_resume_checkpoint_enabled | bool
+
+- name: Compare resume checkpoint disk identity
+  ansible.builtin.assert:
+    that:
+      - disk_safety_checkpoint_selected_disk.path == disk_safety_current_checkpoint.selected_disk.path
+      - disk_safety_checkpoint_selected_disk.size | string == disk_safety_current_checkpoint.selected_disk.size | string
+      - disk_safety_current_checkpoint.selected_disk.type == "disk"
+    fail_msg: "RESUME_CHECKPOINT_MISMATCH: current install disk identity does not match the recorded checkpoint."
+    success_msg: "Resume checkpoint disk path and size match current disk facts."
+  when: disk_safety_resume_checkpoint_enabled | bool
+
+- name: Compare resume checkpoint disk model when recorded
+  ansible.builtin.assert:
+    that:
+      - disk_safety_checkpoint_selected_disk.model == disk_safety_current_checkpoint.selected_disk.model
+    fail_msg: "RESUME_CHECKPOINT_MISMATCH: current disk model does not match the recorded checkpoint."
+    success_msg: "Resume checkpoint disk model matches current disk facts."
+  when:
+    - disk_safety_resume_checkpoint_enabled | bool
+    - disk_safety_checkpoint_selected_disk.model is defined
+    - disk_safety_checkpoint_selected_disk.model | string | length > 0
+
+- name: Compare resume checkpoint disk serial when recorded
+  ansible.builtin.assert:
+    that:
+      - disk_safety_checkpoint_selected_disk.serial == disk_safety_current_checkpoint.selected_disk.serial
+    fail_msg: "RESUME_CHECKPOINT_MISMATCH: current disk serial does not match the recorded checkpoint."
+    success_msg: "Resume checkpoint disk serial matches current disk facts."
+  when:
+    - disk_safety_resume_checkpoint_enabled | bool
+    - disk_safety_checkpoint_selected_disk.serial is defined
+    - disk_safety_checkpoint_selected_disk.serial | string | length > 0
+
+- name: Compare resume checkpoint partition, filesystem, UUID, and mount state
+  ansible.builtin.assert:
+    that:
+      - disk_safety_checkpoint_descendant_state == disk_safety_current_checkpoint.descendants
+    fail_msg: "RESUME_CHECKPOINT_MISMATCH: current partition, filesystem UUID, or mount state differs from the recorded checkpoint."
+    success_msg: "Resume checkpoint descendant block state matches current disk facts."
+  when: disk_safety_resume_checkpoint_enabled | bool
+
+- name: Compare resume checkpoint profile when recorded
+  ansible.builtin.assert:
+    that:
+      - profile is defined
+      - disk_safety_resume_checkpoint_effective.profile == profile
+    fail_msg: "RESUME_CHECKPOINT_MISMATCH: current PROFILE/profile differs from the recorded checkpoint."
+    success_msg: "Resume checkpoint profile matches current profile."
+  when:
+    - disk_safety_resume_checkpoint_enabled | bool
+    - disk_safety_resume_checkpoint_effective.profile is defined
+
+- name: Compare resume checkpoint filesystem when recorded
+  ansible.builtin.assert:
+    that:
+      - filesystem is defined
+      - disk_safety_resume_checkpoint_effective.filesystem == filesystem
+    fail_msg: "RESUME_CHECKPOINT_MISMATCH: current FILESYSTEM/filesystem differs from the recorded checkpoint."
+    success_msg: "Resume checkpoint filesystem matches current filesystem."
+  when:
+    - disk_safety_resume_checkpoint_enabled | bool
+    - disk_safety_resume_checkpoint_effective.filesystem is defined
+
 - name: Build disk safety report
   ansible.builtin.set_fact:
     disk_safety_report:
@@ -137,6 +334,8 @@
       existing_children: "{{ disk_safety_children }}"
       existing_descendants: "{{ disk_safety_all_descendants }}"
       mounted_descendants: "{{ disk_safety_mounted_descendants }}"
+      current_checkpoint: "{{ disk_safety_current_checkpoint }}"
+      resume_checkpoint_checked: "{{ disk_safety_resume_checkpoint_enabled | bool }}"
       would_destroy_existing_data: "{{ (disk_safety_children | length > 0) or (disk_safety_disk.fstype is defined and disk_safety_disk.fstype not in [none, '']) }}"
 
 - name: Print disk safety report

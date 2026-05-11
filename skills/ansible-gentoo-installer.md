@@ -171,12 +171,11 @@ Shared roles:
 - `common/preflight`: verify live ISO, amd64, UEFI, network, time, tools, and root privileges.
 - `common/live_target`: verify controller-to-target SSH, Python availability, official live ISO evidence, amd64, UEFI, network, DNS, and time without assuming libvirt.
 - `common/disk_detection`: read-only disk identity and partition reporting.
-- `common/disk_safety`: shared disk safety gates for explicit disk input, conservative disk syntax, disk identity, mount-state checks, mounted-descendant rejection, and destructive confirmation validation.
+- `common/disk_safety`: shared disk safety gates for explicit disk input, conservative disk syntax, disk identity, mount-state checks, mounted-descendant rejection, destructive confirmation validation, and opt-in resume checkpoint comparison.
 - `common/install_plan`: profile-aware read-only plan output that follows the official Gentoo AMD64 Handbook baseline and does not select a disk by default.
 - `common/partition_plan`: read-only GPT partition plan that reuses `common/disk_safety`, requires explicit `install_disk`, and reports ext4 or Btrfs root layout without writing.
 - `common/mount_plan`: read-only mount layout plan that reuses partition-plan safety checks and reports root, EFI, and Btrfs subvolume mountpoints without running `mount`, `umount`, or `mkdir`.
 - `common/filesystem_plan`: read-only filesystem creation plan that reuses mount-plan output and reports EFI/root filesystems and Btrfs subvolumes without running `mkfs.*`, `wipefs`, or Btrfs subvolume commands.
-- `common/disk_safety`: shared assertions for `install_disk`, confirmation variables, disk identity, VM guest mode, and fail-closed behavior.
 - `common/partitioning`: partition only after shared safety gates pass.
 - `common/filesystem`: format approved partitions only after shared confirmation.
 - `common/mount_target`: mount root and EFI partitions with path assertions, validate already-mounted paths for idempotency, and mount Btrfs root with `subvol=@` plus the approved subvolumes.
@@ -279,7 +278,7 @@ Required gates:
 - Confirm OpenRC flows do not call `systemctl`.
 - Confirm systemd flows do not call `rc-update` or `rc-service`.
 - Confirm destructive workflows print or call the shared preview before accepting confirmation.
-- Confirm resume checkpoints do not replace destructive confirmations.
+- Confirm resume checkpoints do not replace destructive confirmations, and resumed destructive workflows compare current disk identity, descendant partition state, filesystem UUIDs, mountpoints, and recorded profile/filesystem values through `common/disk_safety`.
 - Confirm logs, state files, and audit bundles do not contain secrets.
 - Confirm operator variables pass the shared config validation before apply workflows.
 - Confirm manual intervention is recorded and revalidated before resume.

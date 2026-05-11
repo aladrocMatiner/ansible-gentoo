@@ -29,7 +29,29 @@ The shared `common/disk_safety` role verifies:
 - the selected path is type `disk`,
 - the selected disk itself is not mounted,
 - descendants under the selected disk are not mounted,
-- disk identity and existing descendants are reported before any future destructive action.
+- disk identity and existing descendants are reported before any future destructive action,
+- resume checkpoints are compared when a resumed destructive workflow explicitly provides checkpoint input.
+
+## Resume Checkpoint Validation
+
+Resume checkpoint validation is opt-in until the install-state workflow owns durable state files. A caller enables it by setting one of these Ansible inputs for `common/disk_safety`:
+
+- `disk_safety_resume_checkpoint_required=true`
+- `disk_safety_resume_checkpoint_file=<controller-local-json-or-yaml-file>`
+- `disk_safety_resume_checkpoint=<inline-mapping>`
+
+When enabled, the role fails closed unless the checkpoint is present and contains selected disk identity plus descendant block state. It compares:
+
+- selected disk path and size,
+- selected disk model and serial when those were recorded,
+- partition descendants,
+- filesystem types,
+- filesystem UUIDs,
+- mountpoints,
+- `profile` when the checkpoint records it,
+- `filesystem` when the checkpoint records it.
+
+Resume checkpoint success is not destructive confirmation. Destructive workflows still require `I_UNDERSTAND_THIS_WIPES_DISK=yes`; bootloader workflows still require `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`.
 
 ## Relationship To Plan Targets
 
@@ -45,6 +67,8 @@ Bootloader workflows do not use the disk-wipe confirmation variable. They must r
 
 - `DISK_UNSAFE`: missing disk, unsafe syntax, no exact detected match, non-disk path, mounted disk, or mounted descendant.
 - `DESTRUCTIVE_CONFIRMATION_MISSING`: confirmation is required but `I_UNDERSTAND_THIS_WIPES_DISK=yes` is absent.
+- `RESUME_CHECKPOINT_INVALID`: resume validation was requested but no usable checkpoint was provided.
+- `RESUME_CHECKPOINT_MISMATCH`: current disk, partition, filesystem, UUID, mount, profile, or filesystem-selection facts differ from the checkpoint.
 - SSH target discovery failure: set `ANSIBLE_LIVE_HOST=...` for a network target or start/bootstrap the local libvirt VM.
 
 ## Recovery

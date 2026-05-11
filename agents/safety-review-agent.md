@@ -71,6 +71,8 @@ Before partitioning, wiping, or changing any disk:
 - The destructive confirmation variable `I_UNDERSTAND_THIS_WIPES_DISK=yes` must be required.
 - A safety confirmation script must run before destructive Makefile targets.
 - The operation must stop if disk identity differs between plan and apply.
+- Resumed destructive operations must compare current disk identity, descendant partition state, filesystem UUIDs, mountpoints, and recorded profile/filesystem values against the recorded checkpoint.
+- Resume checkpoint success must not replace `I_UNDERSTAND_THIS_WIPES_DISK=yes`.
 - The operation must stop if disk identity is ambiguous or unavailable.
 
 ## 7. Required Checks for Filesystem Creation
@@ -176,6 +178,7 @@ For Ansible playbooks, roles, and tasks:
 - OpenRC and systemd flows must use the same shared destructive safety gates.
 - Safety checks must be implemented once and reused rather than copied into init-specific roles.
 - Destructive disk apply targets must reuse `common/disk_safety` or an approved successor before mutation.
+- Resumed destructive apply targets must reuse the checkpoint comparison in `common/disk_safety` or an approved successor.
 - Disk model, size, serial, and current partition table must be gathered and displayed before partitioning.
 - Playbooks must support `--check` where practical.
 - Tasks that cannot honestly support check mode must provide plan output and skip mutation in dry-run.

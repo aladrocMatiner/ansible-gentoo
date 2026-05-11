@@ -8,7 +8,7 @@
 - [x] Add `common/disk_safety`.
 - [x] Add confirmation script or Makefile guard.
 - [x] Integrate read-only destructive preview before confirmation.
-- [ ] Integrate install-state checkpoint comparison for resumed destructive workflows.
+- [x] Integrate install-state checkpoint comparison for resumed destructive workflows.
 - [x] Consume install configuration schema and config validation output where available.
 - [x] Use shared error taxonomy for safety failures.
 - [x] Add documentation for destructive confirmation.
