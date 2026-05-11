@@ -3,7 +3,7 @@
 ## 1. Project Overview
 Project name: `gentoo-ai-installer`.
 
-v1 uses the official Gentoo live ISO and installs Codex temporarily in the live environment. The Makefile is the operator-facing control plane. OpenSpec controls project changes. The primary phase-2 deliverable is a reusable Ansible installer that can run from an operator/controller machine against a network-reachable Gentoo live ISO target over SSH. libvirt/virsh is the local validation harness for testing the same Ansible workflows safely before real hardware. VM tests must avoid touching host disks.
+v1 uses the official Gentoo live ISO and installs Codex temporarily in the live environment. The Makefile is the operator-facing control plane. OpenSpec controls project changes. The primary phase-2 deliverable is a reusable Ansible installer that can run from an operator/controller machine against a network-reachable Gentoo live ISO target over SSH. libvirt/virsh is the local validation harness for testing the same Ansible workflows safely before real hardware. Optional local live ISO Ansible targets are fallback/diagnostic paths run inside the live ISO with `ansible_connection=local`; they must not replace the network SSH workflow. VM tests must avoid touching host disks.
 
 ## 2. Control Plane Rule
 All operator-facing workflows must be exposed through Makefile targets.

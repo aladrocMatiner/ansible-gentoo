@@ -103,7 +103,7 @@ export CLEAN_RUN_ID
 
 .PHONY: help \
 	vm-check vm-disk vm-define vm-start vm-start-installed vm-validate-first-boot vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
-	ansible-check config-check secret-check handbook-trace ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-preview partition-preview format-preview mount-preview bootloader-preview users-preview destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan install-run-clean install-audit install-report cleanup-plan clean-state clean-logs clean-audit clean-stage3-cache reset-test-run \
+	ansible-check config-check secret-check handbook-trace ansible-live-ping ansible-live-preflight local-live-preflight local-detect-disks local-install-plan local-partition-plan detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-preview partition-preview format-preview mount-preview bootloader-preview users-preview destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan install-run-clean install-audit install-report cleanup-plan clean-state clean-logs clean-audit clean-stage3-cache reset-test-run \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -128,6 +128,10 @@ help:
 		'  make handbook-trace  Regenerate Gentoo Handbook traceability report' \
 		'  make ansible-live-ping Validate Ansible connectivity to a live ISO target over SSH' \
 		'  make ansible-live-preflight Run read-only live ISO Ansible preflight over SSH' \
+		'  make local-live-preflight Run read-only preflight locally inside the live ISO fallback mode' \
+		'  make local-detect-disks Run read-only disk detection locally inside the live ISO fallback mode' \
+		'  make local-install-plan Generate read-only local live ISO install plan' \
+		'  make local-partition-plan Generate read-only local live ISO partition plan (requires INSTALL_DISK)' \
 		'  make detect-disks    Run read-only Ansible disk detection against the live ISO target' \
 		'  make install-plan    Generate read-only Ansible install plan (PROFILE=openrc|systemd FILESYSTEM=ext4|btrfs)' \
 		'  make partition-plan  Generate read-only partition plan (requires INSTALL_DISK)' \
@@ -286,6 +290,18 @@ ansible-live-ping:
 
 ansible-live-preflight:
 	@scripts/ansible-live-preflight.sh
+
+local-live-preflight:
+	@scripts/ansible-local-live-preflight.sh
+
+local-detect-disks:
+	@scripts/ansible-local-detect-disks.sh
+
+local-install-plan:
+	@scripts/ansible-local-install-plan.sh
+
+local-partition-plan:
+	@scripts/ansible-local-partition-plan.sh
 
 detect-disks:
 	@scripts/ansible-detect-disks.sh

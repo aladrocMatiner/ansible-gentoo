@@ -14,8 +14,8 @@ Each entry records phase, Handbook section, Makefile targets, Ansible roles, imp
 
 | Phase | Status | Handbook Section | Make Targets | Ansible Roles |
 | --- | --- | --- | --- | --- |
-| Live ISO preflight | implemented | Choosing installation media, booting the installation media, network setup, and system clock checks | `make ansible-live-preflight`<br>`make vm-bootstrap-ssh`<br>`make vm-ansible-ping` | `common/live_preflight` |
-| Disk discovery and planning | implemented | Preparing the disks | `make detect-disks`<br>`make install-plan`<br>`make partition-plan`<br>`make mount-plan`<br>`make filesystem-plan` | `common/disk_detection`<br>`common/disk_safety`<br>`common/install_plan`<br>`common/partition_plan`<br>`common/mount_plan`<br>`common/filesystem_plan` |
+| Live ISO preflight | implemented | Choosing installation media, booting the installation media, network setup, and system clock checks | `make ansible-live-preflight`<br>`make local-live-preflight`<br>`make vm-bootstrap-ssh`<br>`make vm-ansible-ping` | `common/live_preflight` |
+| Disk discovery and planning | implemented | Preparing the disks | `make detect-disks`<br>`make local-detect-disks`<br>`make install-plan`<br>`make local-install-plan`<br>`make partition-plan`<br>`make local-partition-plan`<br>`make mount-plan`<br>`make filesystem-plan` | `common/disk_detection`<br>`common/disk_safety`<br>`common/install_plan`<br>`common/partition_plan`<br>`common/mount_plan`<br>`common/filesystem_plan` |
 | Partition apply | implemented | Preparing the disks | `make partition` | `common/partitioning` |
 | Filesystem creation | implemented | Creating filesystems | `make format` | `common/filesystem` |
 | Mount target filesystems | implemented | Mounting the root partition | `make mount-target` | `common/mount_target` |
@@ -39,6 +39,7 @@ Each entry records phase, Handbook section, Makefile targets, Ansible roles, imp
 
 Make targets:
 - make ansible-live-preflight
+- make local-live-preflight
 - make vm-bootstrap-ssh
 - make vm-ansible-ping
 
@@ -62,6 +63,7 @@ Project-specific deviations:
 OpenSpec references:
 - define-remote-network-ansible-control-plane
 - implement-live-iso-ansible-preflight
+- implement-live-iso-local-ansible-control-plane
 
 ### Disk discovery and planning
 
@@ -70,8 +72,11 @@ OpenSpec references:
 
 Make targets:
 - make detect-disks
+- make local-detect-disks
 - make install-plan
+- make local-install-plan
 - make partition-plan
+- make local-partition-plan
 - make mount-plan
 - make filesystem-plan
 
@@ -105,6 +110,7 @@ OpenSpec references:
 - implement-ansible-mount-plan
 - implement-ansible-filesystem-plan
 - define-btrfs-subvolume-and-snapshot-policy
+- implement-live-iso-local-ansible-control-plane
 
 ### Partition apply
 

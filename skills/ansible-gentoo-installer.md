@@ -379,6 +379,10 @@ These targets define the expected control-plane contract for future Ansible inst
 
 - `make ansible-live-ping`
 - `make ansible-live-preflight`
+- `make local-live-preflight`
+- `make local-detect-disks`
+- `make local-install-plan`
+- `make local-partition-plan INSTALL_DISK=...`
 - `make ansible-check`
 - `make detect-disks`
 - `make ansible-dry-run PROFILE=openrc`
@@ -395,6 +399,10 @@ Target expectations:
 
 - `make ansible-live-ping`: validate SSH-based Ansible connectivity to the booted official live ISO target. Use `ANSIBLE_LIVE_HOST=...` for real network targets; omit it only for local libvirt VM discovery.
 - `make ansible-live-preflight`: run read-only live ISO checks for architecture, kernel, Gentoo release evidence, UEFI availability, root SSH access, global IP address, DNS resolution, default route, clock sanity, and block devices.
+- `make local-live-preflight`: optional fallback target run from inside the official live ISO with `ansible_connection=local`; it reuses the live preflight playbook and must not require SSH.
+- `make local-detect-disks`: optional fallback target run from inside the official live ISO for read-only disk inventory.
+- `make local-install-plan`: optional fallback target run from inside the official live ISO for read-only install planning; it must not select a disk unless `INSTALL_DISK` is explicit.
+- `make local-partition-plan INSTALL_DISK=...`: optional fallback target run from inside the official live ISO; it remains read-only but must require explicit `INSTALL_DISK`.
 - `make ansible-check`: validate Ansible availability, inventory, variables, playbooks, roles, and syntax.
 - `make detect-disks`: run read-only Ansible disk inventory from inside the live ISO without selecting an install disk.
 - `make ansible-dry-run PROFILE=openrc`: run the supported OpenRC check-mode workflow through the shared flow.
@@ -413,6 +421,7 @@ Operators should not run `ansible-playbook` directly.
 Makefile targets should pass init-specific variables into shared Ansible flows where practical.
 
 `make ansible-live-preflight` is not an installer target. It must not set `install_disk`, consume destructive confirmation variables, or mutate target filesystems.
+Local `local-*` targets are fallback/diagnostic paths for running Ansible inside the live ISO. They must reuse the same playbooks, avoid global host-key relaxation, keep the SSH/network workflow as the primary product path, and preserve every disk safety rule.
 `make detect-disks` and `make install-plan` are also read-only at this stage. `INSTALL_DISK` may be passed for identity matching only, and the playbook must explicitly report when it is omitted. `FILESYSTEM=btrfs` may report planned subvolumes, but must not create a Btrfs filesystem or subvolumes until the approved filesystem apply workflow is implemented with the shared safety gates.
 `make partition-plan` is read-only but stricter than `install-plan`: it requires `INSTALL_DISK`, fails if selected disk children are mounted, and reports the exact GPT layout that a future destructive target would apply.
 

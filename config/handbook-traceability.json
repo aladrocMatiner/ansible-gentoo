@@ -15,24 +15,24 @@
     {
       "phase": "Live ISO preflight",
       "handbook_section": "Choosing installation media, booting the installation media, network setup, and system clock checks",
-      "make_targets": ["ansible-live-preflight", "vm-bootstrap-ssh", "vm-ansible-ping"],
+      "make_targets": ["ansible-live-preflight", "local-live-preflight", "vm-bootstrap-ssh", "vm-ansible-ping"],
       "ansible_roles": ["common/live_preflight"],
       "status": "implemented",
       "safety_gates": ["read-only", "official live ISO evidence", "amd64", "UEFI", "network/DNS/time checks"],
       "validation_evidence": ["stdout preflight report", "install state checkpoint when run through Makefile"],
       "deviations": ["Uses SSH-driven Ansible control from the operator machine instead of manual console-only commands."],
-      "openspec_refs": ["define-remote-network-ansible-control-plane", "implement-live-iso-ansible-preflight"]
+      "openspec_refs": ["define-remote-network-ansible-control-plane", "implement-live-iso-ansible-preflight", "implement-live-iso-local-ansible-control-plane"]
     },
     {
       "phase": "Disk discovery and planning",
       "handbook_section": "Preparing the disks",
-      "make_targets": ["detect-disks", "install-plan", "partition-plan", "mount-plan", "filesystem-plan"],
+      "make_targets": ["detect-disks", "local-detect-disks", "install-plan", "local-install-plan", "partition-plan", "local-partition-plan", "mount-plan", "filesystem-plan"],
       "ansible_roles": ["common/disk_detection", "common/disk_safety", "common/install_plan", "common/partition_plan", "common/mount_plan", "common/filesystem_plan"],
       "status": "implemented",
       "safety_gates": ["no default install disk", "explicit INSTALL_DISK for disk plans", "mounted descendant rejection", "read-only planning"],
       "validation_evidence": ["disk inventory", "partition plan", "mount plan", "filesystem plan", "install state resume checkpoint"],
       "deviations": ["Plans both ext4 and approved Btrfs subvolume variants; no LUKS or swap partition in current scope."],
-      "openspec_refs": ["implement-ansible-disk-detection-and-install-plan", "implement-ansible-partition-plan", "implement-ansible-mount-plan", "implement-ansible-filesystem-plan", "define-btrfs-subvolume-and-snapshot-policy"]
+      "openspec_refs": ["implement-ansible-disk-detection-and-install-plan", "implement-ansible-partition-plan", "implement-ansible-mount-plan", "implement-ansible-filesystem-plan", "define-btrfs-subvolume-and-snapshot-policy", "implement-live-iso-local-ansible-control-plane"]
     },
     {
       "phase": "Partition apply",

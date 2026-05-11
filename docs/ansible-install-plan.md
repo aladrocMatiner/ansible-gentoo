@@ -22,6 +22,17 @@ make vm-bootstrap-ssh
 make ansible-live-preflight
 ```
 
+For optional fallback/diagnostics when running from inside the official Gentoo live ISO itself, use the local targets:
+
+```sh
+make local-live-preflight
+make local-detect-disks
+make local-install-plan PROFILE=openrc FILESYSTEM=ext4
+make local-partition-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/<target-disk>
+```
+
+Local targets use `ansible/inventory/local.yml` with `ansible_connection=local`. They are read-only at this stage and do not replace the primary SSH/network workflow.
+
 ## Check Ansible
 
 Verify Ansible tooling and syntax for implemented playbooks:

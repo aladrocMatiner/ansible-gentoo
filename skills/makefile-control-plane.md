@@ -173,6 +173,8 @@ Rules:
 - `ANSIBLE_LIVE_HOST` must not default to a VM IP or a physical host.
 - When `ANSIBLE_LIVE_HOST` is set, Ansible targets must use it as the network-reachable official live ISO target instead of requiring libvirt discovery.
 - When `ANSIBLE_LIVE_HOST` is empty, VM/libvirt discovery is allowed only for local testing.
+- `local-*` Ansible targets run inside the official Gentoo live ISO with `ansible_connection=local`; they are fallback/diagnostic targets and must not replace the primary SSH/network workflow.
+- Local Ansible targets must not disable host-key checking globally, because they do not use SSH to the live ISO.
 - `VM_NETWORK` is required only when `VM_NET_MODE=network`.
 - `VM_RAM`, `VM_CPUS`, ports, and `VM_DISK_SIZE` must be validated before generated XML or disk creation uses them.
 - VM definitions should pass serial console kernel args so `make vm-console` is usable with the official live ISO.
@@ -232,6 +234,10 @@ Expected behavior:
 - `make handbook-trace`: regenerate the read-only Gentoo AMD64 Handbook traceability report from project metadata.
 - `make ansible-live-ping`: validate SSH-based Ansible connectivity to the booted official live ISO target. It should use `ANSIBLE_LIVE_HOST` for network targets and libvirt discovery only for local tests.
 - `make ansible-live-preflight`: run read-only live ISO checks without selecting an install disk or mutating target disks.
+- `make local-live-preflight`: optional fallback target run inside the official live ISO with `ansible_connection=local`.
+- `make local-detect-disks`: optional fallback read-only disk detection target run inside the official live ISO.
+- `make local-install-plan`: optional fallback read-only install plan target run inside the official live ISO.
+- `make local-partition-plan`: optional fallback read-only partition plan target run inside the official live ISO; it still requires explicit `INSTALL_DISK`.
 - `make install-plan`: summarize intended install flow without making changes; default `PROFILE=openrc` and `FILESYSTEM=ext4`, but never default `INSTALL_DISK`.
 - `make partition-plan`: require explicit `INSTALL_DISK` and summarize the exact GPT partition layout without writing.
 - `make mount-plan`: require explicit `INSTALL_DISK` and summarize the future root and EFI mount layout without running `mount`, `umount`, or `mkdir`.
@@ -486,6 +492,7 @@ When Makefile behavior changes, documentation must change in the same commit or 
 - If target names, variable names, defaults, or confirmation values change, update this skill, `README.md` or `docs/`, and the active OpenSpec `tasks.md`.
 - If VM/libvirt targets change, update `docs/libvirt-manual-install-test.md`, any QEMU migration note, and active OpenSpec tasks. Document ISO path, qcow2 path, libvirt URI, network mode, serial console, SSH bootstrap, guest `/dev/vda`, Ansible connectivity validation, and cleanup behavior.
 - If live ISO Ansible preflight targets change, update `docs/ansible-live-preflight.md`, `docs/libvirt-manual-install-test.md`, `skills/ansible-gentoo-installer.md`, and the active OpenSpec tasks.
+- If local live ISO Ansible fallback targets change, update `docs/live-iso-local-ansible.md`, `docs/ansible-live-preflight.md`, `skills/ansible-gentoo-installer.md`, and the active OpenSpec tasks. Keep network Ansible documented as the primary product path.
 - If read-only Ansible disk detection or install-plan targets change, update `docs/ansible-install-plan.md`, `skills/ansible-gentoo-installer.md`, `skills/gentoo-disk-planning.md`, and the active OpenSpec tasks.
 - If read-only partition-plan targets change, update `docs/ansible-partition-plan.md`, disk-planning skills, safety docs, and active OpenSpec tasks.
 - If `make ansible-check` behavior changes, update Ansible docs, `.ansible-lint` expectations, `skills/ansible-gentoo-installer.md`, and active OpenSpec tasks.

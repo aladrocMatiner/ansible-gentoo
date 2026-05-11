@@ -42,6 +42,8 @@ Both targets use `ANSIBLE_LIVE_HOST` when it is provided. When it is empty, they
 
 The live ISO SSH wrappers use temporary host-key relaxation because the official live ISO regenerates SSH host keys across boots. That exception is scoped to these wrapper invocations; `ansible.cfg` must not disable host-key checking globally.
 
+If the repository is already copied into the booted official Gentoo live ISO, `make local-live-preflight` runs the same preflight with `ansible_connection=local`. This is an optional fallback/diagnostic path, not the primary reusable installer workflow. See `docs/live-iso-local-ansible.md`.
+
 After this preflight passes, continue with read-only disk detection and planning:
 
 ```sh
