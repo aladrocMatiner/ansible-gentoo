@@ -1,0 +1,90 @@
+---
+- name: Clean target-local stage3 cache safely
+  hosts: gentoo_live
+  gather_facts: false
+  tasks:
+    - name: Validate stage3 cache cleanup inputs
+      ansible.builtin.assert:
+        that:
+          - stage3_cache_dir is defined
+          - stage3_cache_dir is match('^/tmp/gentoo-ai-installer/.+')
+          - stage3_cache_dir != '/'
+          - "'..' not in stage3_cache_dir"
+          - cleanup_plan_only | default('no') in ['yes', 'no', true, false]
+        fail_msg: "CLEANUP_PATH_INVALID: stage3 cache cleanup path or mode is invalid."
+        success_msg: "Stage3 cache cleanup inputs are scoped to the live target cache root."
+
+    - name: Reject symlinked stage3 cache path components
+      ansible.builtin.command:
+        argv:
+          - python3
+          - -c
+          - |
+            import os
+            import sys
+            path = sys.argv[1]
+            current = "/"
+            for part in [item for item in path.split("/") if item]:
+                current = os.path.join(current, part)
+                if os.path.islink(current):
+                    print(current)
+                    raise SystemExit(2)
+            raise SystemExit(0)
+          - "{{ stage3_cache_dir }}"
+      register: stage3_cache_symlink_check
+      changed_when: false
+      failed_when: stage3_cache_symlink_check.rc != 0
+
+    - name: Inspect stage3 cache directory
+      ansible.builtin.stat:
+        path: "{{ stage3_cache_dir }}"
+        follow: false
+      register: stage3_cache_stat
+
+    - name: Reject unsafe stage3 cache object
+      ansible.builtin.assert:
+        that:
+          - not stage3_cache_stat.stat.exists or stage3_cache_stat.stat.isdir
+          - not stage3_cache_stat.stat.islnk | default(false)
+        fail_msg: "CLEANUP_PATH_INVALID: STAGE3_CACHE_DIR must be a real directory or absent."
+        success_msg: "Stage3 cache path is absent or a real directory."
+
+    - name: Check whether stage3 cache path is a mountpoint
+      ansible.builtin.command:
+        argv:
+          - findmnt
+          - --mountpoint
+          - "{{ stage3_cache_dir }}"
+          - --noheadings
+          - --output
+          - TARGET
+      register: stage3_cache_findmnt
+      changed_when: false
+      failed_when: false
+      when: stage3_cache_stat.stat.exists
+
+    - name: Refuse to delete mounted stage3 cache path
+      ansible.builtin.assert:
+        that:
+          - stage3_cache_findmnt.rc | default(1) != 0
+        fail_msg: "CLEANUP_PATH_INVALID: refusing to delete mounted STAGE3_CACHE_DIR."
+        success_msg: "Stage3 cache path is not a mountpoint."
+      when: stage3_cache_stat.stat.exists
+
+    - name: Print stage3 cache cleanup plan
+      ansible.builtin.debug:
+        msg:
+          cleanup_scope: stage3-cache
+          read_only: "{{ cleanup_plan_only | default('no') | bool }}"
+          target_path: "{{ stage3_cache_dir }}"
+          exists: "{{ stage3_cache_stat.stat.exists }}"
+          eligible_for_deletion: "{{ stage3_cache_stat.stat.exists and stage3_cache_stat.stat.isdir and (stage3_cache_findmnt.rc | default(1) != 0) }}"
+          confirmation_required: "{{ not (cleanup_plan_only | default('no') | bool) }}"
+
+    - name: Delete target-local stage3 cache directory
+      ansible.builtin.file:
+        path: "{{ stage3_cache_dir }}"
+        state: absent
+      when:
+        - not (cleanup_plan_only | default('no') | bool)
+        - stage3_cache_stat.stat.exists

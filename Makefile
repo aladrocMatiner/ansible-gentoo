@@ -44,6 +44,9 @@ STAGE3_CACHE_DIR ?= /tmp/gentoo-ai-installer/stage3
 PORTAGE_GENTOO_MIRRORS ?= https://distfiles.gentoo.org
 INSTALL_STATE_FILE ?= var/state/current-install.json
 I_UNDERSTAND_DELETE_INSTALL_STATE ?=
+I_UNDERSTAND_CLEANUP_DELETE ?=
+CLEAN_SCOPE ?= state
+CLEAN_RUN_ID ?=
 
 export LIBVIRT_URI
 export VM_NET_MODE
@@ -90,10 +93,13 @@ export PORTAGE_GENTOO_MIRRORS
 export INSTALL_DISK
 export INSTALL_STATE_FILE
 export I_UNDERSTAND_DELETE_INSTALL_STATE
+export I_UNDERSTAND_CLEANUP_DELETE
+export CLEAN_SCOPE
+export CLEAN_RUN_ID
 
 .PHONY: help \
 	vm-check vm-disk vm-define vm-start vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
-	ansible-check config-check secret-check handbook-trace ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-preview partition-preview format-preview mount-preview bootloader-preview users-preview destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan install-run-clean install-audit install-report \
+	ansible-check config-check secret-check handbook-trace ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-preview partition-preview format-preview mount-preview bootloader-preview users-preview destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan install-run-clean install-audit install-report cleanup-plan clean-state clean-logs clean-audit clean-stage3-cache reset-test-run \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -149,6 +155,12 @@ help:
 		'  make install-run-clean Delete current install state pointer after confirmation' \
 		'  make install-audit   Generate a secret-safe audit bundle for the current run' \
 		'  make install-report  Generate a human-readable secret-safe install summary' \
+		'  make cleanup-plan    Show cleanup candidates for CLEAN_SCOPE without deleting' \
+		'  make clean-state     Delete current install state pointer after DELETE confirmation' \
+		'  make clean-logs      Delete non-audit logs for current or CLEAN_RUN_ID after confirmation' \
+		'  make clean-audit     Delete audit bundle for current or CLEAN_RUN_ID after confirmation' \
+		'  make clean-stage3-cache Delete approved STAGE3_CACHE_DIR after confirmation' \
+		'  make reset-test-run  Delete current state and non-audit logs after confirmation' \
 		'  make vm-shutdown     Request clean guest shutdown' \
 		'  make vm-destroy      Stop the configured VM without deleting artifacts' \
 		'  make vm-clean        Undefine VM and delete generated artifacts after confirmation' \
@@ -205,7 +217,10 @@ help:
 		'  INSTALL_STATE_FILE=$(INSTALL_STATE_FILE)' \
 		'  INSTALL_DISK has no default; pass INSTALL_DISK=/dev/vda only deliberately inside the VM' \
 		'  I_UNDERSTAND_BOOTLOADER_CHANGES must be yes for make install-bootloader' \
-		'  I_UNDERSTAND_DELETE_INSTALL_STATE must be DELETE for make install-run-clean'
+		'  I_UNDERSTAND_DELETE_INSTALL_STATE must be DELETE for make install-run-clean' \
+		'  I_UNDERSTAND_CLEANUP_DELETE must be DELETE for cleanup targets' \
+		'  CLEAN_SCOPE=$(CLEAN_SCOPE)' \
+		'  CLEAN_RUN_ID=$(CLEAN_RUN_ID)'
 
 vm-check:
 	@scripts/vm-check-libvirt.sh
@@ -358,6 +373,28 @@ install-audit:
 
 install-report:
 	@scripts/install-report.py --state-file "$(INSTALL_STATE_FILE)" generate
+
+cleanup-plan:
+	@if [[ "$(CLEAN_SCOPE)" == stage3-cache ]]; then \
+		CLEAN_PLAN_ONLY=yes scripts/ansible-clean-stage3-cache.sh; \
+	else \
+		scripts/cleanup-reset.py --scope "$(CLEAN_SCOPE)" --state-file "$(INSTALL_STATE_FILE)" --run-id "$(CLEAN_RUN_ID)" --stage3-cache-dir "$(STAGE3_CACHE_DIR)" plan; \
+	fi
+
+clean-state:
+	@scripts/cleanup-reset.py --scope state --state-file "$(INSTALL_STATE_FILE)" --run-id "$(CLEAN_RUN_ID)" --stage3-cache-dir "$(STAGE3_CACHE_DIR)" clean --confirm "$(I_UNDERSTAND_CLEANUP_DELETE)"
+
+clean-logs:
+	@scripts/cleanup-reset.py --scope logs --state-file "$(INSTALL_STATE_FILE)" --run-id "$(CLEAN_RUN_ID)" --stage3-cache-dir "$(STAGE3_CACHE_DIR)" clean --confirm "$(I_UNDERSTAND_CLEANUP_DELETE)"
+
+clean-audit:
+	@scripts/cleanup-reset.py --scope audit --state-file "$(INSTALL_STATE_FILE)" --run-id "$(CLEAN_RUN_ID)" --stage3-cache-dir "$(STAGE3_CACHE_DIR)" clean --confirm "$(I_UNDERSTAND_CLEANUP_DELETE)"
+
+clean-stage3-cache:
+	@scripts/ansible-clean-stage3-cache.sh
+
+reset-test-run:
+	@scripts/cleanup-reset.py --scope test-run --state-file "$(INSTALL_STATE_FILE)" --run-id "$(CLEAN_RUN_ID)" --stage3-cache-dir "$(STAGE3_CACHE_DIR)" clean --confirm "$(I_UNDERSTAND_CLEANUP_DELETE)"
 
 vm-shutdown:
 	@scripts/vm-shutdown.sh

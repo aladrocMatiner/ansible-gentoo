@@ -210,6 +210,12 @@ Required safe targets:
 - `make install-resume-plan`
 - `make install-audit`
 - `make install-report`
+- `make cleanup-plan`
+- `make clean-state`
+- `make clean-logs`
+- `make clean-audit`
+- `make clean-stage3-cache`
+- `make reset-test-run`
 - `make install-plan PROFILE=openrc`
 - `make install-plan PROFILE=systemd`
 - `make vm-check`
@@ -242,6 +248,12 @@ Expected behavior:
 - `make install-resume-plan`: read saved install state, reject secret-like state content, and validate current live ISO disk/profile/filesystem facts without resuming or satisfying destructive confirmations.
 - `make install-audit`: generate a secret-scanned local audit bundle under `logs/install-runs/<run-id>/audit-bundle/` from the current install state.
 - `make install-report`: generate a human-readable, secret-safe Markdown summary under `logs/install-runs/<run-id>/install-report.md` from current state and evidence.
+- `make cleanup-plan`: print cleanup candidates for `CLEAN_SCOPE=state|logs|audit|stage3-cache|test-run` without deleting.
+- `make clean-state`: delete only the configured install state pointer after `I_UNDERSTAND_CLEANUP_DELETE=DELETE`.
+- `make clean-logs`: delete non-audit logs for the current run or `CLEAN_RUN_ID` after confirmation; preserve `audit-bundle/`.
+- `make clean-audit`: delete only the selected run's `audit-bundle/` after confirmation.
+- `make clean-stage3-cache`: delete only approved target-local `STAGE3_CACHE_DIR` paths under `/tmp/gentoo-ai-installer/` over Ansible against the live ISO target.
+- `make reset-test-run`: delete the configured state file and non-audit logs for the selected run after confirmation.
 - `make install-run-clean`: delete only the current state pointer after `I_UNDERSTAND_DELETE_INSTALL_STATE=DELETE`; it must not delete run logs or target filesystems.
 - `make format`: require explicit `INSTALL_DISK` and `I_UNDERSTAND_THIS_WIPES_DISK=yes`, then create only the approved ESP/root filesystems for `FILESYSTEM=ext4` or `FILESYSTEM=btrfs` after printing a destructive preview.
 - `make mount-target`: require explicit `INSTALL_DISK`, reuse the approved mount/filesystem plans, mount only `/mnt/gentoo` and `/mnt/gentoo/boot/efi`, and validate existing mounts for idempotency.

@@ -92,3 +92,5 @@ make install-run-clean I_UNDERSTAND_DELETE_INSTALL_STATE=DELETE
 Then rerun the appropriate plan or validation target to create fresh state before generating a new audit bundle.
 
 After generating the bundle, run `make install-report` for a concise human-readable summary that links to the audit bundle when available.
+
+Cleanup preserves audit bundles by default. Use `make clean-audit CLEAN_RUN_ID=<run-id> I_UNDERSTAND_CLEANUP_DELETE=DELETE` only when the audit evidence is intentionally disposable.

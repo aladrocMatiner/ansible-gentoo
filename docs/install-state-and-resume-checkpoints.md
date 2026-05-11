@@ -98,3 +98,5 @@ make install-run-clean I_UNDERSTAND_DELETE_INSTALL_STATE=DELETE
 ```
 
 Then rerun the appropriate read-only plan target against the current live ISO target to create a fresh state checkpoint. Do not manually edit state to bypass failed safety checks.
+
+For broader cleanup, use `make cleanup-plan` first and follow `docs/cleanup-reset-policy.md`. Audit bundles are preserved by default by the cleanup policy.
