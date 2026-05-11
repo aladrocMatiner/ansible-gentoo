@@ -399,7 +399,7 @@ libvirt/virsh is the first safe test environment for OpenRC and systemd install 
 - Use `/dev/vda` only inside the guest VM and only when explicitly passed as `install_disk=/dev/vda`.
 - Validate OpenRC and systemd install plans in the libvirt-managed VM before real hardware testing.
 - Use `make vm-bootstrap-ssh` and `make vm-ansible-ping` only to validate access to the local live ISO test target; installer playbooks remain network/inventory-driven and separate approved work.
-- Future matrix validation should cover OpenRC/ext4, OpenRC/Btrfs, systemd/ext4, and systemd/Btrfs.
+- `make vm-test-matrix-plan` covers OpenRC/ext4, OpenRC/Btrfs, systemd/ext4, and systemd/Btrfs at the read-only planning layer.
 - Future first-boot validation should boot from the installed disk and verify network, hostname, root UUID, admin user, NetworkManager, and optional SSH.
 
 ## Acceptable Reuse

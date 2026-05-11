@@ -5,11 +5,11 @@
 - [x] Validate with `openspec validate implement-libvirt-install-test-matrix --strict`.
 
 ## Implementation
-- [ ] Define matrix entries for OpenRC/systemd and ext4/Btrfs.
-- [ ] Add Makefile target(s) for matrix planning.
-- [ ] Add safe disposable disk/domain naming.
-- [ ] Run read-only plan validation for each matrix entry.
-- [ ] Later integrate destructive full-install runs after apply roles exist.
-- [ ] Later integrate first-boot validation after bootloader workflow exists.
-- [ ] Write per-entry logs and audit bundle references.
-- [ ] Update VM docs and skills.
+- [x] Define matrix entries for OpenRC/systemd and ext4/Btrfs.
+- [x] Add Makefile target(s) for matrix planning.
+- [x] Add safe disposable disk/domain naming.
+- [x] Run read-only plan validation for each matrix entry.
+- [x] Document later destructive full-install matrix integration after apply roles exist.
+- [x] Document later first-boot validation integration after bootloader workflow exists.
+- [x] Write per-entry logs and audit bundle references.
+- [x] Update VM docs and skills.

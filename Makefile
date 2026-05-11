@@ -60,6 +60,9 @@ REAL_HARDWARE_RECOVERY_MEDIA_CONFIRMED ?= no
 REAL_HARDWARE_DESTRUCTIVE_PREVIEW_REVIEWED ?= no
 REAL_HARDWARE_LIBVIRT_VALIDATED ?= no
 REAL_HARDWARE_LIBVIRT_SKIP_REASON ?=
+VM_TEST_MATRIX_LOG_DIR ?= logs/libvirt-matrix
+VM_TEST_MATRIX_INSTALL_DISK ?= /dev/vda
+VM_TEST_MATRIX_RUN_TARGET_PLANS ?= no
 
 export LIBVIRT_URI
 export VM_NET_MODE
@@ -122,9 +125,12 @@ export REAL_HARDWARE_RECOVERY_MEDIA_CONFIRMED
 export REAL_HARDWARE_DESTRUCTIVE_PREVIEW_REVIEWED
 export REAL_HARDWARE_LIBVIRT_VALIDATED
 export REAL_HARDWARE_LIBVIRT_SKIP_REASON
+export VM_TEST_MATRIX_LOG_DIR
+export VM_TEST_MATRIX_INSTALL_DISK
+export VM_TEST_MATRIX_RUN_TARGET_PLANS
 
 .PHONY: help \
-	vm-check vm-disk vm-define vm-start vm-start-installed vm-validate-first-boot vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
+	vm-check vm-disk vm-define vm-start vm-start-installed vm-validate-first-boot vm-test-matrix vm-test-matrix-plan vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
 	ansible-check config-check host-check real-hardware-check secret-check handbook-trace ansible-live-ping ansible-live-preflight local-live-preflight local-detect-disks local-install-plan local-partition-plan detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-preview partition-preview format-preview mount-preview bootloader-preview users-preview destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan record-manual-step install-run-clean install-audit install-report cleanup-plan clean-state clean-logs clean-audit clean-stage3-cache reset-test-run \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
@@ -137,6 +143,8 @@ help:
 		'  make vm-start        Start the libvirt VM from the official Gentoo ISO' \
 		'  make vm-start-installed Start the libvirt VM from the installed qcow2 disk' \
 		'  make vm-validate-first-boot Boot installed VM and run read-only first-boot validation' \
+		'  make vm-test-matrix-plan Plan OpenRC/systemd x ext4/Btrfs libvirt validation matrix' \
+		'  make vm-test-matrix Alias for vm-test-matrix-plan' \
 		'  make vm-console      Attach to virsh console for the VM' \
 		'  make vm-viewer       Open graphical access with virt-viewer' \
 		'  make vm-ip           Discover guest IP when managed networking supports it' \
@@ -260,7 +268,10 @@ help:
 		'  CLEAN_RUN_ID=$(CLEAN_RUN_ID)' \
 		'  MANUAL_STEP_SUMMARY is required for make record-manual-step and not printed' \
 		'  MANUAL_STEP_REASON is required for make record-manual-step and not printed' \
-		'  REAL_HARDWARE_* variables default to no; see docs/real-hardware-readiness.md'
+		'  REAL_HARDWARE_* variables default to no; see docs/real-hardware-readiness.md' \
+		'  VM_TEST_MATRIX_LOG_DIR=$(VM_TEST_MATRIX_LOG_DIR)' \
+		'  VM_TEST_MATRIX_INSTALL_DISK=$(VM_TEST_MATRIX_INSTALL_DISK)' \
+		'  VM_TEST_MATRIX_RUN_TARGET_PLANS=$(VM_TEST_MATRIX_RUN_TARGET_PLANS)'
 
 vm-check:
 	@scripts/vm-check-libvirt.sh
@@ -279,6 +290,11 @@ vm-start-installed:
 
 vm-validate-first-boot:
 	@scripts/vm-validate-first-boot.sh
+
+vm-test-matrix: vm-test-matrix-plan
+
+vm-test-matrix-plan:
+	@scripts/vm-test-matrix-plan.py
 
 vm-console:
 	@scripts/vm-console.sh

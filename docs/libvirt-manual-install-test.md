@@ -93,6 +93,14 @@ make install-plan PROFILE=openrc INSTALL_DISK=/dev/vda
 
 This matches `/dev/vda` against live ISO disk inventory only; it does not write to the qcow2 disk.
 
+To check that supported profile/filesystem variants stay represented, run the read-only matrix planner:
+
+```sh
+make vm-test-matrix-plan
+```
+
+It enumerates OpenRC/ext4, OpenRC/Btrfs, systemd/ext4, and systemd/Btrfs with separate planned domain and qcow2 names. It does not create or boot those domains; see `docs/libvirt-install-test-matrix.md`.
+
 The next read-only checkpoint is the partition plan:
 
 ```sh

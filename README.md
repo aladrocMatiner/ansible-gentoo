@@ -50,6 +50,8 @@ Use `make record-manual-step MANUAL_STEP_SUMMARY=... MANUAL_STEP_REASON=...` to 
 
 Use `make vm-validate-first-boot ADMIN_USER=<admin-user>` after a completed VM install to boot the installed qcow2 disk and run read-only first-boot checks over SSH; see `docs/first-boot-validation.md`.
 
+Use `make vm-test-matrix-plan` to plan OpenRC/systemd and ext4/Btrfs libvirt validation entries without creating disks or running destructive installs; see `docs/libvirt-install-test-matrix.md`.
+
 Use `make handbook-trace` to regenerate the mapping from Makefile targets and Ansible roles to the Gentoo AMD64 Handbook; see `docs/handbook-traceability.md`.
 
 The v1 installed-system completion contract is documented in `docs/target-system-baseline.md`.

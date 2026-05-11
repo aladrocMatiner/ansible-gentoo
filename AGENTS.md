@@ -76,6 +76,8 @@ Manual intervention is a recovery path, not a safety bypass. If an operator chan
 
 Real hardware workflows are higher risk than libvirt validation. Before agents suggest destructive physical-machine targets, they must direct the operator through `make real-hardware-check`, prefer stable disk paths such as `/dev/disk/by-id/...`, and state that readiness output never replaces destructive or bootloader confirmations.
 
+Libvirt matrix workflows are local validation harnesses. Agents must keep matrix planning read-only unless a later OpenSpec change explicitly implements destructive matrix runs with disposable qcow2 disks and the normal destructive confirmations.
+
 ## 11. Ansible reuse-first architecture
 Future Ansible implementation must reuse shared roles, tasks, variables, handlers, templates, validation logic, safety gates, and documentation across OpenRC and systemd console installation flows whenever behavior is common.
 

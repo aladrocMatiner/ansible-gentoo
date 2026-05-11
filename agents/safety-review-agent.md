@@ -18,6 +18,7 @@ The project can destroy data if disk operations are wrong. Safety review is mand
 - Verify manual intervention records cannot satisfy or bypass destructive confirmations.
 - Verify manual intervention notes are non-secret and force read-only revalidation before automation resumes.
 - Verify physical hardware workflows require the real hardware readiness check before destructive targets are recommended.
+- Verify libvirt matrix planning remains read-only unless a later destructive matrix change adds disposable disks and normal confirmations.
 - Produce a structured review decision: `APPROVED`, `APPROVED WITH CHANGES`, or `REJECTED`.
 
 ## 3. Non-goals
@@ -173,6 +174,7 @@ The Makefile is the public control plane. Safety review must verify:
 - VM/libvirt targets must not invoke `sudo` by default.
 - VM cleanup targets must delete only generated artifacts for the configured project-owned domain and must not delete ISO files, libvirt networks, pools, volumes, unrelated domains, or secrets.
 - `make real-hardware-check` must be read-only, require explicit `INSTALL_DISK`, prefer stable disk identity paths, require backup/UEFI/network/power/recovery-media/destructive-preview acknowledgements, and state that it does not satisfy destructive confirmations.
+- `make vm-test-matrix-plan` must not create disks, define domains, start VMs, run destructive install targets, or treat `/dev/vda` as valid outside the planned disposable VM guest context.
 
 ## 13. Ansible Safety Requirements
 For Ansible playbooks, roles, and tasks:
