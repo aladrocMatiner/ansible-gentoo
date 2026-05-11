@@ -31,6 +31,7 @@ Do not use this skill to bypass OpenSpec or safety review for destructive automa
 - A network-reachable official Gentoo live ISO target over SSH, selected by inventory or Makefile variables such as `ANSIBLE_LIVE_HOST`.
 - Libvirt VM SSH access only when using the local validation harness.
 - Basic console targets: amd64, OpenRC or systemd, UEFI, ext4 or planned Btrfs subvolumes, `gentoo-kernel-bin`, GRUB, NetworkManager, no LUKS.
+- Target system baseline: `docs/target-system-baseline.md`.
 - Btrfs policy, when `FILESYSTEM=btrfs`, is shared across init systems and documented in `docs/btrfs-layout-policy.md`: root `@`, `@home`, `@var`, `@var_log`, `@var_cache`, and `@snapshots`; root must mount with `subvol=@`.
 - Project Handbook choices: NetworkManager for v1 networking, GRUB for UEFI, EFI mounted at `/boot/efi` in the installed system, and `gentoo-kernel-bin` with required installkernel/initramfs support.
 - Planned shared guardrails: install configuration schema, config validation report, target system baseline, installed time sync policy, installed SSH policy, boot kernel command line policy, download/cache mirror policy, Portage world update policy, destructive previews, audit bundles, secret input policy, logging/error taxonomy, Handbook traceability, live ISO network bootstrap hardening, host requirements, cleanup/reset policy, manual escape hatch, libvirt matrix validation, first-boot validation, and install report summary. Implemented install state checkpoints are written through `common/install_state`.

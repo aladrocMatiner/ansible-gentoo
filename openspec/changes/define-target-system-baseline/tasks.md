@@ -5,9 +5,9 @@
 - [x] Validate with `openspec validate define-target-system-baseline --strict`.
 
 ## Implementation
-- [ ] Document shared baseline.
-- [ ] Document OpenRC-specific baseline.
-- [ ] Document systemd-specific baseline.
-- [ ] Update package/service/user/final-check proposals to reference baseline.
-- [ ] Update docs and skills.
-- [ ] Validate OpenSpec.
+- [x] Document shared baseline.
+- [x] Document OpenRC-specific baseline.
+- [x] Document systemd-specific baseline.
+- [x] Update package/service/user/final-check proposals to reference baseline.
+- [x] Update docs and skills.
+- [x] Validate OpenSpec.

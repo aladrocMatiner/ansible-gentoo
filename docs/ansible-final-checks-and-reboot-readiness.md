@@ -4,6 +4,8 @@
 
 It does not install packages, change files under `/mnt/gentoo`, alter EFI boot entries, create users, change passwords, or reboot.
 
+The role evaluates the v1 target baseline defined in `docs/target-system-baseline.md`.
+
 ## Run
 
 For the disposable libvirt VM:

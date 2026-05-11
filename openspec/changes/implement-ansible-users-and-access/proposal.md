@@ -12,6 +12,7 @@ The installed system needs a safe way to create an admin user and configure priv
 - Configure sudo or doas.
 - Define root password policy.
 - Support SSH authorized keys if enabled.
+- Follow the target system baseline for admin user, privilege escalation, shell, and optional SSH access expectations.
 - Follow `implement-secret-input-policy` for passwords, hashes, SSH keys, logs, state, and docs.
 - Follow installed SSH policy for root SSH restrictions and authorized key handling.
 
