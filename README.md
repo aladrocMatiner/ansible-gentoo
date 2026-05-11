@@ -42,6 +42,8 @@ Installer phases write non-secret checkpoints under `var/state/` and `logs/insta
 
 Use `make install-audit` to generate a secret-safe evidence bundle for the current run under `logs/install-runs/<run-id>/audit-bundle/`; see `docs/install-audit-bundle.md`.
 
+Use `make handbook-trace` to regenerate the mapping from Makefile targets and Ansible roles to the Gentoo AMD64 Handbook; see `docs/handbook-traceability.md`.
+
 Current Ansible planning targets run from the operator machine over SSH into a booted official Gentoo live ISO. For a real network target, pass `ANSIBLE_LIVE_HOST=<address>` and optionally `ANSIBLE_LIVE_USER=root ANSIBLE_LIVE_PORT=22`. When `ANSIBLE_LIVE_HOST` is empty, the wrapper targets discover the local libvirt VM as the test target.
 
 Current libvirt manual test targets:

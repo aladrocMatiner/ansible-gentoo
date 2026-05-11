@@ -191,6 +191,7 @@ Required safe targets:
 - `make openspec-validate`
 - `make ansible-check`
 - `make config-check`
+- `make handbook-trace`
 - `make ansible-live-ping`
 - `make ansible-live-preflight`
 - `make install-plan`
@@ -215,6 +216,7 @@ Expected behavior:
 - `make openspec-validate`: validate OpenSpec changes.
 - `make ansible-check`: validate Ansible availability, syntax-check implemented playbooks, and run ansible-lint when available.
 - `make config-check`: validate `PROFILE`, `FILESYSTEM`, `BOOT_MODE`, `HOSTNAME`, mount paths, optional `INSTALL_DISK`, and destructive confirmation variables without touching live targets or disks.
+- `make handbook-trace`: regenerate the read-only Gentoo AMD64 Handbook traceability report from project metadata.
 - `make ansible-live-ping`: validate SSH-based Ansible connectivity to the booted official live ISO target. It should use `ANSIBLE_LIVE_HOST` for network targets and libvirt discovery only for local tests.
 - `make ansible-live-preflight`: run read-only live ISO checks without selecting an install disk or mutating target disks.
 - `make install-plan`: summarize intended install flow without making changes; default `PROFILE=openrc` and `FILESYSTEM=ext4`, but never default `INSTALL_DISK`.

@@ -1,0 +1,181 @@
+{
+  "handbook_url": "https://wiki.gentoo.org/wiki/Handbook:AMD64",
+  "metadata_fields": [
+    "phase",
+    "handbook_section",
+    "make_targets",
+    "ansible_roles",
+    "status",
+    "safety_gates",
+    "validation_evidence",
+    "deviations",
+    "openspec_refs"
+  ],
+  "entries": [
+    {
+      "phase": "Live ISO preflight",
+      "handbook_section": "Choosing installation media, booting the installation media, network setup, and system clock checks",
+      "make_targets": ["ansible-live-preflight", "vm-bootstrap-ssh", "vm-ansible-ping"],
+      "ansible_roles": ["common/live_preflight"],
+      "status": "implemented",
+      "safety_gates": ["read-only", "official live ISO evidence", "amd64", "UEFI", "network/DNS/time checks"],
+      "validation_evidence": ["stdout preflight report", "install state checkpoint when run through Makefile"],
+      "deviations": ["Uses SSH-driven Ansible control from the operator machine instead of manual console-only commands."],
+      "openspec_refs": ["define-remote-network-ansible-control-plane", "implement-live-iso-ansible-preflight"]
+    },
+    {
+      "phase": "Disk discovery and planning",
+      "handbook_section": "Preparing the disks",
+      "make_targets": ["detect-disks", "install-plan", "partition-plan", "mount-plan", "filesystem-plan"],
+      "ansible_roles": ["common/disk_detection", "common/disk_safety", "common/install_plan", "common/partition_plan", "common/mount_plan", "common/filesystem_plan"],
+      "status": "implemented",
+      "safety_gates": ["no default install disk", "explicit INSTALL_DISK for disk plans", "mounted descendant rejection", "read-only planning"],
+      "validation_evidence": ["disk inventory", "partition plan", "mount plan", "filesystem plan", "install state resume checkpoint"],
+      "deviations": ["Plans both ext4 and approved Btrfs subvolume variants; no LUKS or swap partition in current scope."],
+      "openspec_refs": ["implement-ansible-disk-detection-and-install-plan", "implement-ansible-partition-plan", "implement-ansible-mount-plan", "implement-ansible-filesystem-plan", "define-btrfs-subvolume-and-snapshot-policy"]
+    },
+    {
+      "phase": "Partition apply",
+      "handbook_section": "Preparing the disks",
+      "make_targets": ["partition"],
+      "ansible_roles": ["common/partitioning"],
+      "status": "implemented",
+      "safety_gates": ["INSTALL_DISK required", "I_UNDERSTAND_THIS_WIPES_DISK=yes required", "shared disk safety", "destructive command preview"],
+      "validation_evidence": ["logs/install-runs/<run-id>/partition/before.json", "logs/install-runs/<run-id>/partition/after.json"],
+      "deviations": ["Uses guarded sgdisk argv commands for a GPT ESP/root layout instead of interactive Handbook partitioning."],
+      "openspec_refs": ["implement-ansible-partition-apply"]
+    },
+    {
+      "phase": "Filesystem creation",
+      "handbook_section": "Creating filesystems",
+      "make_targets": ["format"],
+      "ansible_roles": ["common/filesystem"],
+      "status": "implemented",
+      "safety_gates": ["shared disk safety", "destructive confirmation", "partition path validation", "mounted filesystem rejection"],
+      "validation_evidence": ["logs/install-runs/<run-id>/filesystem/before.json", "logs/install-runs/<run-id>/filesystem/after.json"],
+      "deviations": ["Supports ext4 or Btrfs with approved subvolumes; Btrfs root mounts use subvol=@"],
+      "openspec_refs": ["implement-ansible-filesystem-apply", "define-btrfs-subvolume-and-snapshot-policy"]
+    },
+    {
+      "phase": "Mount target filesystems",
+      "handbook_section": "Mounting the root partition",
+      "make_targets": ["mount-target"],
+      "ansible_roles": ["common/mount_target"],
+      "status": "implemented",
+      "safety_gates": ["explicit target mount", "approved partition paths", "idempotent mount validation", "Btrfs subvolume validation"],
+      "validation_evidence": ["logs/install-runs/<run-id>/mount-target/before.json", "logs/install-runs/<run-id>/mount-target/after.json"],
+      "deviations": ["Uses /mnt/gentoo/boot/efi before chroot to produce target /boot/efi."],
+      "openspec_refs": ["implement-ansible-mount-target"]
+    },
+    {
+      "phase": "Stage3 install",
+      "handbook_section": "Installing the Gentoo installation files",
+      "make_targets": ["stage3-install"],
+      "ansible_roles": ["common/stage3"],
+      "status": "implemented",
+      "safety_gates": ["mounted target root required", "amd64 variant match", "checksum verification", "signature policy"],
+      "validation_evidence": ["logs/install-runs/<run-id>/stage3/verification.json", "logs/install-runs/<run-id>/stage3/extraction.json"],
+      "deviations": ["Stage3 variant is selected from PROFILE=openrc|systemd and signatures fail closed by policy."],
+      "openspec_refs": ["implement-stage3-signature-policy", "implement-ansible-stage3-install"]
+    },
+    {
+      "phase": "Chroot preparation",
+      "handbook_section": "Chrooting",
+      "make_targets": ["prepare-chroot"],
+      "ansible_roles": ["common/chroot"],
+      "status": "implemented",
+      "safety_gates": ["target root markers", "pseudo-filesystem mount checks", "DNS validation"],
+      "validation_evidence": ["logs/install-runs/<run-id>/chroot/prepare.json"],
+      "deviations": ["Uses Ansible-controlled chroot preparation while keeping target root under /mnt/gentoo."],
+      "openspec_refs": ["implement-ansible-chroot-preparation"]
+    },
+    {
+      "phase": "Portage baseline",
+      "handbook_section": "Configuring Portage",
+      "make_targets": ["configure-portage"],
+      "ansible_roles": ["common/portage"],
+      "status": "implemented",
+      "safety_gates": ["conservative make.conf", "official repo", "profile match", "GURU disabled in installed system"],
+      "validation_evidence": ["logs/install-runs/<run-id>/portage/baseline.json"],
+      "deviations": ["Keeps v1 minimal and avoids broad @world updates."],
+      "openspec_refs": ["implement-ansible-portage-baseline", "define-portage-world-update-policy"]
+    },
+    {
+      "phase": "System identity and fstab",
+      "handbook_section": "Configuring the system",
+      "make_targets": ["configure-system", "generate-fstab"],
+      "ansible_roles": ["common/locale_timezone_hostname", "common/fstab"],
+      "status": "implemented",
+      "safety_gates": ["target root validation", "UUID validation", "Btrfs subvolume fstab validation"],
+      "validation_evidence": ["logs/install-runs/<run-id>/system-config/identity.json", "logs/install-runs/<run-id>/fstab/fstab.json"],
+      "deviations": ["Generates UUID-based fstab for ext4 or the approved Btrfs layout."],
+      "openspec_refs": ["implement-locale-timezone-hostname", "implement-ansible-fstab-generation"]
+    },
+    {
+      "phase": "Kernel installation",
+      "handbook_section": "Configuring the Linux kernel",
+      "make_targets": ["install-kernel"],
+      "ansible_roles": ["common/kernel"],
+      "status": "implemented",
+      "safety_gates": ["fstab-derived root UUID", "Btrfs rootflags validation", "no LUKS/resume kernel args"],
+      "validation_evidence": ["logs/install-runs/<run-id>/kernel/kernel.json"],
+      "deviations": ["Uses gentoo-kernel-bin with installkernel and dracut support instead of manual kernel compilation."],
+      "openspec_refs": ["implement-ansible-kernel-install", "define-boot-kernel-commandline-policy"]
+    },
+    {
+      "phase": "System packages and services",
+      "handbook_section": "Installing system tools and configuring networking",
+      "make_targets": ["install-system-packages"],
+      "ansible_roles": ["common/ssh", "common/package_install", "init/openrc", "init/systemd"],
+      "status": "implemented",
+      "safety_gates": ["shared package framework", "init-specific service enablement", "NetworkManager policy"],
+      "validation_evidence": ["logs/install-runs/<run-id>/system-packages/packages-services.json"],
+      "deviations": ["Uses NetworkManager for v1 and init-specific OpenRC/systemd service enablement."],
+      "openspec_refs": ["implement-ansible-system-packages-and-services", "define-installed-ssh-policy", "define-installed-time-sync-policy"]
+    },
+    {
+      "phase": "Users and access",
+      "handbook_section": "User administration",
+      "make_targets": ["configure-users"],
+      "ansible_roles": ["common/users"],
+      "status": "implemented",
+      "safety_gates": ["ADMIN_USER required", "secret file inputs only", "no_log for password hashes", "sudo policy validation"],
+      "validation_evidence": ["logs/install-runs/<run-id>/users/users-access.json"],
+      "deviations": ["Optional password hashes and authorized_keys are controller-local files and never committed."],
+      "openspec_refs": ["implement-ansible-users-and-access", "implement-secret-input-policy"]
+    },
+    {
+      "phase": "Bootloader",
+      "handbook_section": "Configuring the bootloader",
+      "make_targets": ["install-bootloader"],
+      "ansible_roles": ["common/bootloader"],
+      "status": "implemented",
+      "safety_gates": ["UEFI required", "EFI mount validation", "INSTALL_DISK required", "I_UNDERSTAND_BOOTLOADER_CHANGES=yes required"],
+      "validation_evidence": ["logs/install-runs/<run-id>/bootloader/grub.json"],
+      "deviations": ["Uses GRUB UEFI and /boot/efi as the target EFI mountpoint."],
+      "openspec_refs": ["implement-ansible-bootloader-grub"]
+    },
+    {
+      "phase": "Final checks and reboot readiness",
+      "handbook_section": "Rebooting the system",
+      "make_targets": ["final-checks", "install-audit"],
+      "ansible_roles": ["common/final_checks"],
+      "status": "implemented",
+      "safety_gates": ["read-only validation", "no automatic reboot", "secret-safe report and audit bundle"],
+      "validation_evidence": ["logs/install-runs/<run-id>/final-checks/reboot-readiness.json", "logs/install-runs/<run-id>/audit-bundle/manifest.json"],
+      "deviations": ["Project requires explicit manual reboot after final checks and supports audit bundle generation."],
+      "openspec_refs": ["implement-ansible-final-checks-and-reboot-readiness", "implement-install-audit-bundle"]
+    },
+    {
+      "phase": "Local libvirt validation",
+      "handbook_section": "Project-specific validation harness; not a Handbook installation step",
+      "make_targets": ["vm-check", "vm-disk", "vm-define", "vm-start", "vm-bootstrap-ssh", "vm-ansible-ping"],
+      "ansible_roles": [],
+      "status": "implemented",
+      "safety_gates": ["qcow2 only", "project-local VM artifacts", "no host block devices", "official ISO"],
+      "validation_evidence": ["libvirt VM state", "Ansible ping output", "install state/audit evidence from VM runs"],
+      "deviations": ["Disposable VM testing is required before real hardware use but does not replace Handbook target behavior."],
+      "openspec_refs": ["migrate-qemu-workflow-to-libvirt-virsh", "implement-libvirt-install-test-matrix"]
+    }
+  ]
+}

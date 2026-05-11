@@ -93,7 +93,7 @@ export I_UNDERSTAND_DELETE_INSTALL_STATE
 
 .PHONY: help \
 	vm-check vm-disk vm-define vm-start vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
-	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan install-run-clean install-audit \
+	ansible-check config-check secret-check handbook-trace ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan install-run-clean install-audit \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -113,6 +113,7 @@ help:
 		'  make ansible-check   Verify Ansible tooling, syntax, and lint when available' \
 		'  make config-check    Validate installer configuration variables without touching targets' \
 		'  make secret-check    Scan tracked and unignored files for high-risk secret patterns' \
+		'  make handbook-trace  Regenerate Gentoo Handbook traceability report' \
 		'  make ansible-live-ping Validate Ansible connectivity to a live ISO target over SSH' \
 		'  make ansible-live-preflight Run read-only live ISO Ansible preflight over SSH' \
 		'  make detect-disks    Run read-only Ansible disk detection against the live ISO target' \
@@ -240,6 +241,9 @@ config-check:
 
 secret-check:
 	@scripts/secret-check.sh
+
+handbook-trace:
+	@scripts/handbook-trace.py
 
 ansible-live-ping:
 	@scripts/ansible-live-ping.sh

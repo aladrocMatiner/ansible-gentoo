@@ -5,9 +5,9 @@
 - [x] Validate with `openspec validate implement-handbook-traceability-report --strict`.
 
 ## Implementation
-- [ ] Define traceability metadata fields.
-- [ ] Add read-only Makefile target or documentation generation path.
-- [ ] Map current planned roles to Handbook phases.
-- [ ] Document project-specific deviations.
-- [ ] Update docs and relevant skills.
-- [ ] Validate generated report.
+- [x] Define traceability metadata fields.
+- [x] Add read-only Makefile target or documentation generation path.
+- [x] Map current planned roles to Handbook phases.
+- [x] Document project-specific deviations.
+- [x] Update docs and relevant skills.
+- [x] Validate generated report.

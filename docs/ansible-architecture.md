@@ -353,6 +353,7 @@ Required shared gates:
 - Resumed destructive workflows must route checkpoint comparison through `common/disk_safety`; the role compares current disk identity, descendant partition state, filesystem UUIDs, mountpoints, and recorded profile/filesystem values before allowing later mutation.
 - Logs, state files, and audit bundles must reject or redact secrets.
 - Audit bundle generation must stay local to `var/state/` and `logs/install-runs/`, copy only known evidence files, and fail closed on secret-like content.
+- Handbook traceability must be regenerated with `make handbook-trace` when installer phases, Makefile targets, Ansible roles, safety gates, or project-specific deviations change.
 
 ## Cross-Cutting Guardrails
 Before broad destructive implementation, the project should add:
