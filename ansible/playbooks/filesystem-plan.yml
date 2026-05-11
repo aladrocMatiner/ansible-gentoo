@@ -9,3 +9,6 @@
     - role: common/partition_plan
     - role: common/mount_plan
     - role: common/filesystem_plan
+    - role: common/install_state
+      vars:
+        install_state_phase: filesystem-plan

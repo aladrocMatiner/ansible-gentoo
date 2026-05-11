@@ -10,3 +10,8 @@
     - role: common/live_preflight
     - role: common/chroot
     - role: common/kernel
+    - role: common/install_state
+      vars:
+        install_state_phase: kernel-install
+        install_state_evidence_paths:
+          - "logs/install-runs/{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}/kernel/kernel.json"

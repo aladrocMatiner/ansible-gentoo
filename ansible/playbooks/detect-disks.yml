@@ -4,3 +4,6 @@
   gather_facts: true
   roles:
     - role: common/disk_detection
+    - role: common/install_state
+      vars:
+        install_state_phase: disk-detection

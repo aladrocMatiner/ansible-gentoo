@@ -10,3 +10,8 @@
     - role: common/live_preflight
     - role: common/chroot
     - role: common/locale_timezone_hostname
+    - role: common/install_state
+      vars:
+        install_state_phase: system-config
+        install_state_evidence_paths:
+          - "logs/install-runs/{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}/system-config/identity.json"

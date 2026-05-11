@@ -37,13 +37,31 @@
           audit_bundle: "final checks reference the future audit bundle path; implement-install-audit-bundle owns bundle generation"
   roles:
     - role: common/live_preflight
+    - role: common/install_state
+      vars:
+        install_state_phase: live-preflight
     - role: common/disk_detection
+    - role: common/install_state
+      vars:
+        install_state_phase: disk-detection
     - role: common/disk_safety
       vars:
         disk_safety_require_confirmation: true
     - role: common/install_plan
+    - role: common/install_state
+      vars:
+        install_state_phase: install-plan
     - role: common/partition_plan
+    - role: common/install_state
+      vars:
+        install_state_phase: partition-plan
     - role: common/partitioning
+    - role: common/install_state
+      vars:
+        install_state_phase: partition-apply
+        install_state_evidence_paths:
+          - "logs/install-runs/{{ install_run_id }}/partition/before.json"
+          - "logs/install-runs/{{ install_run_id }}/partition/after.json"
     - role: common/disk_detection
     - role: common/disk_safety
       vars:
@@ -51,21 +69,90 @@
     - role: common/install_plan
     - role: common/partition_plan
     - role: common/mount_plan
+    - role: common/install_state
+      vars:
+        install_state_phase: mount-plan
     - role: common/filesystem_plan
+    - role: common/install_state
+      vars:
+        install_state_phase: filesystem-plan
     - role: common/filesystem
+    - role: common/install_state
+      vars:
+        install_state_phase: filesystem-apply
+        install_state_evidence_paths:
+          - "logs/install-runs/{{ install_run_id }}/filesystem/before.json"
+          - "logs/install-runs/{{ install_run_id }}/filesystem/after.json"
     - role: common/mount_target
+    - role: common/install_state
+      vars:
+        install_state_phase: mount-target
+        install_state_evidence_paths:
+          - "logs/install-runs/{{ install_run_id }}/mount-target/before.json"
+          - "logs/install-runs/{{ install_run_id }}/mount-target/after.json"
     - role: common/stage3
+    - role: common/install_state
+      vars:
+        install_state_phase: stage3-install
+        install_state_evidence_paths:
+          - "logs/install-runs/{{ install_run_id }}/stage3/verification.json"
+          - "logs/install-runs/{{ install_run_id }}/stage3/extraction.json"
     - role: common/chroot
+    - role: common/install_state
+      vars:
+        install_state_phase: chroot-preparation
+        install_state_evidence_paths:
+          - "logs/install-runs/{{ install_run_id }}/chroot/prepare.json"
     - role: common/portage
+    - role: common/install_state
+      vars:
+        install_state_phase: portage-baseline
+        install_state_evidence_paths:
+          - "logs/install-runs/{{ install_run_id }}/portage/baseline.json"
     - role: common/locale_timezone_hostname
+    - role: common/install_state
+      vars:
+        install_state_phase: system-config
+        install_state_evidence_paths:
+          - "logs/install-runs/{{ install_run_id }}/system-config/identity.json"
     - role: common/fstab
+    - role: common/install_state
+      vars:
+        install_state_phase: fstab-generation
+        install_state_evidence_paths:
+          - "logs/install-runs/{{ install_run_id }}/fstab/fstab.json"
     - role: common/kernel
+    - role: common/install_state
+      vars:
+        install_state_phase: kernel-install
+        install_state_evidence_paths:
+          - "logs/install-runs/{{ install_run_id }}/kernel/kernel.json"
     - role: common/ssh
     - role: common/package_install
+    - role: common/install_state
+      vars:
+        install_state_phase: system-packages
+        install_state_evidence_paths:
+          - "logs/install-runs/{{ install_run_id }}/system-packages/packages-services.json"
     - role: common/users
+    - role: common/install_state
+      vars:
+        install_state_phase: users-and-access
+        install_state_evidence_paths:
+          - "logs/install-runs/{{ install_run_id }}/users/users-access.json"
     - role: common/disk_detection
     - role: common/disk_safety
       vars:
         disk_safety_allow_mounted_descendants: true
     - role: common/bootloader
+    - role: common/install_state
+      vars:
+        install_state_phase: bootloader
+        install_state_evidence_paths:
+          - "logs/install-runs/{{ install_run_id }}/bootloader/grub.json"
     - role: common/final_checks
+    - role: common/install_state
+      vars:
+        install_state_phase: final-checks
+        install_state_evidence_paths:
+          - "logs/install-runs/{{ install_run_id }}/final-checks/reboot-readiness.json"

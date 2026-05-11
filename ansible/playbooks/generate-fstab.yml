@@ -10,3 +10,8 @@
       vars:
         disk_safety_allow_mounted_descendants: true
     - role: common/fstab
+    - role: common/install_state
+      vars:
+        install_state_phase: fstab-generation
+        install_state_evidence_paths:
+          - "logs/install-runs/{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}/fstab/fstab.json"

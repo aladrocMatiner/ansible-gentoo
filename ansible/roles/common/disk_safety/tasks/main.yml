@@ -196,8 +196,9 @@
         else (
           disk_safety_resume_checkpoint_loaded.disk_safety_resume_checkpoint
           | default(disk_safety_resume_checkpoint_loaded.install_state_checkpoint
+          | default(disk_safety_resume_checkpoint_loaded.resume_checkpoint
           | default(disk_safety_resume_checkpoint_loaded.disk_safety
-          | default(disk_safety_resume_checkpoint_loaded)))
+          | default(disk_safety_resume_checkpoint_loaded))))
         )
       }}
 

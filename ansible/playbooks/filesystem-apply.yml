@@ -12,3 +12,9 @@
     - role: common/mount_plan
     - role: common/filesystem_plan
     - role: common/filesystem
+    - role: common/install_state
+      vars:
+        install_state_phase: filesystem-apply
+        install_state_evidence_paths:
+          - "logs/install-runs/{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}/filesystem/before.json"
+          - "logs/install-runs/{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}/filesystem/after.json"

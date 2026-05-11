@@ -7,3 +7,6 @@
     - role: common/disk_safety
       vars:
         disk_safety_require_confirmation: true
+    - role: common/install_state
+      vars:
+        install_state_phase: destructive-safety-check

@@ -1,0 +1,209 @@
+---
+- name: Require install state phase name
+  ansible.builtin.assert:
+    that:
+      - install_state_phase is defined
+      - install_state_phase | string | length > 0
+      - install_state_phase is match('^[a-z0-9][a-z0-9-]{0,63}$')
+    fail_msg: "INSTALL_STATE_INVALID: install_state_phase must be a conservative phase name."
+    success_msg: "Install state phase name is valid."
+
+- name: Define install state paths
+  ansible.builtin.set_fact:
+    install_state_run_id: "{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}"
+    install_state_project_root: "{{ project_root | default(lookup('ansible.builtin.env', 'PWD'), true) }}"
+
+- name: Define install state files
+  ansible.builtin.set_fact:
+    install_state_run_dir: "{{ install_state_project_root }}/logs/install-runs/{{ install_state_run_id }}"
+    install_state_current_file: "{{ install_state_project_root }}/var/state/current-install.json"
+    install_state_run_file: "{{ install_state_project_root }}/logs/install-runs/{{ install_state_run_id }}/state.json"
+    install_state_events_file: "{{ install_state_project_root }}/logs/install-runs/{{ install_state_run_id }}/events.jsonl"
+
+- name: Create project-local install state directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0750"
+  loop:
+    - "{{ install_state_project_root }}/var/state"
+    - "{{ install_state_run_dir }}"
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Check existing install run state
+  ansible.builtin.stat:
+    path: "{{ install_state_run_file }}"
+  register: install_state_existing_stat
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Check current install state pointer
+  ansible.builtin.stat:
+    path: "{{ install_state_current_file }}"
+  register: install_state_current_stat
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Read existing install run state
+  ansible.builtin.slurp:
+    path: "{{ install_state_run_file }}"
+  register: install_state_existing_slurp
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - install_state_existing_stat.stat.exists | default(false)
+
+- name: Read current install state pointer
+  ansible.builtin.slurp:
+    path: "{{ install_state_current_file }}"
+  register: install_state_current_slurp
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - not install_state_existing_stat.stat.exists | default(false)
+    - install_state_current_stat.stat.exists | default(false)
+
+- name: Parse existing install run state
+  ansible.builtin.set_fact:
+    install_state_existing: >-
+      {{
+        (install_state_existing_slurp.content | default('') | b64decode | from_json)
+        if (install_state_existing_stat.stat.exists | default(false))
+        else (
+          (install_state_current_slurp.content | default('') | b64decode | from_json)
+          if (install_state_current_stat.stat.exists | default(false))
+          else {}
+        )
+      }}
+
+- name: Normalize install state summary inputs
+  ansible.builtin.set_fact:
+    install_state_profile: "{{ profile | default(install_state_existing.profile | default('')) }}"
+    install_state_filesystem: "{{ filesystem | default(install_state_existing.filesystem | default('')) }}"
+    install_state_boot_mode: "{{ boot_mode | default(install_state_existing.boot_mode | default('uefi')) }}"
+    install_state_target_mount: "{{ target_mount | default(install_state_existing.target_mount | default('/mnt/gentoo')) }}"
+    install_state_efi_mount: "{{ efi_mount | default(install_state_existing.efi_mount | default('/mnt/gentoo/boot/efi')) }}"
+    install_state_install_disk: "{{ install_disk | default(install_state_existing.install_disk | default('')) }}"
+
+- name: Build install state checkpoint
+  ansible.builtin.set_fact:
+    install_state_checkpoint:
+      phase: "{{ install_state_phase }}"
+      status: "{{ install_state_status | default('complete') }}"
+      timestamp: "{{ ansible_date_time.iso8601 }}"
+      profile: "{{ install_state_profile }}"
+      filesystem: "{{ install_state_filesystem }}"
+      boot_mode: "{{ install_state_boot_mode }}"
+      target_mount: "{{ install_state_target_mount }}"
+      efi_mount: "{{ install_state_efi_mount }}"
+      install_disk: "{{ install_state_install_disk }}"
+      disk_safety: "{{ disk_safety_report.current_checkpoint | default({}) }}"
+      evidence_paths: "{{ install_state_evidence_paths | default([]) }}"
+
+- name: Select resume checkpoint for current state
+  ansible.builtin.set_fact:
+    install_state_resume_checkpoint: >-
+      {{
+        (
+          disk_safety_report.current_checkpoint
+          | combine({'profile': install_state_profile, 'filesystem': install_state_filesystem}, recursive=true)
+        )
+        if (disk_safety_report is defined and disk_safety_report.current_checkpoint is defined)
+        else (install_state_existing.resume_checkpoint | default({}))
+      }}
+
+- name: Build complete install state
+  ansible.builtin.set_fact:
+    install_state_document:
+      schema_version: 1
+      project: gentoo-ai-installer
+      run_id: "{{ install_state_run_id }}"
+      updated_at: "{{ ansible_date_time.iso8601 }}"
+      profile: "{{ install_state_profile }}"
+      filesystem: "{{ install_state_filesystem }}"
+      boot_mode: "{{ install_state_boot_mode }}"
+      target_mount: "{{ install_state_target_mount }}"
+      efi_mount: "{{ install_state_efi_mount }}"
+      install_disk: "{{ install_state_install_disk }}"
+      completed_phases: "{{ (install_state_existing.completed_phases | default([]) | reject('equalto', install_state_phase) | list) + [install_state_phase] }}"
+      last_completed_phase: "{{ install_state_phase }}"
+      checkpoints: "{{ install_state_existing.checkpoints | default({}) | combine({install_state_phase: install_state_checkpoint}, recursive=true) }}"
+      resume_checkpoint: "{{ install_state_resume_checkpoint }}"
+      resume_policy:
+        requires_current_fact_match: true
+        destructive_confirmation_still_required: true
+        bootloader_confirmation_still_required: true
+      next_safe_action: "{{ install_state_next_action | default('Review state with make install-state, then run the next documented Makefile target.') }}"
+      run_state_file: "{{ install_state_run_file }}"
+      current_state_file: "{{ install_state_current_file }}"
+
+- name: Render install state JSON
+  ansible.builtin.set_fact:
+    install_state_json: "{{ install_state_document | to_nice_json }}"
+    install_state_event_json: >-
+      {{
+        {
+          'timestamp': ansible_date_time.iso8601,
+          'run_id': install_state_run_id,
+          'phase': install_state_phase,
+          'status': install_state_status | default('complete')
+        } | to_json
+      }}
+
+- name: Reject secret-like content in install state
+  ansible.builtin.assert:
+    that:
+      - install_state_json is not search('(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|password|passwd|BEGIN [A-Z ]*PRIVATE KEY)')
+    fail_msg: "INSTALL_STATE_SECRET_RISK: refusing to write state because rendered state contains secret-like text."
+    success_msg: "Install state content is secret-safe."
+
+- name: Write run-local install state
+  ansible.builtin.copy:
+    dest: "{{ install_state_run_file }}"
+    mode: "0640"
+    content: "{{ install_state_json }}\n"
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Write current install state pointer
+  ansible.builtin.copy:
+    dest: "{{ install_state_current_file }}"
+    mode: "0640"
+    content: "{{ install_state_json }}\n"
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Append install state event
+  ansible.builtin.lineinfile:
+    path: "{{ install_state_events_file }}"
+    line: "{{ install_state_event_json }}"
+    create: true
+    mode: "0640"
+    insertafter: EOF
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Report install state checkpoint
+  ansible.builtin.debug:
+    msg:
+      run_id: "{{ install_state_run_id }}"
+      phase: "{{ install_state_phase }}"
+      state_file: "{{ install_state_current_file }}"
+      resume_checkpoint_available: "{{ install_state_resume_checkpoint | length > 0 }}"

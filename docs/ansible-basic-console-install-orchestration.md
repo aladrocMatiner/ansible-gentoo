@@ -76,6 +76,7 @@ The full flow:
 - shows EFI entries before bootloader changes
 - keeps OpenRC and systemd differences in variant variables and init roles
 - writes non-secret per-phase evidence under `logs/install-runs/<run-id>/`
+- writes non-secret install state checkpoints through `common/install_state`
 
 Do not run the full install target against a disk with mounted descendants from a previous install attempt. Reboot the live ISO or cleanly unmount the target first.
 
@@ -108,6 +109,16 @@ Each implemented role writes non-secret evidence under a shared run id:
 ```text
 logs/install-runs/<run-id>/
 ```
+
+The shared state role also updates:
+
+```text
+var/state/current-install.json
+logs/install-runs/<run-id>/state.json
+logs/install-runs/<run-id>/events.jsonl
+```
+
+Inspect state with `make install-state`. Validate a possible continuation with `make install-resume-plan`; this is read-only and does not satisfy destructive confirmations.
 
 Final checks write:
 

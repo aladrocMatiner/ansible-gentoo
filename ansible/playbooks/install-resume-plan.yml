@@ -1,0 +1,26 @@
+---
+- name: Validate install resume plan
+  hosts: gentoo_live
+  gather_facts: true
+  roles:
+    - role: common/disk_detection
+    - role: common/disk_safety
+      vars:
+        disk_safety_allow_mounted_descendants: true
+        disk_safety_resume_checkpoint_required: true
+        disk_safety_resume_checkpoint_file: "{{ install_state_checkpoint_file }}"
+    - role: common/install_state
+      vars:
+        install_state_phase: resume-plan
+        install_state_next_action: "Resume validation passed. Run the next documented Makefile target with fresh confirmations if it is destructive."
+  tasks:
+    - name: Report resume plan result
+      ansible.builtin.debug:
+        msg:
+          resume_plan: PASS
+          state_file: "{{ install_state_checkpoint_file }}"
+          install_disk: "{{ install_disk }}"
+          profile: "{{ profile | default('') }}"
+          filesystem: "{{ filesystem | default('') }}"
+          destructive_confirmation_required_later: true
+          bootloader_confirmation_required_later: true

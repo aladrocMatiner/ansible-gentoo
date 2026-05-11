@@ -7,3 +7,6 @@
     - role: common/disk_safety
     - role: common/install_plan
     - role: common/partition_plan
+    - role: common/install_state
+      vars:
+        install_state_phase: partition-plan

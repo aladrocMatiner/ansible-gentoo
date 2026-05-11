@@ -15,3 +15,8 @@
     - role: common/chroot
     - role: common/ssh
     - role: common/package_install
+    - role: common/install_state
+      vars:
+        install_state_phase: system-packages
+        install_state_evidence_paths:
+          - "logs/install-runs/{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}/system-packages/packages-services.json"

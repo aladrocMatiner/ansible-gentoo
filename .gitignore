@@ -11,6 +11,7 @@ var/secrets/
 # Runtime logs and temporary files.
 logs/
 tmp/
+var/state/
 
 # Legacy local QEMU test VM artifacts.
 var/qemu/*.qcow2

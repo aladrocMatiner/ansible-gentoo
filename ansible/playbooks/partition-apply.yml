@@ -10,3 +10,9 @@
     - role: common/install_plan
     - role: common/partition_plan
     - role: common/partitioning
+    - role: common/install_state
+      vars:
+        install_state_phase: partition-apply
+        install_state_evidence_paths:
+          - "logs/install-runs/{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}/partition/before.json"
+          - "logs/install-runs/{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}/partition/after.json"

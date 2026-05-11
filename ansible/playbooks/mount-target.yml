@@ -12,3 +12,9 @@
     - role: common/mount_plan
     - role: common/filesystem_plan
     - role: common/mount_target
+    - role: common/install_state
+      vars:
+        install_state_phase: mount-target
+        install_state_evidence_paths:
+          - "logs/install-runs/{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}/mount-target/before.json"
+          - "logs/install-runs/{{ install_run_id | default(ansible_date_time.iso8601_basic_short) }}/mount-target/after.json"

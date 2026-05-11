@@ -33,7 +33,7 @@ Do not use this skill to bypass OpenSpec or safety review for destructive automa
 - Basic console targets: amd64, OpenRC or systemd, UEFI, ext4 or planned Btrfs subvolumes, `gentoo-kernel-bin`, GRUB, NetworkManager, no LUKS.
 - Btrfs policy, when `FILESYSTEM=btrfs`, is shared across init systems and documented in `docs/btrfs-layout-policy.md`: root `@`, `@home`, `@var`, `@var_log`, `@var_cache`, and `@snapshots`; root must mount with `subvol=@`.
 - Project Handbook choices: NetworkManager for v1 networking, GRUB for UEFI, EFI mounted at `/boot/efi` in the installed system, and `gentoo-kernel-bin` with required installkernel/initramfs support.
-- Planned shared guardrails: install configuration schema, config validation report, target system baseline, installed time sync policy, installed SSH policy, boot kernel command line policy, download/cache mirror policy, Portage world update policy, install state checkpoints, destructive previews, audit bundles, secret input policy, logging/error taxonomy, Handbook traceability, live ISO network bootstrap hardening, host requirements, cleanup/reset policy, manual escape hatch, libvirt matrix validation, first-boot validation, and install report summary.
+- Planned shared guardrails: install configuration schema, config validation report, target system baseline, installed time sync policy, installed SSH policy, boot kernel command line policy, download/cache mirror policy, Portage world update policy, destructive previews, audit bundles, secret input policy, logging/error taxonomy, Handbook traceability, live ISO network bootstrap hardening, host requirements, cleanup/reset policy, manual escape hatch, libvirt matrix validation, first-boot validation, and install report summary. Implemented install state checkpoints are written through `common/install_state`.
 - Makefile target contract.
 - Safety review requirements.
 - Target root path, expected `/mnt/gentoo`.
@@ -172,6 +172,7 @@ Shared roles:
 - `common/live_target`: verify controller-to-target SSH, Python availability, official live ISO evidence, amd64, UEFI, network, DNS, and time without assuming libvirt.
 - `common/disk_detection`: read-only disk identity and partition reporting.
 - `common/disk_safety`: shared disk safety gates for explicit disk input, conservative disk syntax, disk identity, mount-state checks, mounted-descendant rejection, destructive confirmation validation, and opt-in resume checkpoint comparison.
+- `common/install_state`: write non-secret state under `var/state/current-install.json` and `logs/install-runs/<run-id>/`, track completed phases, and preserve the latest disk safety checkpoint for `make install-resume-plan`.
 - `common/install_plan`: profile-aware read-only plan output that follows the official Gentoo AMD64 Handbook baseline and does not select a disk by default.
 - `common/partition_plan`: read-only GPT partition plan that reuses `common/disk_safety`, requires explicit `install_disk`, and reports ext4 or Btrfs root layout without writing.
 - `common/mount_plan`: read-only mount layout plan that reuses partition-plan safety checks and reports root, EFI, and Btrfs subvolume mountpoints without running `mount`, `umount`, or `mkdir`.
@@ -279,6 +280,7 @@ Required gates:
 - Confirm systemd flows do not call `rc-update` or `rc-service`.
 - Confirm destructive workflows print or call the shared preview before accepting confirmation.
 - Confirm resume checkpoints do not replace destructive confirmations, and resumed destructive workflows compare current disk identity, descendant partition state, filesystem UUIDs, mountpoints, and recorded profile/filesystem values through `common/disk_safety`.
+- Confirm state output is curated and secret-safe; do not write passwords, password hashes, tokens, API keys, private keys, or local credentials into `var/state/` or `logs/install-runs/`.
 - Confirm logs, state files, and audit bundles do not contain secrets.
 - Confirm operator variables pass the shared config validation before apply workflows.
 - Confirm manual intervention is recorded and revalidated before resume.

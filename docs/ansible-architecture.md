@@ -203,6 +203,7 @@ Currently implemented shared roles and workflows:
 - `common/live_preflight`: validates the live ISO environment over SSH.
 - `common/disk_detection`: reports visible block devices without selecting or modifying a disk.
 - `common/disk_safety`: validates explicit disk input, conservative syntax, optional destructive confirmation, disk identity, disk type, disk mount state, mounted descendants, and opt-in resume checkpoint comparison without mutating disks.
+- `common/install_state`: writes non-secret project-local run state, phase checkpoints, event lines, and the latest disk safety resume checkpoint under `var/state/` and `logs/install-runs/`.
 - `common/install_plan`: prints a profile-aware OpenRC or systemd plan without defaulting `install_disk`; it supports `FILESYSTEM=ext4` and `FILESYSTEM=btrfs` as read-only plan variants.
 - `common/partition_plan`: reuses `common/disk_safety`, requires explicit `INSTALL_DISK`, and prints the exact read-only GPT plan for ext4 or Btrfs without writing.
 - `common/mount_plan`: requires explicit `INSTALL_DISK`, reuses partition-plan safety checks, and prints the read-only target root, EFI, and Btrfs subvolume mount layout without mounting or creating directories.

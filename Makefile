@@ -42,6 +42,8 @@ FILESYSTEM ?= ext4
 STAGE3_MIRROR ?= https://distfiles.gentoo.org/releases/amd64/autobuilds
 STAGE3_CACHE_DIR ?= /tmp/gentoo-ai-installer/stage3
 PORTAGE_GENTOO_MIRRORS ?= https://distfiles.gentoo.org
+INSTALL_STATE_FILE ?= var/state/current-install.json
+I_UNDERSTAND_DELETE_INSTALL_STATE ?=
 
 export LIBVIRT_URI
 export VM_NET_MODE
@@ -86,10 +88,12 @@ export STAGE3_MIRROR
 export STAGE3_CACHE_DIR
 export PORTAGE_GENTOO_MIRRORS
 export INSTALL_DISK
+export INSTALL_STATE_FILE
+export I_UNDERSTAND_DELETE_INSTALL_STATE
 
 .PHONY: help \
 	vm-check vm-disk vm-define vm-start vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
-	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd \
+	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan install-run-clean \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -133,6 +137,9 @@ help:
 		'  make install         DESTRUCTIVE: run full basic console install for PROFILE' \
 		'  make install-openrc  DESTRUCTIVE: run full OpenRC basic console install' \
 		'  make install-systemd DESTRUCTIVE: run full systemd basic console install' \
+		'  make install-state   Show current non-secret install state checkpoint summary' \
+		'  make install-resume-plan Validate current target facts against saved install state' \
+		'  make install-run-clean Delete current install state pointer after confirmation' \
 		'  make vm-shutdown     Request clean guest shutdown' \
 		'  make vm-destroy      Stop the configured VM without deleting artifacts' \
 		'  make vm-clean        Undefine VM and delete generated artifacts after confirmation' \
@@ -186,8 +193,10 @@ help:
 		'  STAGE3_MIRROR=$(STAGE3_MIRROR)' \
 		'  STAGE3_CACHE_DIR=$(STAGE3_CACHE_DIR)' \
 		'  PORTAGE_GENTOO_MIRRORS=$(PORTAGE_GENTOO_MIRRORS)' \
+		'  INSTALL_STATE_FILE=$(INSTALL_STATE_FILE)' \
 		'  INSTALL_DISK has no default; pass INSTALL_DISK=/dev/vda only deliberately inside the VM' \
-		'  I_UNDERSTAND_BOOTLOADER_CHANGES must be yes for make install-bootloader'
+		'  I_UNDERSTAND_BOOTLOADER_CHANGES must be yes for make install-bootloader' \
+		'  I_UNDERSTAND_DELETE_INSTALL_STATE must be DELETE for make install-run-clean'
 
 vm-check:
 	@scripts/vm-check-libvirt.sh
@@ -304,6 +313,15 @@ install-openrc:
 
 install-systemd:
 	@PROFILE=systemd scripts/ansible-install-basic-console.sh
+
+install-state:
+	@scripts/install-state.py --state-file "$(INSTALL_STATE_FILE)" show
+
+install-resume-plan:
+	@scripts/ansible-install-resume-plan.sh
+
+install-run-clean:
+	@scripts/install-state.py --state-file "$(INSTALL_STATE_FILE)" clean --confirm "$(I_UNDERSTAND_DELETE_INSTALL_STATE)"
 
 vm-shutdown:
 	@scripts/vm-shutdown.sh
