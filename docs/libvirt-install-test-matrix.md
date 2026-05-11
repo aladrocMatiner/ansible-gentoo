@@ -2,7 +2,7 @@
 
 The libvirt install test matrix keeps amd64 OpenRC/systemd and ext4/Btrfs validation from drifting. It uses the local libvirt harness as disposable test infrastructure for the reusable network Ansible installer.
 
-The current matrix target is a safe planning target. It does not create disks, define domains, start VMs, partition, format, mount, or install Gentoo. Full validation of one selected entry is exposed separately through `make vm-e2e-plan` and `make vm-e2e-install`; see `docs/libvirt-end-to-end-install-validation.md`.
+`make vm-test-matrix-plan` is the safe planning target. It does not create disks, define domains, start VMs, partition, format, mount, or install Gentoo. Full validation of one selected entry is exposed through `make vm-e2e-plan` and `make vm-e2e-install`; full validation of all four disposable cases is exposed through `make vm-e2e-matrix`. See `docs/libvirt-end-to-end-install-validation.md`.
 
 ## Matrix Entries
 
@@ -78,7 +78,33 @@ This attempts read-only:
 - `mount-plan`,
 - `filesystem-plan`.
 
-The target still does not run destructive install steps. Full destructive matrix runs are planned for a later change and must use disposable qcow2 disks plus normal destructive confirmations.
+The target still does not run destructive install steps.
+
+## Full E2E Matrix Validation
+
+Run this only when all four case VMs are disposable:
+
+```sh
+make vm-e2e-matrix \
+  ADMIN_USER=<admin-user> \
+  ENABLE_SSH=yes \
+  ADMIN_AUTHORIZED_KEYS_FILE=<public-key-file> \
+  VM_E2E_RESET_DISK=yes \
+  I_UNDERSTAND_CLEANUP_DELETE=DELETE \
+  I_UNDERSTAND_THIS_WIPES_DISK=yes \
+  I_UNDERSTAND_BOOTLOADER_CHANGES=yes
+```
+
+`vm-e2e-matrix` invokes `make vm-e2e-install` for each matrix entry. It does not implement a separate installation path. By default it runs four cases in parallel; set `VM_E2E_MATRIX_PARALLEL=1`, `2`, `3`, or `4` to control concurrency.
+
+The target writes:
+
+```text
+logs/libvirt-e2e-matrix/<timestamp>/matrix-e2e.json
+logs/libvirt-e2e-matrix/<timestamp>/<entry>/vm-e2e-install.log
+```
+
+Each child still writes normal single-case logs under `logs/libvirt-e2e/`, `logs/install-runs/`, and `var/state/libvirt/<case-domain>/`.
 
 ## Variables
 
@@ -87,6 +113,8 @@ The target still does not run destructive install steps. Full destructive matrix
 | `VM_TEST_MATRIX_LOG_DIR` | `logs/libvirt-matrix` | Project-local report directory. |
 | `VM_TEST_MATRIX_INSTALL_DISK` | `/dev/vda` | Guest disk path for disposable libvirt matrix entries. |
 | `VM_TEST_MATRIX_RUN_TARGET_PLANS` | `no` | Set to `yes` only after a live ISO target is booted and SSH-enabled. |
+| `VM_E2E_MATRIX_LOG_DIR` | `logs/libvirt-e2e-matrix` | Project-local full E2E matrix report directory. |
+| `VM_E2E_MATRIX_PARALLEL` | `4` | Number of concurrent full E2E case installs, from `1` to `4`. |
 | `VM_NAME` | `gentoo-test` | Base name for generated matrix domains; do not pass a full case name. |
 | `VM_TEST_IMAGE_NAME` | empty | Optional manual test image label inserted into generated domain and disk names. |
 | `VM_DIR` | `var/libvirt` | Base artifact directory for planned qcow2 disk names. |
@@ -98,8 +126,9 @@ The target still does not run destructive install steps. Full destructive matrix
 - Planned domains use conservative names.
 - Manual `VM_DISK` overrides are rejected for matrix planning so one disk cannot be reused across cases by accident.
 - The target does not create or delete disks or domains.
-- Destructive matrix execution is not implemented by this target.
-- Future destructive matrix runs must require `I_UNDERSTAND_THIS_WIPES_DISK=yes` and use the same shared safety gates as single-variant installs.
+- Full E2E matrix execution is available only through `make vm-e2e-matrix`.
+- Full E2E matrix execution requires `VM_E2E_RESET_DISK=yes`, `I_UNDERSTAND_CLEANUP_DELETE=DELETE`, `I_UNDERSTAND_THIS_WIPES_DISK=yes`, and `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`.
+- Full E2E matrix execution reuses the same shared safety gates as single-variant installs.
 
 ## Failure Modes
 
@@ -107,6 +136,7 @@ The target still does not run destructive install steps. Full destructive matrix
 - `VM_TEST_MATRIX_INSTALL_DISK` is not `/dev/vda`: keep matrix planning scoped to the disposable libvirt guest disk.
 - Config validation fails for an entry: inspect that entry's `config-check.txt`.
 - Target plan validation fails: ensure the live ISO VM is running, SSH is enabled, and `make vm-ansible-ping` passes first.
+- Full E2E matrix entry fails: inspect `logs/libvirt-e2e-matrix/<timestamp>/<entry>/vm-e2e-install.log` and rerun that case individually with `make vm-e2e-install`.
 
 ## Recovery
 

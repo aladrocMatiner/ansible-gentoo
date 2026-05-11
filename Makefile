@@ -65,6 +65,8 @@ VM_TEST_MATRIX_LOG_DIR ?= logs/libvirt-matrix
 VM_TEST_MATRIX_INSTALL_DISK ?= /dev/vda
 VM_TEST_MATRIX_RUN_TARGET_PLANS ?= no
 VM_E2E_RESET_DISK ?= no
+VM_E2E_MATRIX_LOG_DIR ?= logs/libvirt-e2e-matrix
+VM_E2E_MATRIX_PARALLEL ?= 4
 
 export LIBVIRT_URI
 export VM_NET_MODE
@@ -132,9 +134,11 @@ export VM_TEST_MATRIX_LOG_DIR
 export VM_TEST_MATRIX_INSTALL_DISK
 export VM_TEST_MATRIX_RUN_TARGET_PLANS
 export VM_E2E_RESET_DISK
+export VM_E2E_MATRIX_LOG_DIR
+export VM_E2E_MATRIX_PARALLEL
 
 .PHONY: help \
-	vm-list-cases vm-check vm-disk vm-define vm-start vm-start-installed vm-validate-first-boot vm-e2e-plan vm-e2e-install vm-test-matrix vm-test-matrix-plan vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
+	vm-list-cases vm-check vm-disk vm-define vm-start vm-start-installed vm-validate-first-boot vm-e2e-plan vm-e2e-install vm-e2e-matrix vm-test-matrix vm-test-matrix-plan vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
 	ansible-check config-check host-check real-hardware-check release-check secret-check handbook-trace ansible-live-ping ansible-live-preflight local-live-preflight local-detect-disks local-install-plan local-partition-plan detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-preview partition-preview format-preview mount-preview bootloader-preview users-preview destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan record-manual-step install-run-clean install-audit install-report cleanup-plan clean-state clean-logs clean-audit clean-stage3-cache reset-test-run \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
@@ -150,6 +154,7 @@ help:
 		'  make vm-validate-first-boot Boot installed VM and run read-only first-boot validation' \
 		'  make vm-e2e-plan     Plan libvirt end-to-end install validation without VM mutation' \
 		'  make vm-e2e-install  DESTRUCTIVE-IN-VM: run full disposable VM install validation' \
+		'  make vm-e2e-matrix   DESTRUCTIVE-IN-VM: run full disposable install validation for all four cases' \
 		'  make vm-test-matrix-plan Plan OpenRC/systemd x ext4/Btrfs libvirt validation matrix' \
 		'  make vm-test-matrix Alias for vm-test-matrix-plan' \
 		'  make vm-console      Attach to virsh console for the VM' \
@@ -282,7 +287,9 @@ help:
 		'  VM_TEST_MATRIX_LOG_DIR=$(VM_TEST_MATRIX_LOG_DIR)' \
 		'  VM_TEST_MATRIX_INSTALL_DISK=$(VM_TEST_MATRIX_INSTALL_DISK)' \
 		'  VM_TEST_MATRIX_RUN_TARGET_PLANS=$(VM_TEST_MATRIX_RUN_TARGET_PLANS)' \
-		'  VM_E2E_RESET_DISK=$(VM_E2E_RESET_DISK)'
+		'  VM_E2E_RESET_DISK=$(VM_E2E_RESET_DISK)' \
+		'  VM_E2E_MATRIX_LOG_DIR=$(VM_E2E_MATRIX_LOG_DIR)' \
+		'  VM_E2E_MATRIX_PARALLEL=$(VM_E2E_MATRIX_PARALLEL)'
 
 vm-check:
 	@scripts/vm-check-libvirt.sh
@@ -310,6 +317,9 @@ vm-e2e-plan:
 
 vm-e2e-install:
 	@scripts/vm-e2e-install.sh
+
+vm-e2e-matrix:
+	@scripts/vm-e2e-matrix.py
 
 vm-test-matrix: vm-test-matrix-plan
 

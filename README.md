@@ -62,6 +62,8 @@ Use `make vm-test-matrix-plan` to plan OpenRC/systemd and ext4/Btrfs libvirt val
 
 Use `make vm-e2e-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda ADMIN_USER=<admin-user> ENABLE_SSH=yes ADMIN_AUTHORIZED_KEYS_FILE=<public-key-file>` before running disposable full-VM validation with `make vm-e2e-install`; see `docs/libvirt-end-to-end-install-validation.md`.
 
+Use `make vm-e2e-matrix` only when you intend to reset and reinstall all four disposable libvirt cases. It runs the same single-case workflow for OpenRC/ext4, OpenRC/Btrfs, systemd/ext4, and systemd/Btrfs, and requires the normal VM destructive confirmations.
+
 Per-case libvirt quickstarts are indexed in [docs/quickstarts/README.md](docs/quickstarts/README.md):
 
 - [amd64 OpenRC + ext4](docs/quickstarts/openrc-ext4.md)
@@ -101,6 +103,7 @@ make vm-bootstrap-ssh
 make vm-ssh
 make vm-rsync
 make vm-ansible-ping
+make vm-e2e-matrix
 make vm-shutdown
 make vm-destroy
 make vm-clean

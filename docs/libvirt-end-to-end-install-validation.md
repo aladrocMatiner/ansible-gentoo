@@ -87,7 +87,36 @@ These paths are ignored by git.
 
 ## Matrix Integration
 
-`vm-e2e-plan` includes the OpenRC/systemd and ext4/Btrfs matrix planner. Current destructive execution validates the selected entry. Broader destructive matrix execution must be added by a later change and must use separate disposable qcow2 disks or equivalent reset logic per entry.
+`vm-e2e-plan` includes the OpenRC/systemd and ext4/Btrfs matrix planner. Single-case destructive execution validates the selected entry.
+
+To reset and validate all four disposable libvirt cases through the same single-case workflow, run:
+
+```sh
+make vm-e2e-matrix \
+  ADMIN_USER=<admin-user> \
+  ENABLE_SSH=yes \
+  ADMIN_AUTHORIZED_KEYS_FILE=<public-key-file> \
+  VM_E2E_RESET_DISK=yes \
+  I_UNDERSTAND_CLEANUP_DELETE=DELETE \
+  I_UNDERSTAND_THIS_WIPES_DISK=yes \
+  I_UNDERSTAND_BOOTLOADER_CHANGES=yes
+```
+
+`vm-e2e-matrix` runs:
+
+- `amd64-openrc-ext4`
+- `amd64-openrc-btrfs`
+- `amd64-systemd-ext4`
+- `amd64-systemd-btrfs`
+
+The target runs cases in parallel by default. Use `VM_E2E_MATRIX_PARALLEL=1..4` to change concurrency. The target requires `VM_E2E_RESET_DISK=yes` so every case starts from a fresh qcow2 and case state pointer.
+
+Matrix logs are written under:
+
+```text
+logs/libvirt-e2e-matrix/<timestamp>/matrix-e2e.json
+logs/libvirt-e2e-matrix/<timestamp>/<case>/vm-e2e-install.log
+```
 
 ## Safety
 
@@ -100,6 +129,7 @@ These paths are ignored by git.
 - Installed SSH must be enabled with `ENABLE_SSH=yes`, and `ADMIN_AUTHORIZED_KEYS_FILE` must contain public keys so first-boot validation can connect without a password.
 - The live ISO VM is cleanly shut down before first-boot validation. This avoids booting from a qcow2 whose target filesystems still have pending writes.
 - Resetting generated VM artifacts and the selected case state pointer requires `I_UNDERSTAND_CLEANUP_DELETE=DELETE`.
+- Matrix validation requires `VM_E2E_RESET_DISK=yes` and rejects manual `VM_DISK` overrides so cases cannot share one qcow2 by accident.
 - The wrapper does not replace manual review before real hardware use.
 
 ## Failure Modes
@@ -110,6 +140,7 @@ These paths are ignored by git.
 - VM bootstrap failure: open the selected case console with `make vm-console PROFILE=<profile> FILESYSTEM=<filesystem>` and inspect the live ISO.
 - Clean shutdown timeout: inspect the console and rerun `make vm-shutdown PROFILE=<profile> FILESYSTEM=<filesystem> VM_SHUTDOWN_TIMEOUT=<seconds>` before first-boot validation.
 - First-boot validation failure: inspect `logs/libvirt-e2e/` and `logs/install-runs/<run-id>/first-boot/`.
+- Matrix failure: inspect `logs/libvirt-e2e-matrix/<timestamp>/<case>/vm-e2e-install.log`, then rerun only the failed case with `make vm-e2e-install PROFILE=<profile> FILESYSTEM=<filesystem> ...`.
 
 ## Recovery
 
