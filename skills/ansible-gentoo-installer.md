@@ -472,6 +472,7 @@ Local `local-*` targets are fallback/diagnostic paths for running Ansible inside
 - If moving from libvirt to physical hardware, run `make real-hardware-check` with `ANSIBLE_LIVE_HOST` and an explicit stable `INSTALL_DISK` before destructive targets.
 - If validating variants locally, run `make vm-test-matrix-plan` first; enable `VM_TEST_MATRIX_RUN_TARGET_PLANS=yes` only after the live ISO VM has SSH connectivity.
 - If validating a complete disposable VM install, run `make vm-e2e-plan` first, then `make vm-e2e-install` only with explicit `/dev/vda`, `ADMIN_USER`, `ENABLE_SSH=yes`, wipe confirmation, and bootloader confirmation.
+- Before release-oriented handoff, run `make release-check` to verify Ansible syntax, OpenSpec validation, secrets, tracked artifacts, and release documentation.
 - If a task writes to the wrong path, stop immediately and collect evidence before further mutation.
 - If logs contain secrets, remove them from tracked files and do not commit them.
 
@@ -513,4 +514,5 @@ When phase 2 Ansible behavior changes, documentation must change in the same imp
 - If real hardware readiness handling changes, update `docs/real-hardware-readiness.md`, `docs/destructive-safety-gates.md`, `docs/install-configuration.md`, this skill, `skills/makefile-control-plane.md`, and active OpenSpec tasks together.
 - If libvirt matrix behavior changes, update `docs/libvirt-install-test-matrix.md`, `docs/libvirt-manual-install-test.md`, `docs/ansible-architecture.md`, this skill, `skills/makefile-control-plane.md`, and active OpenSpec tasks together.
 - If libvirt end-to-end validation changes, update `docs/libvirt-end-to-end-install-validation.md`, `docs/libvirt-manual-install-test.md`, `docs/libvirt-install-test-matrix.md`, this skill, `skills/makefile-control-plane.md`, safety review rules, and active OpenSpec tasks together.
+- If release readiness checks change, update `docs/release-readiness.md`, README, `skills/makefile-control-plane.md`, this skill, and active OpenSpec tasks together.
 - Before finishing, confirm logs documentation still states where logs are stored and that secrets must not be logged.

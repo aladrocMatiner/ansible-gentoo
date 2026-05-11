@@ -80,6 +80,8 @@ Libvirt matrix workflows are local validation harnesses. Agents must keep matrix
 
 Libvirt end-to-end install validation may run the full installer only inside the project-owned disposable VM workflow. Agents must require explicit `INSTALL_DISK=/dev/vda`, `ADMIN_USER`, `ENABLE_SSH=yes`, `I_UNDERSTAND_THIS_WIPES_DISK=yes`, and `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`, and must keep host block devices forbidden.
 
+Before release-oriented work is considered complete, agents should run or prepare `make release-check`. The check is local and non-destructive; it reports documentation coverage, tracked artifact hygiene, secret checks, Ansible checks, and OpenSpec validation.
+
 ## 11. Ansible reuse-first architecture
 Future Ansible implementation must reuse shared roles, tasks, variables, handlers, templates, validation logic, safety gates, and documentation across OpenRC and systemd console installation flows whenever behavior is common.
 

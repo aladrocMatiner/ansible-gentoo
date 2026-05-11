@@ -221,6 +221,7 @@ Required safe targets:
 - `make host-check`
 - `make handbook-trace`
 - `make real-hardware-check`
+- `make release-check`
 - `make ansible-live-ping`
 - `make ansible-live-preflight`
 - `make install-plan`
@@ -263,6 +264,7 @@ Expected behavior:
 - `make config-check`: validate `PROFILE`, `FILESYSTEM`, `BOOT_MODE`, `HOSTNAME`, mount paths, optional `INSTALL_DISK`, and destructive confirmation variables without touching live targets or disks.
 - `make handbook-trace`: regenerate the read-only Gentoo AMD64 Handbook traceability report from project metadata.
 - `make real-hardware-check`: run config validation with explicit `INSTALL_DISK`, record a local read-only physical-machine readiness report, and require backup/UEFI/network/power/recovery-media/preview/libvirt-validation acknowledgements without granting destructive permission.
+- `make release-check`: run local non-destructive release readiness checks for docs, OpenSpec validation, Ansible syntax/lint, secrets, tracked artifacts, and guardrail status.
 - `make ansible-live-ping`: validate SSH-based Ansible connectivity to the booted official live ISO target. It should use `ANSIBLE_LIVE_HOST` for network targets and libvirt discovery only for local tests.
 - `make ansible-live-preflight`: run read-only live ISO checks without selecting an install disk or mutating target disks.
 - `make host-check`: validate controller-side host requirements for local libvirt workflows, including tools, resources, OVMF firmware, ISO availability, libvirt access, and safe VM paths.
@@ -464,6 +466,7 @@ Rules:
 - `make ansible-live-ping`
 - `make ansible-live-preflight`
 - `make real-hardware-check ANSIBLE_LIVE_HOST=<live-iso-ip> INSTALL_DISK=/dev/disk/by-id/<operator-selected-disk>`
+- `make release-check`
 - `make ansible-dry-run PROFILE=openrc`
 - `make ansible-dry-run PROFILE=systemd`
 - `make vm-check`
@@ -504,6 +507,7 @@ Rules:
 - Physical-machine destructive workflows are recommended without a successful `make real-hardware-check`.
 - Matrix validation skips supported OpenRC/systemd or ext4/Btrfs combinations, or accidentally creates/deletes VM artifacts in the plan target.
 - End-to-end VM validation runs without explicit `/dev/vda`, admin user, `ENABLE_SSH=yes`, wipe confirmation, or bootloader confirmation.
+- Release readiness passes while required docs are missing, local artifacts are tracked, or OpenSpec strict validation fails.
 - A cleanup target deletes an unchecked path.
 - An Ansible target runs without showing check/plan output first.
 - Codex bootstrap stores tokens in tracked files.
@@ -541,6 +545,7 @@ When Makefile behavior changes, documentation must change in the same commit or 
 - If VM/libvirt targets change, update `docs/libvirt-manual-install-test.md`, any QEMU migration note, and active OpenSpec tasks. Document ISO path, qcow2 path, libvirt URI, network mode, serial console, SSH bootstrap, guest `/dev/vda`, Ansible connectivity validation, and cleanup behavior.
 - If VM test matrix targets change, update `docs/libvirt-install-test-matrix.md`, `docs/libvirt-manual-install-test.md`, this skill, and active OpenSpec tasks. Document matrix entries, planned domain/disk names, logs, and which phases are implemented.
 - If VM end-to-end validation changes, update `docs/libvirt-end-to-end-install-validation.md`, `docs/libvirt-manual-install-test.md`, `docs/libvirt-install-test-matrix.md`, this skill, safety review rules, and active OpenSpec tasks. Document confirmations, logs, audit references, and first-boot expectations.
+- If release readiness behavior changes, update `docs/release-readiness.md`, README, this skill, and active OpenSpec tasks together.
 - If host requirement checks change, update `docs/supported-host-requirements.md`, `docs/libvirt-manual-install-test.md`, `docs/install-configuration.md`, and active OpenSpec tasks.
 - If live ISO Ansible preflight targets change, update `docs/ansible-live-preflight.md`, `docs/libvirt-manual-install-test.md`, `skills/ansible-gentoo-installer.md`, and the active OpenSpec tasks.
 - If local live ISO Ansible fallback targets change, update `docs/live-iso-local-ansible.md`, `docs/ansible-live-preflight.md`, `skills/ansible-gentoo-installer.md`, and the active OpenSpec tasks. Keep network Ansible documented as the primary product path.

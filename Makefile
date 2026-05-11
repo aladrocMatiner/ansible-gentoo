@@ -133,7 +133,7 @@ export VM_E2E_RESET_DISK
 
 .PHONY: help \
 	vm-check vm-disk vm-define vm-start vm-start-installed vm-validate-first-boot vm-e2e-plan vm-e2e-install vm-test-matrix vm-test-matrix-plan vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
-	ansible-check config-check host-check real-hardware-check secret-check handbook-trace ansible-live-ping ansible-live-preflight local-live-preflight local-detect-disks local-install-plan local-partition-plan detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-preview partition-preview format-preview mount-preview bootloader-preview users-preview destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan record-manual-step install-run-clean install-audit install-report cleanup-plan clean-state clean-logs clean-audit clean-stage3-cache reset-test-run \
+	ansible-check config-check host-check real-hardware-check release-check secret-check handbook-trace ansible-live-ping ansible-live-preflight local-live-preflight local-detect-disks local-install-plan local-partition-plan detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-preview partition-preview format-preview mount-preview bootloader-preview users-preview destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan record-manual-step install-run-clean install-audit install-report cleanup-plan clean-state clean-logs clean-audit clean-stage3-cache reset-test-run \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -160,6 +160,7 @@ help:
 		'  make config-check    Validate installer configuration variables without touching targets' \
 		'  make host-check      Verify host/libvirt requirements for local VM validation' \
 		'  make real-hardware-check Read-only readiness check before physical hardware install' \
+		'  make release-check   Run release readiness checks and write local report' \
 		'  make secret-check    Scan tracked and unignored files for high-risk secret patterns' \
 		'  make handbook-trace  Regenerate Gentoo Handbook traceability report' \
 		'  make ansible-live-ping Validate Ansible connectivity to a live ISO target over SSH' \
@@ -340,6 +341,9 @@ host-check:
 real-hardware-check:
 	@CONFIG_REQUIRE_INSTALL_DISK=yes scripts/config-check.sh
 	@scripts/real-hardware-check.py
+
+release-check:
+	@scripts/release-check.py
 
 secret-check:
 	@scripts/secret-check.sh

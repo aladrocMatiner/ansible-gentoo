@@ -20,6 +20,7 @@ The project can destroy data if disk operations are wrong. Safety review is mand
 - Verify physical hardware workflows require the real hardware readiness check before destructive targets are recommended.
 - Verify libvirt matrix planning remains read-only unless a later destructive matrix change adds disposable disks and normal confirmations.
 - Verify libvirt end-to-end install validation uses only the project-owned VM and retains normal destructive and bootloader confirmations.
+- Verify release readiness checks include secret scanning and tracked artifact checks before broader handoff.
 - Produce a structured review decision: `APPROVED`, `APPROVED WITH CHANGES`, or `REJECTED`.
 
 ## 3. Non-goals
