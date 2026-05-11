@@ -16,6 +16,7 @@ This change maps to the Gentoo AMD64 Handbook "Installing system tools" and "Net
 - Follow the target system baseline for required and optional packages/services.
 - Follow installed time-sync and installed SSH policies.
 - Keep time-sync package and service names as variant data: OpenRC uses `net-misc/chrony`/`chronyd`; systemd uses `systemd-timesyncd.service`.
+- Keep SSH package and service names as variant data: OpenRC uses `net-misc/openssh`/`sshd`; systemd uses `net-misc/openssh`/`sshd.service`.
 - Install `sys-fs/dosfstools` because the UEFI ESP is FAT32/vfat.
 - Install `sys-fs/btrfs-progs` when `FILESYSTEM=btrfs`.
 - Ensure `sys-fs/e2fsprogs` is present or already provided by the base system for ext4 workflows.

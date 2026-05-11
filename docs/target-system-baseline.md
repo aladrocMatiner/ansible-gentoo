@@ -26,7 +26,7 @@ Every supported v1 install must provide:
 - logging service or journald equivalent,
 - cron service or systemd timer equivalent,
 - installed time synchronization according to `docs/installed-time-sync-policy.md`,
-- optional installed SSH only when `ENABLE_SSH=yes`.
+- optional installed SSH according to `docs/installed-ssh-policy.md` only when `ENABLE_SSH=yes`.
 
 ## OpenRC Baseline
 

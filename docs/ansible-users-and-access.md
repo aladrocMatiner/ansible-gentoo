@@ -2,7 +2,7 @@
 
 This workflow configures installed-system users under `/mnt/gentoo` from the live ISO over SSH. It does not partition, format, mount filesystems, install GRUB, or reboot.
 
-User and privilege-escalation configuration is part of the v1 target baseline in `docs/target-system-baseline.md`.
+User and privilege-escalation configuration is part of the v1 target baseline in `docs/target-system-baseline.md`. Installed SSH behavior follows `docs/installed-ssh-policy.md`.
 
 Run it through the Makefile:
 

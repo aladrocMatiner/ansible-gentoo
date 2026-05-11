@@ -4,7 +4,7 @@
 
 It does not install packages, change files under `/mnt/gentoo`, alter EFI boot entries, create users, change passwords, or reboot.
 
-The role evaluates the v1 target baseline defined in `docs/target-system-baseline.md`, including the installed time-sync policy in `docs/installed-time-sync-policy.md`.
+The role evaluates the v1 target baseline defined in `docs/target-system-baseline.md`, including the installed time-sync policy in `docs/installed-time-sync-policy.md` and installed SSH policy in `docs/installed-ssh-policy.md`.
 
 ## Run
 

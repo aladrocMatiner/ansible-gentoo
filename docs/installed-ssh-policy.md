@@ -1,0 +1,86 @@
+# Installed SSH Policy
+
+SSH in the installed Gentoo target is optional. It is controlled by `ENABLE_SSH` and is separate from temporary SSH bootstrap used by the live ISO VM.
+
+## Policy
+
+For v1:
+
+- `ENABLE_SSH=no` is the default.
+- `ENABLE_SSH=yes` installs OpenSSH and enables the selected init system's SSH service.
+- SSH service enablement is init-specific but driven by shared variables.
+- Root SSH password login must not be enabled by default.
+- Passwordless root SSH must not be enabled by default.
+- Admin authorized keys are installed only from `ADMIN_AUTHORIZED_KEYS_FILE`.
+- Password hashes are read only from `ADMIN_PASSWORD_HASH_FILE` and `ROOT_PASSWORD_HASH_FILE`.
+- Secret-bearing input files must be gitignored or outside the repository.
+
+## Makefile Workflows
+
+Install and enable SSH packages/services:
+
+```sh
+make install-system-packages PROFILE=openrc ENABLE_SSH=yes
+make install-system-packages PROFILE=systemd ENABLE_SSH=yes
+```
+
+Install admin authorized keys and enforce root SSH restrictions:
+
+```sh
+make configure-users \
+  ADMIN_USER=<admin-user> \
+  ENABLE_SSH=yes \
+  ADMIN_AUTHORIZED_KEYS_FILE=var/secrets/admin_authorized_keys
+```
+
+Validate SSH policy evidence:
+
+```sh
+make final-checks ADMIN_USER=<admin-user> ENABLE_SSH=yes
+make vm-validate-first-boot ADMIN_USER=<admin-user> FIRST_BOOT_USER=<admin-user>
+make install-report
+```
+
+## OpenRC
+
+OpenRC installations with `ENABLE_SSH=yes` must:
+
+- install `net-misc/openssh`,
+- enable `sshd` with OpenRC logic,
+- validate SSH service status without calling `systemctl`.
+
+## systemd
+
+systemd installations with `ENABLE_SSH=yes` must:
+
+- install `net-misc/openssh`,
+- enable `sshd.service` with systemd logic,
+- validate SSH service status without calling `rc-update` or `rc-service`.
+
+## Secret Safety
+
+The workflow must never commit, log, or copy into audit bundles:
+
+- plaintext passwords,
+- password hashes,
+- private SSH keys,
+- real local credentials.
+
+`ADMIN_AUTHORIZED_KEYS_FILE` may contain public keys only. The workflow must reject private key material and git-tracked secret input files.
+
+## Validation
+
+Final checks must report installed SSH package/service status when `ENABLE_SSH=yes` and must confirm root-login restrictions are present when SSH is configured.
+
+First-boot validation requires SSH access to the installed VM because it runs read-only checks over Ansible. If SSH was not enabled or no authorized key was installed, first-boot validation fails clearly instead of falling back to console mutation.
+
+## Failure Modes
+
+- SSH service missing: rerun `make install-system-packages ENABLE_SSH=yes`.
+- Authorized keys missing: rerun `make configure-users ENABLE_SSH=yes ADMIN_AUTHORIZED_KEYS_FILE=...`.
+- Private key material detected: replace the file with public keys only and rotate any exposed private key.
+- Root SSH policy mismatch: rerun `make configure-users ENABLE_SSH=yes`; do not edit target SSH config manually unless a manual recovery note is recorded.
+
+## Recovery
+
+If SSH is required after a run with `ENABLE_SSH=no`, rerun the Makefile-mediated package and user targets with `ENABLE_SSH=yes`. Do not enable SSH with ad-hoc commands outside the project workflow.

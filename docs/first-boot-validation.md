@@ -14,6 +14,8 @@ This workflow is local libvirt test automation. It does not reboot the host and 
 
 Full validation requires SSH into the installed system. If SSH was not installed or keys were not configured, first-boot validation fails clearly instead of falling back to console automation.
 
+Installed SSH behavior must follow `docs/installed-ssh-policy.md`.
+
 ## Run
 
 ```sh

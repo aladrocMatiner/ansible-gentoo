@@ -21,6 +21,8 @@ User/access configuration may read these optional controller-local files:
 
 Store real local inputs under `var/secrets/` or outside the repository. `var/secrets/` is gitignored. The workflow must reject git-tracked input files and must never print password hashes or authorized key contents.
 
+Installed SSH behavior is defined in `docs/installed-ssh-policy.md`. `ADMIN_AUTHORIZED_KEYS_FILE` may contain public keys only; private SSH keys are forbidden inputs.
+
 ## Forbidden Storage
 
 Never store these in git, logs, state, audit bundles, docs, examples, or commit messages:

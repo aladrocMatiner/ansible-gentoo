@@ -5,8 +5,8 @@
 - [x] Validate with `openspec validate define-installed-ssh-policy --strict`.
 
 ## Implementation
-- [ ] Update users/access proposal.
-- [ ] Update package/service proposal.
-- [ ] Update secret input policy references.
-- [ ] Update final checks and first-boot validation proposals.
-- [ ] Update docs and skills.
+- [x] Update users/access proposal.
+- [x] Update package/service proposal.
+- [x] Update secret input policy references.
+- [x] Update final checks and first-boot validation proposals.
+- [x] Update docs and skills.

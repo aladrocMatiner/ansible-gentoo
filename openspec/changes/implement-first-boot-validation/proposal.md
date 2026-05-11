@@ -7,6 +7,7 @@ Final checks before reboot are necessary, but they do not prove the installed sy
 - Add libvirt-only first-boot validation after a completed VM install.
 - Boot the VM from the installed qcow2 disk without relying on the live ISO as the primary boot path.
 - Validate boot, networking, optional SSH access, admin user presence, NetworkManager status, root filesystem UUID, and basic system identity.
+- Require installed SSH access for the libvirt first-boot validation path and follow the installed SSH policy for key/root-login assumptions.
 - Validate installed time sync status and boot command line root behavior where practical.
 - Keep validation read-only inside the installed system.
 

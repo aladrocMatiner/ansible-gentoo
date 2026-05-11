@@ -6,6 +6,7 @@ Users, passwords, SSH keys, Codex tokens, and API keys are high-risk inputs. The
 
 - Define secret-safe input channels for Ansible, scripts, and Makefile targets.
 - Forbid committing `.env`, plaintext passwords, API keys, private SSH keys, login tokens, and secret variable files.
+- Reference installed SSH policy for authorized key inputs and private-key rejection.
 - Require `.env.example` to document variable names only.
 - Require logs, state files, and audit bundles to redact or reject secret values.
 - Define validation checks for accidental secrets.
