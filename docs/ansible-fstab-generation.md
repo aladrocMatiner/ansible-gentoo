@@ -4,6 +4,8 @@
 
 It runs from the operator machine over SSH into the official Gentoo live ISO target. It does not partition, format, mount, install packages, install a kernel, install GRUB, create users, enable services, or reboot.
 
+The generated root UUID entries feed the boot command line policy in `docs/boot-kernel-commandline-policy.md`.
+
 ## Required State
 
 Run the earlier target setup first:

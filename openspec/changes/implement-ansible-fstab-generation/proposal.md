@@ -15,6 +15,7 @@ This change maps to the Gentoo AMD64 Handbook system configuration phase. The Ha
 - Generate Btrfs subvolume fstab.
 - Generate EFI mount entry for `/boot/efi` to match the project mount layout.
 - Use the approved Btrfs subvolume policy for names, mountpoints, and options.
+- Provide the root UUID data consumed by the boot kernel command line policy.
 - Validate entries before final checks.
 
 ## Non-goals

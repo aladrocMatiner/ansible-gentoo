@@ -4,6 +4,8 @@
 
 This target follows the Gentoo AMD64 Handbook distribution-kernel phase. It installs `sys-kernel/gentoo-kernel-bin` with installkernel/dracut initramfs support, then validates target `/boot` artifacts for the later GRUB workflow.
 
+Kernel command line behavior follows `docs/boot-kernel-commandline-policy.md`.
+
 ## Scope
 
 This target modifies the target root under `/mnt/gentoo`.

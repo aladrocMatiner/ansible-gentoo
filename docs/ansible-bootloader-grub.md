@@ -4,6 +4,8 @@
 
 This is a high-risk workflow because `grub-install` may create or update EFI NVRAM boot entries. It does not partition, format, wipe filesystems, create users, or reboot.
 
+GRUB command line behavior follows `docs/boot-kernel-commandline-policy.md`.
+
 ## Run
 
 For the disposable libvirt VM:

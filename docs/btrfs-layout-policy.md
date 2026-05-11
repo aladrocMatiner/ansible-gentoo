@@ -75,7 +75,7 @@ make mount-target PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda
 make generate-fstab PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda
 ```
 
-Kernel installation consumes the generated fstab and must keep the Btrfs boot command line aligned with the root subvolume:
+Kernel installation consumes the generated fstab and must keep the Btrfs boot command line aligned with the root subvolume according to `docs/boot-kernel-commandline-policy.md`:
 
 ```sh
 make install-kernel PROFILE=openrc FILESYSTEM=btrfs

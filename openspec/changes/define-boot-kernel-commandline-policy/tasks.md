@@ -5,7 +5,7 @@
 - [x] Validate with `openspec validate define-boot-kernel-commandline-policy --strict`.
 
 ## Implementation
-- [ ] Update kernel/bootloader proposals with commandline policy.
-- [ ] Update fstab/final checks proposals with root UUID validation.
-- [ ] Update Btrfs policy references.
-- [ ] Update docs and skills.
+- [x] Update kernel/bootloader proposals with commandline policy.
+- [x] Update fstab/final checks proposals with root UUID validation.
+- [x] Update Btrfs policy references.
+- [x] Update docs and skills.
