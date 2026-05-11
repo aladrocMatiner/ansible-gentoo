@@ -40,6 +40,8 @@ The first destructive targets are `make partition` and `make format`; read `docs
 
 Installer phases write non-secret checkpoints under `var/state/` and `logs/install-runs/`. Use `make install-state` to inspect the current checkpoint and `make install-resume-plan` to validate current live ISO facts before continuing a partially completed run; see `docs/install-state-and-resume-checkpoints.md`.
 
+Use `make install-audit` to generate a secret-safe evidence bundle for the current run under `logs/install-runs/<run-id>/audit-bundle/`; see `docs/install-audit-bundle.md`.
+
 Current Ansible planning targets run from the operator machine over SSH into a booted official Gentoo live ISO. For a real network target, pass `ANSIBLE_LIVE_HOST=<address>` and optionally `ANSIBLE_LIVE_USER=root ANSIBLE_LIVE_PORT=22`. When `ANSIBLE_LIVE_HOST` is empty, the wrapper targets discover the local libvirt VM as the test target.
 
 Current libvirt manual test targets:

@@ -25,6 +25,8 @@ Project commands should report stable error codes so failures can be reviewed wi
 | `PORTAGE_FAILED` | Portage sync, profile, package, or configuration operation failed. |
 | `BOOTLOADER_UNSAFE` | UEFI, EFI mount, GRUB, or boot entry safety checks failed. |
 | `FINAL_CHECK_FAILED` | Reboot-readiness validation failed. |
+| `INSTALL_AUDIT_INVALID` | Audit bundle inputs, paths, run id, or evidence files are missing, malformed, or outside the approved project-local scope. |
+| `INSTALL_AUDIT_SECRET_RISK` | Audit bundle source evidence contains secret-like fields or values and must not be copied. |
 | `INSTALL_STATE_INVALID` | Install state is missing, malformed, incomplete, outside the approved path, or unsafe to consume. |
 | `INSTALL_STATE_SECRET_RISK` | Install state contains secret-like keys or values and must not be used. |
 | `RESUME_CHECKPOINT_INVALID` | Resume validation was requested but the recorded checkpoint is absent or incomplete. |

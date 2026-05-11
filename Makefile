@@ -93,7 +93,7 @@ export I_UNDERSTAND_DELETE_INSTALL_STATE
 
 .PHONY: help \
 	vm-check vm-disk vm-define vm-start vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
-	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan install-run-clean \
+	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan install-run-clean install-audit \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -140,6 +140,7 @@ help:
 		'  make install-state   Show current non-secret install state checkpoint summary' \
 		'  make install-resume-plan Validate current target facts against saved install state' \
 		'  make install-run-clean Delete current install state pointer after confirmation' \
+		'  make install-audit   Generate a secret-safe audit bundle for the current run' \
 		'  make vm-shutdown     Request clean guest shutdown' \
 		'  make vm-destroy      Stop the configured VM without deleting artifacts' \
 		'  make vm-clean        Undefine VM and delete generated artifacts after confirmation' \
@@ -322,6 +323,9 @@ install-resume-plan:
 
 install-run-clean:
 	@scripts/install-state.py --state-file "$(INSTALL_STATE_FILE)" clean --confirm "$(I_UNDERSTAND_DELETE_INSTALL_STATE)"
+
+install-audit:
+	@scripts/install-audit-bundle.py --state-file "$(INSTALL_STATE_FILE)" generate
 
 vm-shutdown:
 	@scripts/vm-shutdown.sh

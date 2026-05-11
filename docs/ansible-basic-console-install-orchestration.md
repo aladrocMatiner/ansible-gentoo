@@ -126,4 +126,10 @@ Final checks write:
 logs/install-runs/<run-id>/final-checks/reboot-readiness.json
 ```
 
-The audit bundle path is referenced by final checks until `implement-install-audit-bundle` provides bundle generation.
+After successful final checks, the wrapper generates:
+
+```text
+logs/install-runs/<run-id>/audit-bundle/
+```
+
+The audit bundle is secret-scanned local evidence for review and debugging. It does not copy password hashes, private keys, tokens, or local credentials.

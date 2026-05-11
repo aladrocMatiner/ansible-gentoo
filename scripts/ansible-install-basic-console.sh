@@ -103,3 +103,5 @@ ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10" \
   -e "@${extra_vars_file}" \
   "ansible/playbooks/install-${profile}.yml"
+
+scripts/install-audit-bundle.py --state-file "${INSTALL_STATE_FILE:-var/state/current-install.json}" generate

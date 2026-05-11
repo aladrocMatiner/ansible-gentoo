@@ -70,13 +70,13 @@ On success, Ansible prints a `status: PASS` report and writes non-secret evidenc
 logs/install-runs/<run-id>/final-checks/reboot-readiness.json
 ```
 
-The report also references the future audit bundle path:
+The wrapper generates the audit bundle after successful final checks:
 
 ```text
 logs/install-runs/<run-id>/audit-bundle/
 ```
 
-The audit bundle itself is owned by `implement-install-audit-bundle`; final checks only provide report inputs until that change is implemented.
+The bundle contains secret-scanned local evidence and includes the final reboot readiness report when available.
 
 ## Failure Modes
 
