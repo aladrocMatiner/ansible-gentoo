@@ -61,10 +61,18 @@ else
   printf '  files: none\n'
 fi
 if domain_exists; then
-  if virsh --connect "$LIBVIRT_URI" domstate "$VM_NAME" 2>/dev/null | grep -Eq 'running|paused'; then
-    virsh --connect "$LIBVIRT_URI" destroy "$VM_NAME"
-  fi
-  virsh --connect "$LIBVIRT_URI" undefine "$VM_NAME" --nvram 2>/dev/null || virsh --connect "$LIBVIRT_URI" undefine "$VM_NAME"
+  for _attempt in 1 2 3 4 5; do
+    domain_exists || break
+    state=$(virsh --connect "$LIBVIRT_URI" domstate "$VM_NAME" 2>/dev/null || true)
+    if printf '%s\n' "$state" | grep -Eq 'running|paused|blocked|idle'; then
+      virsh --connect "$LIBVIRT_URI" destroy "$VM_NAME"
+      sleep 1
+      continue
+    fi
+    virsh --connect "$LIBVIRT_URI" undefine "$VM_NAME" --nvram 2>/dev/null || virsh --connect "$LIBVIRT_URI" undefine "$VM_NAME" 2>/dev/null || true
+    sleep 1
+  done
+  domain_exists && die "selected project domain still exists after cleanup attempts: $VM_NAME"
 fi
 
 if ((${#files[@]})); then

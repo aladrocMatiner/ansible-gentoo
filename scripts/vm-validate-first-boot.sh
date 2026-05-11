@@ -55,6 +55,11 @@ require_libvirt_connection
 install_state_file=${INSTALL_STATE_FILE:-var/state/current-install.json}
 expected_hostname=${HOSTNAME:-gentoo}
 enable_ssh=${ENABLE_SSH:-no}
+admin_sudo_nopasswd=${ADMIN_SUDO_NOPASSWD:-no}
+case "$admin_sudo_nopasswd" in
+  yes|no) ;;
+  *) die_code CONFIG_INVALID "ADMIN_SUDO_NOPASSWD must be yes or no" ;;
+esac
 
 state_vars=$(scripts/install-state.py --state-file "$install_state_file" resume-vars)
 eval "$state_vars"
@@ -133,6 +138,7 @@ ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   -e "filesystem=${filesystem}" \
   -e "expected_hostname=${expected_hostname}" \
   -e "admin_user=${admin_user}" \
+  -e "admin_sudo_nopasswd=${admin_sudo_nopasswd}" \
   -e "enable_ssh=${enable_ssh}" \
   -e "install_run_id=${INSTALL_STATE_RUN_ID}" \
   -e "project_root=$(pwd -P)" \

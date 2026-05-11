@@ -183,6 +183,7 @@ admin_user=${ADMIN_USER:-}
 admin_groups=${ADMIN_GROUPS:-wheel}
 admin_shell=${ADMIN_SHELL:-/bin/bash}
 privilege_tool=${PRIVILEGE_TOOL:-sudo}
+admin_sudo_nopasswd=${ADMIN_SUDO_NOPASSWD:-no}
 admin_authorized_keys_file=${ADMIN_AUTHORIZED_KEYS_FILE:-}
 admin_password_hash_file=${ADMIN_PASSWORD_HASH_FILE:-}
 root_password_hash_file=${ROOT_PASSWORD_HASH_FILE:-}
@@ -231,6 +232,7 @@ case "$privilege_tool" in
   sudo) ;;
   *) add_error CONFIG_INVALID "PRIVILEGE_TOOL must be sudo" ;;
 esac
+is_yes_no "$admin_sudo_nopasswd" || add_error CONFIG_INVALID "ADMIN_SUDO_NOPASSWD must be yes or no"
 validate_local_input_path_if_set ADMIN_AUTHORIZED_KEYS_FILE "$admin_authorized_keys_file"
 validate_local_input_path_if_set ADMIN_PASSWORD_HASH_FILE "$admin_password_hash_file"
 validate_local_input_path_if_set ROOT_PASSWORD_HASH_FILE "$root_password_hash_file"
@@ -265,6 +267,10 @@ elif [[ "$confirm_wipe_disk" == yes ]]; then
   add_warning DESTRUCTIVE_CONFIRMATION_IGNORED "I_UNDERSTAND_THIS_WIPES_DISK=yes is set for a non-destructive config check"
 fi
 
+if [[ "$admin_sudo_nopasswd" == yes ]]; then
+  add_warning HIGH_RISK_SUDO_POLICY "ADMIN_SUDO_NOPASSWD=yes enables passwordless sudo in the installed target; use it deliberately, especially outside disposable VM tests"
+fi
+
 if [[ -n "$bootloader_confirmation" && "$bootloader_confirmation" != yes ]]; then
   add_error CONFIG_INVALID "I_UNDERSTAND_BOOTLOADER_CHANGES must be yes when set"
 fi
@@ -287,6 +293,7 @@ printf '  ADMIN_USER: %s\n' "${admin_user:-<unset>}"
 printf '  ADMIN_GROUPS: %s\n' "$admin_groups"
 printf '  ADMIN_SHELL: %s\n' "$admin_shell"
 printf '  PRIVILEGE_TOOL: %s\n' "$privilege_tool"
+printf '  ADMIN_SUDO_NOPASSWD: %s\n' "$admin_sudo_nopasswd"
 printf '  ADMIN_AUTHORIZED_KEYS_FILE: %s\n' "$([[ -n "$admin_authorized_keys_file" ]] && printf '<set>' || printf '<unset>')"
 printf '  ADMIN_PASSWORD_HASH_FILE: %s\n' "$([[ -n "$admin_password_hash_file" ]] && printf '<set>' || printf '<unset>')"
 printf '  ROOT_PASSWORD_HASH_FILE: %s\n' "$([[ -n "$root_password_hash_file" ]] && printf '<set>' || printf '<unset>')"

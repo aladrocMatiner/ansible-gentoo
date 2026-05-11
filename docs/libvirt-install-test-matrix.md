@@ -97,6 +97,8 @@ make vm-e2e-matrix \
 
 `vm-e2e-matrix` invokes `make vm-e2e-install` for each matrix entry. It does not implement a separate installation path. By default it runs four cases in parallel; set `VM_E2E_MATRIX_PARALLEL=1`, `2`, `3`, or `4` to control concurrency.
 
+Each E2E child defaults to `VM_E2E_ADMIN_SUDO_NOPASSWD=yes`, so the installed admin user can run `sudo su -` without a password in the disposable test VM. Override with `ADMIN_SUDO_NOPASSWD=no` if a matrix run should validate password-requiring sudo.
+
 The target writes:
 
 ```text
@@ -115,6 +117,7 @@ Each child still writes normal single-case logs under `logs/libvirt-e2e/`, `logs
 | `VM_TEST_MATRIX_RUN_TARGET_PLANS` | `no` | Set to `yes` only after a live ISO target is booted and SSH-enabled. |
 | `VM_E2E_MATRIX_LOG_DIR` | `logs/libvirt-e2e-matrix` | Project-local full E2E matrix report directory. |
 | `VM_E2E_MATRIX_PARALLEL` | `4` | Number of concurrent full E2E case installs, from `1` to `4`. |
+| `VM_E2E_ADMIN_SUDO_NOPASSWD` | `yes` | Disposable E2E default that enables admin `NOPASSWD: ALL` unless `ADMIN_SUDO_NOPASSWD` overrides it. |
 | `VM_NAME` | `gentoo-test` | Base name for generated matrix domains; do not pass a full case name. |
 | `VM_TEST_IMAGE_NAME` | empty | Optional manual test image label inserted into generated domain and disk names. |
 | `VM_DIR` | `var/libvirt` | Base artifact directory for planned qcow2 disk names. |
@@ -129,6 +132,7 @@ Each child still writes normal single-case logs under `logs/libvirt-e2e/`, `logs
 - Full E2E matrix execution is available only through `make vm-e2e-matrix`.
 - Full E2E matrix execution requires `VM_E2E_RESET_DISK=yes`, `I_UNDERSTAND_CLEANUP_DELETE=DELETE`, `I_UNDERSTAND_THIS_WIPES_DISK=yes`, and `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`.
 - Full E2E matrix execution reuses the same shared safety gates as single-variant installs.
+- Passwordless sudo in E2E VMs is a test convenience only; do not copy that policy into real installs unless it is explicitly desired.
 
 ## Failure Modes
 

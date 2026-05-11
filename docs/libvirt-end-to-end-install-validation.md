@@ -52,6 +52,14 @@ The wrapper runs:
 9. `vm-validate-first-boot`
 10. `install-audit`
 
+Disposable E2E installs default to passwordless sudo for the installed admin account:
+
+```text
+VM_E2E_ADMIN_SUDO_NOPASSWD=yes
+```
+
+This makes `ssh <admin>@<vm-ip>` followed by `sudo su -` work without a password in test VMs. Override with `ADMIN_SUDO_NOPASSWD=no` if the test should keep password-requiring sudo.
+
 To reset generated VM artifacts and the selected case state pointer before the run:
 
 ```sh
@@ -127,6 +135,7 @@ logs/libvirt-e2e-matrix/<timestamp>/<case>/vm-e2e-install.log
 - Full validation still requires `I_UNDERSTAND_THIS_WIPES_DISK=yes`.
 - Bootloader validation still requires `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`.
 - Installed SSH must be enabled with `ENABLE_SSH=yes`, and `ADMIN_AUTHORIZED_KEYS_FILE` must contain public keys so first-boot validation can connect without a password.
+- Disposable E2E validation defaults to `ADMIN_SUDO_NOPASSWD=yes` through `VM_E2E_ADMIN_SUDO_NOPASSWD=yes`; real installs keep password-requiring sudo unless explicitly changed.
 - The live ISO VM is cleanly shut down before first-boot validation. This avoids booting from a qcow2 whose target filesystems still have pending writes.
 - Resetting generated VM artifacts and the selected case state pointer requires `I_UNDERSTAND_CLEANUP_DELETE=DELETE`.
 - Matrix validation requires `VM_E2E_RESET_DISK=yes` and rejects manual `VM_DISK` overrides so cases cannot share one qcow2 by accident.

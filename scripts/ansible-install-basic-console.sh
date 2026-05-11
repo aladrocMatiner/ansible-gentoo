@@ -36,6 +36,12 @@ case "$enable_ssh" in
   *) die "ENABLE_SSH must be 'yes' or 'no', got: $enable_ssh" ;;
 esac
 
+admin_sudo_nopasswd=${ADMIN_SUDO_NOPASSWD:-no}
+case "$admin_sudo_nopasswd" in
+  yes|no) ;;
+  *) die "ADMIN_SUDO_NOPASSWD must be 'yes' or 'no', got: $admin_sudo_nopasswd" ;;
+esac
+
 install_disk=${INSTALL_DISK:-}
 assert_install_disk_input "$install_disk"
 
@@ -79,6 +85,7 @@ admin_user: "${admin_user}"
 admin_groups_csv: "${ADMIN_GROUPS:-wheel}"
 admin_shell: "${ADMIN_SHELL:-/bin/bash}"
 privilege_tool: "${PRIVILEGE_TOOL:-sudo}"
+admin_sudo_nopasswd: "${admin_sudo_nopasswd}"
 admin_authorized_keys_file: "${ADMIN_AUTHORIZED_KEYS_FILE:-}"
 admin_password_hash_file: "${ADMIN_PASSWORD_HASH_FILE:-}"
 root_password_hash_file: "${ROOT_PASSWORD_HASH_FILE:-}"
@@ -92,6 +99,7 @@ EOF
 printf 'Running full Gentoo basic console install for %s %s on %s@%s port %s\n' "$profile" "$filesystem" "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$ANSIBLE_LIVE_PORT"
 printf 'INSTALL_DISK=%s\n' "$install_disk"
 printf 'ADMIN_USER=%s\n' "$admin_user"
+printf 'ADMIN_SUDO_NOPASSWD=%s\n' "$admin_sudo_nopasswd"
 printf 'ENABLE_SSH=%s\n' "$enable_ssh"
 printf 'I_UNDERSTAND_THIS_WIPES_DISK=%s\n' "$confirm_wipe_disk"
 printf 'I_UNDERSTAND_BOOTLOADER_CHANGES=%s\n' "$bootloader_confirmation"

@@ -54,6 +54,7 @@ make config-check CONFIG_DESTRUCTIVE=yes INSTALL_DISK=/dev/vda I_UNDERSTAND_THIS
 | `ADMIN_GROUPS` | `wheel` | Comma-separated target groups for the admin user. |
 | `ADMIN_SHELL` | `/bin/bash` | Absolute target shell path for the admin user. |
 | `PRIVILEGE_TOOL` | `sudo` | Current implementation supports `sudo`; doas requires a later change. |
+| `ADMIN_SUDO_NOPASSWD` | `no` outside VM E2E | Must be `yes` or `no`; enables `NOPASSWD: ALL` for admin sudoers only when explicitly enabled. Disposable libvirt E2E installs default to `yes` through `VM_E2E_ADMIN_SUDO_NOPASSWD`. |
 | `ADMIN_AUTHORIZED_KEYS_FILE` | unset | Optional local gitignored file used by `make configure-users`; the path is reported as set/unset only. |
 | `ADMIN_PASSWORD_HASH_FILE` | unset | Optional local gitignored file containing one encrypted admin password hash. |
 | `ROOT_PASSWORD_HASH_FILE` | unset | Optional local gitignored file containing one encrypted root password hash. |
@@ -71,6 +72,7 @@ make config-check CONFIG_DESTRUCTIVE=yes INSTALL_DISK=/dev/vda I_UNDERSTAND_THIS
 - `DISK_UNSAFE`: `INSTALL_DISK` is missing when required or contains unsafe syntax.
 - `DESTRUCTIVE_CONFIRMATION_MISSING`: a destructive workflow did not provide `I_UNDERSTAND_THIS_WIPES_DISK=yes`.
 - `SECRET_LEAK_RISK`: a schema variable or forbidden password/private-key environment variable appears to contain secret material.
+- `HIGH_RISK_SUDO_POLICY`: `ADMIN_SUDO_NOPASSWD=yes` was requested; this is expected for disposable VM tests but should be deliberate elsewhere.
 
 ## Recovery
 

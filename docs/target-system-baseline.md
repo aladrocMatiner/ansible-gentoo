@@ -28,6 +28,8 @@ Every supported v1 install must provide:
 - installed time synchronization according to `docs/installed-time-sync-policy.md`,
 - optional installed SSH according to `docs/installed-ssh-policy.md` only when `ENABLE_SSH=yes`.
 
+The current sudo implementation requires a password by default. `ADMIN_SUDO_NOPASSWD=yes` may be used for disposable test targets or explicit operator policy; libvirt E2E installs default it to `yes` so SSH-key-only test admins can run `sudo su -`.
+
 ## OpenRC Baseline
 
 For `PROFILE=openrc`, the installed target must use:

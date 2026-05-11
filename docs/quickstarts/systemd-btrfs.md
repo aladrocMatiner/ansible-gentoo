@@ -81,6 +81,8 @@ make vm-e2e-install \
   I_UNDERSTAND_BOOTLOADER_CHANGES=yes
 ```
 
+Disposable E2E installs default to passwordless sudo for the test admin through `VM_E2E_ADMIN_SUDO_NOPASSWD=yes`. After first boot, `ssh <admin-user>@<vm-ip>` followed by `sudo su -` should work without a password. Override with `ADMIN_SUDO_NOPASSWD=no` if this case should validate password-requiring sudo.
+
 For a fresh retry, reset only this generated case VM:
 
 ```sh

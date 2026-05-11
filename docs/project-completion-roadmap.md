@@ -156,7 +156,7 @@ Install minimal console packages and enable required services. Keep OpenRC and s
 Install `sys-fs/dosfstools` for EFI/vfat and `sys-fs/btrfs-progs` when `FILESYSTEM=btrfs`.
 
 ### 31. `implement-ansible-users-and-access`
-Create admin access safely without committing secrets. Configure sudo through the shared users role, optional password hashes from gitignored local files, optional SSH authorized keys, and installed SSH root-login restrictions when SSH is enabled.
+Create admin access safely without committing secrets. Configure sudo through the shared users role, optional passwordless sudo only when explicitly requested or in disposable E2E tests, optional password hashes from gitignored local files, optional SSH authorized keys, and installed SSH root-login restrictions when SSH is enabled.
 
 ### 32. `implement-ansible-bootloader-grub`
 Install GRUB for UEFI and generate configuration. This is high-risk because it can modify persistent EFI boot state.
@@ -178,7 +178,7 @@ Implemented targets: `make install`, `make install-openrc`, and `make install-sy
 Validate OpenRC/systemd and ext4/Btrfs combinations in libvirt, first as read-only plans and later as destructive full-install runs.
 
 ### 36. `implement-first-boot-validation`
-After a VM install, boot from the installed disk without relying on the live ISO and verify network, hostname, root UUID, admin user, and optional SSH.
+After a VM install, boot from the installed disk without relying on the live ISO and verify network, hostname, root UUID, admin user, requested passwordless sudo mode, and optional SSH.
 
 ### 37. `implement-libvirt-end-to-end-install-validation`
 Run the full installer in libvirt using the official ISO and project-local qcow2 disks, then validate boot and network.

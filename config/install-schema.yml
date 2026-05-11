@@ -139,6 +139,17 @@ variables:
       - users
     notes: Current implementation configures sudo only; doas requires a future OpenSpec change.
 
+  ADMIN_SUDO_NOPASSWD:
+    ansible_names:
+      - admin_sudo_nopasswd
+    default: "no"
+    allowed:
+      - "yes"
+      - "no"
+    required_for:
+      - users
+    notes: Optional passwordless sudo policy for the admin groups. Normal installs treat unset as no. Disposable libvirt E2E installs default to yes through VM_E2E_ADMIN_SUDO_NOPASSWD.
+
   ADMIN_AUTHORIZED_KEYS_FILE:
     ansible_names:
       - admin_authorized_keys_file

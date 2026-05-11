@@ -85,6 +85,7 @@ load_and_validate_users_inputs() {
   admin_groups=${ADMIN_GROUPS:-wheel}
   admin_shell=${ADMIN_SHELL:-/bin/bash}
   privilege_tool=${PRIVILEGE_TOOL:-sudo}
+  admin_sudo_nopasswd=${ADMIN_SUDO_NOPASSWD:-no}
   admin_authorized_keys_file=${ADMIN_AUTHORIZED_KEYS_FILE:-}
   admin_password_hash_file=${ADMIN_PASSWORD_HASH_FILE:-}
   root_password_hash_file=${ROOT_PASSWORD_HASH_FILE:-}
@@ -94,6 +95,10 @@ load_and_validate_users_inputs() {
   case "$privilege_tool" in
     sudo) ;;
     *) die "PRIVILEGE_TOOL must be 'sudo' for the current implementation, got: $privilege_tool" ;;
+  esac
+  case "$admin_sudo_nopasswd" in
+    yes|no) ;;
+    *) die "ADMIN_SUDO_NOPASSWD must be 'yes' or 'no', got: $admin_sudo_nopasswd" ;;
   esac
 
   validate_local_input_file ADMIN_AUTHORIZED_KEYS_FILE "$admin_authorized_keys_file"

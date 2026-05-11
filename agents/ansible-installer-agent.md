@@ -119,7 +119,7 @@ Shared roles:
 - `common/fstab`: generate UUID-based fstab entries for ext4 root or the approved Btrfs subvolume layout plus `/boot/efi`.
 - `common/kernel`: install `sys-kernel/installkernel`, `sys-kernel/dracut`, and `gentoo-kernel-bin`; derive boot command-line input from target fstab; validate kernel/initramfs/module artifacts; and defer GRUB and EFI changes to the bootloader role.
 - `common/bootloader`: install and configure GRUB for UEFI with explicit `install_disk`, `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`, EFI entry preview, generated GRUB config validation, and non-secret evidence logs.
-- `common/users`: require explicit `admin_user`, create or update the target admin account, manage admin group membership, configure sudo, apply optional password hashes from gitignored controller-local files with `no_log`, install optional authorized keys, enforce installed SSH root-login restrictions when SSH is enabled, and record only non-secret evidence.
+- `common/users`: require explicit `admin_user`, create or update the target admin account, manage admin group membership, configure sudo with explicit passwordless mode only when requested, apply optional password hashes from gitignored controller-local files with `no_log`, install optional authorized keys, enforce installed SSH root-login restrictions when SSH is enabled, and record only non-secret evidence.
 - `common/ssh`: translate `ENABLE_SSH` into optional package/service inputs without storing secrets or enabling unsafe root SSH defaults.
 - `common/final_checks`: require explicit `admin_user`, validate fstab, bootloader, kernel, users, services, mounts, target baseline, Portage status, SSH policy, secret-check status, and reboot readiness without mutating the target or rebooting.
 
@@ -161,6 +161,7 @@ The variable model must make risk explicit. Required or expected variables inclu
 - `ansible_live_user`: SSH user for the live ISO target.
 - `admin_user`: explicit target admin username; no useful default for user creation.
 - `admin_groups_csv`: comma-separated target admin groups, defaulting to `wheel`.
+- `admin_sudo_nopasswd`: explicit yes/no sudo policy; normal installs default to password-requiring sudo, while disposable libvirt E2E tests may default to passwordless sudo for debugging.
 - `admin_password_hash_file`, `root_password_hash_file`, `admin_authorized_keys_file`: controller-local input file paths only; contents must not be committed, printed, or logged.
 - `confirm_wipe_disk`: required value is `yes` for destructive disk tasks. It may be populated from the Makefile `I_UNDERSTAND_THIS_WIPES_DISK` variable.
 - `bootloader_confirmation`: required for GRUB and EFI changes.

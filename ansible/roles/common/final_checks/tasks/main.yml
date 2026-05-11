@@ -6,6 +6,7 @@
     final_checks_enable_ssh: "{{ (enable_ssh | default('no') | string | lower) == 'yes' }}"
     final_checks_admin_groups: "{{ (admin_groups_csv | default('wheel')).split(',') | reject('equalto', '') | list }}"
     final_checks_admin_shell: "{{ admin_shell | default('/bin/bash') }}"
+    final_checks_admin_sudo_nopasswd: "{{ (admin_sudo_nopasswd | default('no') | string | lower) == 'yes' }}"
     final_checks_controller_secret_check: "{{ controller_secret_check | default('unknown') }}"
     final_checks_kernel_packages:
       - sys-kernel/installkernel
@@ -61,6 +62,7 @@
       - final_checks_admin_groups | length > 0
       - final_checks_admin_groups | reject('match', '^[a-z_][a-z0-9_-]{0,31}\\$?$') | list | length == 0
       - final_checks_admin_shell is match('^/[A-Za-z0-9_./+-]+$')
+      - (admin_sudo_nopasswd | default('no') | string | lower) in ['yes', 'no']
       - (enable_ssh | string | lower) in ['yes', 'no']
       - final_checks_controller_secret_check == 'passed'
     fail_msg: "FINAL_CHECKS_FAILED: final check inputs or controller secret check status are invalid."
@@ -423,7 +425,9 @@
       - final_checks_admin_passwd.stdout.split(':')[6] == final_checks_admin_shell
       - final_checks_admin_groups | difference(final_checks_admin_groups_state.stdout.split()) | length == 0
       - final_checks_sudoers_validate.rc == 0
-      - final_checks_sudoers_text is search('%' ~ (final_checks_admin_groups[0] | regex_escape) ~ '\\s+ALL=')
+      - final_checks_sudoers_text is search('%' ~ (final_checks_admin_groups[0] | regex_escape) ~ '\\s+ALL=\\(ALL:ALL\\)\\s+(NOPASSWD:\\s+)?ALL')
+      - final_checks_admin_sudo_nopasswd or final_checks_sudoers_text is not search('NOPASSWD:')
+      - (not final_checks_admin_sudo_nopasswd) or final_checks_sudoers_text is search('NOPASSWD:\\s+ALL')
     fail_msg: "FINAL_CHECKS_FAILED: admin user, group membership, shell, or sudoers policy is incomplete."
     success_msg: "Admin user and sudo policy are ready."
 

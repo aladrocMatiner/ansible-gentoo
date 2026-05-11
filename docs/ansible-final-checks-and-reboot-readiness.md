@@ -59,7 +59,7 @@ The role validates:
 - kernel, initramfs, and module artifacts
 - required package installation state
 - NetworkManager, time-sync, syslog, cron, and optional SSH service enablement
-- admin user, group membership, shell, and sudoers syntax
+- admin user, group membership, shell, sudoers syntax, and requested passwordless sudo mode
 - hostname, timezone, locale, and keymap baseline
 - Portage profile, `make.conf`, GURU-disabled policy, and pending config-update files
 - controller `make secret-check` status and high-risk secret-like target text
@@ -89,7 +89,7 @@ The bundle contains secret-scanned local evidence and includes the final reboot 
 - Missing kernel or initramfs: rerun `make install-kernel`.
 - Missing GRUB or EFI files: rerun `make install-bootloader`.
 - Missing packages or services: rerun `make install-system-packages` with the same `PROFILE`, `FILESYSTEM`, and `ENABLE_SSH` values.
-- Missing admin user or sudoers policy: rerun `make configure-users`.
+- Missing admin user or sudoers policy: rerun `make configure-users` with the same `ADMIN_SUDO_NOPASSWD` value intended for the target.
 - Pending Portage config updates: inspect the listed `._cfg` files before reboot.
 
 Do not reboot until final checks pass or a manual recovery note has been recorded.

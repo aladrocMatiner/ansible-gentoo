@@ -150,7 +150,7 @@ make vm-destroy
 make vm-clean I_UNDERSTAND_CLEANUP_DELETE=DELETE
 ```
 
-`vm-shutdown` requests a clean guest shutdown and waits up to `VM_SHUTDOWN_TIMEOUT` seconds. When SSH is available it first asks the guest to run `sync; poweroff`; otherwise it falls back to libvirt ACPI shutdown. `vm-destroy` forcibly stops only the configured case domain and is a no-op when that domain is already inactive. `vm-clean` requires `I_UNDERSTAND_CLEANUP_DELETE=DELETE`; it undefines only the selected project-owned case domain and removes only validated generated artifacts plus the selected case state pointer under `var/state/libvirt/<case-domain>/current-install.json`.
+`vm-shutdown` requests a clean guest shutdown and waits up to `VM_SHUTDOWN_TIMEOUT` seconds. When SSH is available it first asks the guest to run `sync; poweroff`; otherwise it falls back to libvirt ACPI shutdown. `vm-destroy` forcibly stops only the configured case domain and is a no-op when that domain is already inactive. `vm-clean` requires `I_UNDERSTAND_CLEANUP_DELETE=DELETE`; it stops active or transient instances of the selected project-owned case domain, undefines that domain, and removes only validated generated artifacts plus the selected case state pointer under `var/state/libvirt/<case-domain>/current-install.json`.
 
 After a completed automated VM install, run `make vm-shutdown` before first-boot validation if the live ISO is still running. `make vm-validate-first-boot ADMIN_USER=<admin-user>` then redefines the project domain to boot from the installed qcow2 disk and runs read-only installed-system checks over SSH. Run `make vm-define` afterward to restore official live ISO boot mode.
 

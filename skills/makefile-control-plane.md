@@ -73,6 +73,7 @@ Required project variables:
 - `ADMIN_GROUPS`
 - `ADMIN_SHELL`
 - `PRIVILEGE_TOOL`
+- `ADMIN_SUDO_NOPASSWD`
 - `ADMIN_AUTHORIZED_KEYS_FILE`
 - `ADMIN_PASSWORD_HASH_FILE`
 - `ROOT_PASSWORD_HASH_FILE`
@@ -112,6 +113,7 @@ VM/libvirt variables:
 - `VM_TEST_MATRIX_INSTALL_DISK`
 - `VM_TEST_MATRIX_RUN_TARGET_PLANS`
 - `VM_E2E_RESET_DISK`
+- `VM_E2E_ADMIN_SUDO_NOPASSWD`
 
 Ansible live target variables:
 
@@ -158,6 +160,7 @@ Recommended VM/libvirt defaults:
 - `VM_TEST_MATRIX_INSTALL_DISK=/dev/vda`
 - `VM_TEST_MATRIX_RUN_TARGET_PLANS=no`
 - `VM_E2E_RESET_DISK=no`
+- `VM_E2E_ADMIN_SUDO_NOPASSWD=yes`
 
 Recommended Ansible live target defaults:
 
@@ -185,6 +188,7 @@ Rules:
 - `LOCALE` must be a UTF-8 locale such as `en_US.UTF-8`.
 - `KEYMAP` must be a simple console keymap name such as `us`.
 - `ADMIN_USER` must have no useful default for user-creation workflows; `make configure-users` must require it explicitly.
+- `ADMIN_SUDO_NOPASSWD` is treated as `no` for normal installs unless explicitly set to `yes`; disposable libvirt E2E installs may default it through `VM_E2E_ADMIN_SUDO_NOPASSWD=yes`.
 - `ADMIN_PASSWORD_HASH_FILE`, `ROOT_PASSWORD_HASH_FILE`, and `ADMIN_AUTHORIZED_KEYS_FILE` are local input file paths only. The Makefile may report whether they are set, but it must not print their contents.
 - `I_UNDERSTAND_BOOTLOADER_CHANGES=yes` is required for GRUB/EFI workflows that may update persistent EFI boot entries.
 - `MANUAL_STEP_SUMMARY` and `MANUAL_STEP_REASON` are required only for `make record-manual-step`; they must describe non-secret operator intervention and should not be printed by help output.
@@ -362,13 +366,13 @@ Expected behavior:
 - `make install-kernel`: require prepared `/mnt/gentoo`, prepared chroot pseudo-filesystems, mounted `/mnt/gentoo/boot/efi`, and generated fstab; install `gentoo-kernel-bin` with installkernel/dracut support; write target kernel command-line input; validate `/boot` artifacts; and avoid GRUB or EFI boot-entry changes.
 - `make install-system-packages`: require prepared `/mnt/gentoo` and chroot pseudo-filesystems; install the minimal console package set; apply conservative package USE policy; enable services through init-specific roles; and avoid users, passwords, GRUB, EFI boot entries, disk partitioning, formatting, and reboot.
 - `make install-base-packages`: compatibility alias for `make install-system-packages` when present.
-- `make configure-users`: require explicit `ADMIN_USER`, prepared `/mnt/gentoo`, installed sudo tooling, and secret-safe optional file inputs; configure the admin user, sudo policy, optional password hashes, optional authorized keys, and installed SSH root-login restrictions without printing secret values.
+- `make configure-users`: require explicit `ADMIN_USER`, prepared `/mnt/gentoo`, installed sudo tooling, and secret-safe optional file inputs; configure the admin user, sudo policy including optional `ADMIN_SUDO_NOPASSWD=yes`, optional password hashes, optional authorized keys, and installed SSH root-login restrictions without printing secret values.
 - `make vm-disk`: create or preserve the project-local qcow2 VM disk.
 - `make vm-define`: define the project-owned libvirt domain from reviewed project-local inputs.
 - `make vm-start`: start the project-owned VM from the official Gentoo live ISO.
 - `make vm-start-installed`: redefine and start the project-owned VM from the installed qcow2 disk without live ISO kernel/initrd boot.
 - `make vm-validate-first-boot`: boot the installed VM disk, wait for SSH, and run read-only first-boot validation; it requires completed install state and explicit `ADMIN_USER`.
-- `make vm-e2e-install`: run the full disposable libvirt install validation sequence. It is destructive inside the VM qcow2 disk, requires explicit `/dev/vda`, `ADMIN_USER`, `ENABLE_SSH=yes`, wipe confirmation, bootloader confirmation, and optional cleanup confirmation when resetting artifacts.
+- `make vm-e2e-install`: run the full disposable libvirt install validation sequence. It is destructive inside the VM qcow2 disk, requires explicit `/dev/vda`, `ADMIN_USER`, `ENABLE_SSH=yes`, wipe confirmation, bootloader confirmation, and optional cleanup confirmation when resetting artifacts. It may default `ADMIN_SUDO_NOPASSWD=yes` through `VM_E2E_ADMIN_SUDO_NOPASSWD=yes` so SSH-key-only test admins can run `sudo su -`.
 - `make vm-console`: attach to `virsh console`; it may fail if the ISO does not expose a serial login.
 - `make vm-viewer`: open graphical access through a libvirt viewer.
 - `make vm-ip`: discover the guest IP only when the configured network mode supports discovery.
@@ -390,7 +394,7 @@ Expected behavior:
 
 `make generate-fstab` is target-mutating because it writes `/mnt/gentoo/etc/fstab`. It must require explicit `INSTALL_DISK`, refuse target roots other than `/mnt/gentoo`, validate root and EFI UUIDs, preserve a backup of an existing fstab, and keep Btrfs entries aligned with `docs/btrfs-layout-policy.md`.
 
-`make configure-users` is high-risk persistent target-root work because it creates users, changes group membership, configures sudo, may apply password hashes, and may install SSH authorized keys. It must reject missing `ADMIN_USER`, reject git-tracked secret input files, treat password and key contents as `no_log`, enforce installed SSH root-login policy when SSH is enabled, and write only non-secret audit evidence.
+`make configure-users` is high-risk persistent target-root work because it creates users, changes group membership, configures sudo, may enable passwordless sudo, may apply password hashes, and may install SSH authorized keys. It must reject missing `ADMIN_USER`, reject git-tracked secret input files, treat password and key contents as `no_log`, enforce installed SSH root-login policy when SSH is enabled, validate `ADMIN_SUDO_NOPASSWD=yes|no`, and write only non-secret audit evidence.
 
 Future destructive targets should print or call a read-only preview before accepting confirmation. Preview output must not set `I_UNDERSTAND_THIS_WIPES_DISK=yes` or any equivalent confirmation.
 

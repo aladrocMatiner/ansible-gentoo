@@ -12,6 +12,20 @@ make configure-users ADMIN_USER=gentoo PROFILE=openrc
 
 `ADMIN_USER` is required. The default admin group is `wheel`, the default shell is `/bin/bash`, and the current privilege tool is `sudo`.
 
+By default, sudo requires the admin user's password:
+
+```sh
+make configure-users ADMIN_USER=gentoo ADMIN_SUDO_NOPASSWD=no
+```
+
+For disposable test systems only, passwordless sudo can be enabled explicitly:
+
+```sh
+make configure-users ADMIN_USER=gentoo ADMIN_SUDO_NOPASSWD=yes
+```
+
+When enabled, the installed admin user can run `sudo su -` without an interactive password. Do not enable this on real machines unless that is the intended security policy.
+
 ## Optional Secret Inputs
 
 Password hashes and authorized keys are read from controller-local files. The file paths may be passed through environment variables, but the file contents must never be committed.
@@ -37,6 +51,7 @@ make configure-users ADMIN_USER=gentoo ENABLE_SSH=yes ADMIN_AUTHORIZED_KEYS_FILE
 - Creates `ADMIN_USER` if missing.
 - Ensures the admin user is in `ADMIN_GROUPS`.
 - Installs `/etc/sudoers.d/gentoo-ai-installer-admin` in the target and validates it with `visudo`.
+- Writes password-requiring sudo by default, or `NOPASSWD: ALL` only when `ADMIN_SUDO_NOPASSWD=yes`.
 - Leaves existing passwords unchanged unless a password hash file is explicitly provided.
 - Applies password hashes with `chpasswd -e` using Ansible `no_log`.
 - Installs `authorized_keys` only when `ADMIN_AUTHORIZED_KEYS_FILE` is provided.
@@ -52,6 +67,7 @@ The workflow refuses to use git-tracked files as password hash or authorized key
 
 - Missing `ADMIN_USER`: pass a conservative username such as `ADMIN_USER=gentoo`.
 - Missing sudo tooling: run `make install-system-packages` first.
+- `sudo su -` asks for a password after SSH-key-only install: rerun the users workflow with a password hash, or for disposable tests set `ADMIN_SUDO_NOPASSWD=yes`.
 - Missing chroot mounts: run `make prepare-chroot` first.
 - Missing OpenSSH with `ENABLE_SSH=yes`: run `make install-system-packages ENABLE_SSH=yes`.
 - Invalid password hash: provide a single encrypted hash line, not a plaintext password.
@@ -65,4 +81,4 @@ Non-secret evidence is written under:
 logs/install-runs/<run-id>/users/users-access.json
 ```
 
-The report records the admin username, groups, privilege tool, whether authorized keys were installed, whether password hash inputs were used, and whether root SSH login was restricted. It does not record password hashes or key contents.
+The report records the admin username, groups, privilege tool, passwordless sudo mode, whether authorized keys were installed, whether password hash inputs were used, and whether root SSH login was restricted. It does not record password hashes or key contents.

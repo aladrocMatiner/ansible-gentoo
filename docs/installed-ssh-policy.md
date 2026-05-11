@@ -13,6 +13,7 @@ For v1:
 - Passwordless root SSH must not be enabled by default.
 - Admin authorized keys are installed only from `ADMIN_AUTHORIZED_KEYS_FILE`.
 - Password hashes are read only from `ADMIN_PASSWORD_HASH_FILE` and `ROOT_PASSWORD_HASH_FILE`.
+- SSH-key-only admin accounts need either a password hash for interactive sudo or `ADMIN_SUDO_NOPASSWD=yes` for passwordless sudo.
 - Secret-bearing input files must be gitignored or outside the repository.
 
 ## Makefile Workflows
@@ -31,6 +32,16 @@ make configure-users \
   ADMIN_USER=<admin-user> \
   ENABLE_SSH=yes \
   ADMIN_AUTHORIZED_KEYS_FILE=var/secrets/admin_authorized_keys
+```
+
+For disposable VM tests where the admin account is created only with SSH keys, enable passwordless sudo:
+
+```sh
+make configure-users \
+  ADMIN_USER=<admin-user> \
+  ENABLE_SSH=yes \
+  ADMIN_AUTHORIZED_KEYS_FILE=var/secrets/admin_authorized_keys \
+  ADMIN_SUDO_NOPASSWD=yes
 ```
 
 Validate SSH policy evidence:
@@ -70,7 +81,7 @@ The workflow must never commit, log, or copy into audit bundles:
 
 ## Validation
 
-Final checks must report installed SSH package/service status when `ENABLE_SSH=yes` and must confirm root-login restrictions are present when SSH is configured.
+Final checks must report installed SSH package/service status when `ENABLE_SSH=yes`, confirm root-login restrictions are present when SSH is configured, and validate whether admin sudoers requires a password or uses `NOPASSWD: ALL`.
 
 First-boot validation requires SSH access to the installed VM because it runs read-only checks over Ansible. If SSH was not enabled or no authorized key was installed, first-boot validation fails clearly instead of falling back to console mutation.
 
@@ -78,6 +89,7 @@ First-boot validation requires SSH access to the installed VM because it runs re
 
 - SSH service missing: rerun `make install-system-packages ENABLE_SSH=yes`.
 - Authorized keys missing: rerun `make configure-users ENABLE_SSH=yes ADMIN_AUTHORIZED_KEYS_FILE=...`.
+- SSH works but `sudo su -` asks for an unknown password: provide `ADMIN_PASSWORD_HASH_FILE` for password-requiring sudo, or rerun disposable tests with `ADMIN_SUDO_NOPASSWD=yes`.
 - Private key material detected: replace the file with public keys only and rotate any exposed private key.
 - Root SSH policy mismatch: rerun `make configure-users ENABLE_SSH=yes`; do not edit target SSH config manually unless a manual recovery note is recorded.
 

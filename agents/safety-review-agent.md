@@ -37,7 +37,7 @@ Use the highest applicable risk level:
 - `SAFE`: read-only inspection. Examples: listing disks, showing mounts, printing config, checking versions.
 - `LOW`: installs packages or temporary tools in the live environment only. Example: temporary Codex bootstrap in the live ISO.
 - `MEDIUM`: modifies the target Gentoo root but does not affect partition tables. Examples: editing target `/etc/fstab`, extracting stage3 into a confirmed empty target root, writing Portage config.
-- `HIGH`: modifies bootloader, users, services, or persistent system state. Examples: GRUB install, EFI boot entry change, privileged user creation, password change, enabling NetworkManager.
+- `HIGH`: modifies bootloader, users, services, or persistent system state. Examples: GRUB install, EFI boot entry change, privileged user creation, password change, passwordless sudo policy, enabling NetworkManager.
 - `DESTRUCTIVE`: partitions, formats, wipes, overwrites disks, or deletes data. Examples: partition table changes, filesystem creation, disk wiping, recursive deletion, overwriting target data.
 
 All `DESTRUCTIVE` operations require explicit human confirmation. `HIGH` operations require confirmation when they affect boot, credentials, services, or persistent target state.
@@ -139,6 +139,7 @@ Before handling secrets:
 - API keys, login tokens, refresh tokens, private keys, and passwords must not appear in logs.
 - Prefer environment variables, prompt-based input, or interactive login.
 - Ansible variable files must not contain plaintext passwords or API tokens.
+- Passwordless sudo options such as `ADMIN_SUDO_NOPASSWD=yes` must be explicit, documented as high-risk outside disposable tests, and must not be used as a substitute for committing or logging passwords.
 - Cleanup targets must remove only known secret paths.
 - Manual intervention notes must not contain secrets, password hashes, private keys, tokens, local credentials, or full command transcripts with credentials.
 - If a secret is leaked into a tracked file, the final decision must be `REJECTED` until the leak is removed.

@@ -29,6 +29,12 @@ case "$enable_ssh" in
   *) die "ENABLE_SSH must be 'yes' or 'no', got: $enable_ssh" ;;
 esac
 
+admin_sudo_nopasswd=${ADMIN_SUDO_NOPASSWD:-no}
+case "$admin_sudo_nopasswd" in
+  yes|no) ;;
+  *) die "ADMIN_SUDO_NOPASSWD must be 'yes' or 'no', got: $admin_sudo_nopasswd" ;;
+esac
+
 admin_user=${ADMIN_USER:-}
 [[ -n "$admin_user" ]] || die "ADMIN_USER is required for final-checks so the admin account can be verified"
 
@@ -60,6 +66,7 @@ admin_user: "${admin_user}"
 admin_groups_csv: "${ADMIN_GROUPS:-wheel}"
 admin_shell: "${ADMIN_SHELL:-/bin/bash}"
 privilege_tool: "${PRIVILEGE_TOOL:-sudo}"
+admin_sudo_nopasswd: "${admin_sudo_nopasswd}"
 admin_authorized_keys_file: "${ADMIN_AUTHORIZED_KEYS_FILE:-}"
 project_root: "${project_root}"
 controller_secret_check: "passed"
@@ -67,6 +74,7 @@ EOF
 
 printf 'Running read-only final checks for %s %s target on %s@%s port %s\n' "$profile" "$filesystem" "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$ANSIBLE_LIVE_PORT"
 printf 'ADMIN_USER=%s\n' "$admin_user"
+printf 'ADMIN_SUDO_NOPASSWD=%s\n' "$admin_sudo_nopasswd"
 printf 'ENABLE_SSH=%s\n' "$enable_ssh"
 printf '%s\n' 'This target validates reboot readiness and does not install packages, modify the target, change EFI entries, or reboot.'
 

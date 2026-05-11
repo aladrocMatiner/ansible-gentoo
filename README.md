@@ -64,6 +64,8 @@ Use `make vm-e2e-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda ADMIN
 
 Use `make vm-e2e-matrix` only when you intend to reset and reinstall all four disposable libvirt cases. It runs the same single-case workflow for OpenRC/ext4, OpenRC/Btrfs, systemd/ext4, and systemd/Btrfs, and requires the normal VM destructive confirmations.
 
+Disposable VM E2E installs default `VM_E2E_ADMIN_SUDO_NOPASSWD=yes`, so the installed admin user can SSH in with the configured key and run `sudo su -` without a password. Real installs keep password-requiring sudo unless `ADMIN_SUDO_NOPASSWD=yes` is set explicitly.
+
 Per-case libvirt quickstarts are indexed in [docs/quickstarts/README.md](docs/quickstarts/README.md):
 
 - [amd64 OpenRC + ext4](docs/quickstarts/openrc-ext4.md)

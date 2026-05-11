@@ -63,6 +63,7 @@
           admin_groups: "{{ admin_groups_csv.split(',') }}"
           admin_shell: "{{ admin_shell }}"
           privilege_tool: "{{ privilege_tool }}"
+          admin_sudo_nopasswd: "{{ (admin_sudo_nopasswd | default('no') | string | lower) == 'yes' }}"
           enable_ssh: "{{ enable_ssh }}"
           input_files:
             admin_authorized_keys_file_set: "{{ admin_authorized_keys_file_set | bool }}"
@@ -76,7 +77,7 @@
           planned_operations:
             - create or update the explicit admin user under the target root
             - ensure configured admin groups are present and assigned
-            - configure sudo policy for the selected privilege tool
+            - configure sudo policy for the selected privilege tool and requested passwordless mode
             - apply admin password hash only if ADMIN_PASSWORD_HASH_FILE is set
             - apply root password hash only if ROOT_PASSWORD_HASH_FILE is set
             - install admin authorized_keys only if ADMIN_AUTHORIZED_KEYS_FILE is set

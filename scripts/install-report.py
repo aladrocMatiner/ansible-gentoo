@@ -222,6 +222,7 @@ def render_report(state: dict[str, Any], run_dir: Path, evidence: dict[str, dict
         status_line("admin user", users.get("admin_user") or final.get("admin_user")),
         status_line("admin groups", users.get("admin_groups") or final.get("admin_groups")),
         status_line("privilege tool", users.get("privilege_tool")),
+        status_line("admin sudo NOPASSWD", users.get("admin_sudo_nopasswd")),
         status_line("authorized keys installed", users.get("authorized_keys_installed")),
         status_line("admin password hash applied", users.get("admin_password_hash_applied")),
         status_line("root password hash applied", users.get("root_password_hash_applied")),

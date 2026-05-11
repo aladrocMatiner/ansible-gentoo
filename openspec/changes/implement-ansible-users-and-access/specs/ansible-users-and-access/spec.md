@@ -19,3 +19,8 @@ The project SHALL configure target users and privileged access without committin
 #### Scenario: Installed SSH policy
 - **WHEN** SSH access is configured for the installed target
 - **THEN** root SSH restrictions and authorized key handling SHALL follow the installed SSH policy
+
+#### Scenario: Passwordless sudo policy
+- **WHEN** passwordless sudo is requested for the admin account
+- **THEN** the workflow SHALL require an explicit yes/no policy value
+- **AND** password-requiring sudo SHALL remain the normal default outside disposable E2E tests

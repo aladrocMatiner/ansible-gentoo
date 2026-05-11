@@ -6,6 +6,7 @@
     users_admin_groups: "{{ (admin_groups_csv | default('wheel')).split(',') | reject('equalto', '') | list }}"
     users_privilege_tool: "{{ privilege_tool | default('sudo') }}"
     users_admin_shell: "{{ admin_shell | default('/bin/bash') }}"
+    users_admin_sudo_nopasswd: "{{ (admin_sudo_nopasswd | default('no') | string | lower) == 'yes' }}"
     users_admin_password_hash_file: "{{ admin_password_hash_file | default('') }}"
     users_root_password_hash_file: "{{ root_password_hash_file | default('') }}"
     users_admin_authorized_keys_file: "{{ admin_authorized_keys_file | default('') }}"
@@ -28,6 +29,7 @@
       - users_admin_shell != '/'
       - "'..' not in users_admin_shell"
       - users_privilege_tool == 'sudo'
+      - (admin_sudo_nopasswd | default('no') | string | lower) in ['yes', 'no']
       - (enable_ssh | string | lower) in ['yes', 'no']
     fail_msg: "USERS_FAILED: admin user, groups, shell, privilege tool, target root, or init profile inputs are invalid."
     success_msg: "User access inputs are approved."
@@ -211,7 +213,7 @@
     content: |
       # Managed by gentoo-ai-installer.
       {% for group_name in users_admin_groups %}
-      %{{ group_name }} ALL=(ALL:ALL) ALL
+      %{{ group_name }} ALL=(ALL:ALL) {{ 'NOPASSWD: ' if users_admin_sudo_nopasswd else '' }}ALL
       {% endfor %}
   register: users_sudoers_config
   when: not ansible_check_mode
@@ -465,6 +467,7 @@
         "admin_groups": {{ users_admin_groups | to_nice_json }},
         "admin_shell": {{ users_admin_shell | to_json }},
         "privilege_tool": {{ users_privilege_tool | to_json }},
+        "admin_sudo_nopasswd": {{ users_admin_sudo_nopasswd | to_json }},
         "admin_created": {{ (users_admin_create is defined and users_admin_create is changed) | to_json }},
         "groups_changed": {{ ((users_groupadd.results | default([]) | selectattr('changed') | list | length > 0) or (users_admin_group_update is defined and users_admin_group_update is changed)) | to_json }},
         "sudoers_changed": {{ (users_sudoers_config is defined and users_sudoers_config is changed) | to_json }},
@@ -487,6 +490,7 @@
       admin_user: "{{ admin_user }}"
       admin_groups: "{{ users_admin_groups }}"
       privilege_tool: "{{ users_privilege_tool }}"
+      admin_sudo_nopasswd: "{{ users_admin_sudo_nopasswd }}"
       enable_ssh: "{{ users_enable_ssh }}"
       authorized_keys_installed: "{{ users_admin_authorized_keys_content is defined }}"
       admin_password_hash_file_used: "{{ users_admin_password_hash is defined }}"

@@ -43,6 +43,7 @@ admin_user: "${admin_user}"
 admin_groups_csv: "${admin_groups}"
 admin_shell: "${admin_shell}"
 privilege_tool: "${privilege_tool}"
+admin_sudo_nopasswd: "${admin_sudo_nopasswd}"
 admin_authorized_keys_file_set: $(bool_for_file "$admin_authorized_keys_file")
 admin_password_hash_file_set: $(bool_for_file "$admin_password_hash_file")
 root_password_hash_file_set: $(bool_for_file "$root_password_hash_file")
@@ -51,6 +52,7 @@ EOF
 printf 'Previewing installed-system user and access changes for %s target on %s@%s port %s\n' "$profile" "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$ANSIBLE_LIVE_PORT"
 printf 'ADMIN_USER=%s\n' "$admin_user"
 printf 'ADMIN_GROUPS=%s\n' "$admin_groups"
+printf 'ADMIN_SUDO_NOPASSWD=%s\n' "$admin_sudo_nopasswd"
 printf 'ENABLE_SSH=%s\n' "$enable_ssh"
 printf '%s\n' 'Password hash file paths, password hash contents, and authorized_keys contents are not printed.'
 printf '%s\n' 'This target is read-only. It does not create users, change passwords, write sudoers, install SSH keys, or enable services.'

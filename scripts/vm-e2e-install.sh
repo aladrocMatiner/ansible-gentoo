@@ -70,6 +70,13 @@ case "$vm_e2e_reset_disk" in
   *) die_code CONFIG_INVALID "VM_E2E_RESET_DISK must be yes or no" ;;
 esac
 
+vm_e2e_admin_sudo_nopasswd=${ADMIN_SUDO_NOPASSWD:-${VM_E2E_ADMIN_SUDO_NOPASSWD:-yes}}
+case "$vm_e2e_admin_sudo_nopasswd" in
+  yes|no) ;;
+  *) die_code CONFIG_INVALID "ADMIN_SUDO_NOPASSWD/VM_E2E_ADMIN_SUDO_NOPASSWD must be yes or no" ;;
+esac
+export ADMIN_SUDO_NOPASSWD="$vm_e2e_admin_sudo_nopasswd"
+
 timestamp=$(date -u +%Y%m%dT%H%M%S%NZ)
 e2e_log_dir="logs/libvirt-e2e/${timestamp}-${profile}-${filesystem}"
 mkdir -p "$e2e_log_dir"
@@ -77,6 +84,7 @@ mkdir -p "$e2e_log_dir"
 
 printf 'Libvirt end-to-end install validation\n' | tee "$e2e_log_dir/summary.txt"
 printf 'profile=%s filesystem=%s install_disk=%s admin_user=%s\n' "$profile" "$filesystem" "$install_disk" "$admin_user" | tee -a "$e2e_log_dir/summary.txt"
+printf 'admin_sudo_nopasswd=%s\n' "$vm_e2e_admin_sudo_nopasswd" | tee -a "$e2e_log_dir/summary.txt"
 printf '%s\n' 'This workflow is destructive inside the disposable VM qcow2 disk and does not touch host block devices.' | tee -a "$e2e_log_dir/summary.txt"
 
 run_step e2e-plan scripts/vm-e2e-plan.py
