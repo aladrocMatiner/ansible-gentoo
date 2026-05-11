@@ -81,6 +81,14 @@ Required project variables:
 - `MANUAL_STEP_SUMMARY`
 - `MANUAL_STEP_REASON`
 - `MANUAL_STEP_NEXT_ACTION`
+- `REAL_HARDWARE_BACKUPS_CONFIRMED`
+- `REAL_HARDWARE_UEFI_CONFIRMED`
+- `REAL_HARDWARE_NETWORK_CONFIRMED`
+- `REAL_HARDWARE_POWER_CONFIRMED`
+- `REAL_HARDWARE_RECOVERY_MEDIA_CONFIRMED`
+- `REAL_HARDWARE_DESTRUCTIVE_PREVIEW_REVIEWED`
+- `REAL_HARDWARE_LIBVIRT_VALIDATED`
+- `REAL_HARDWARE_LIBVIRT_SKIP_REASON`
 
 VM/libvirt variables:
 
@@ -171,6 +179,7 @@ Rules:
 - `I_UNDERSTAND_BOOTLOADER_CHANGES=yes` is required for GRUB/EFI workflows that may update persistent EFI boot entries.
 - `MANUAL_STEP_SUMMARY` and `MANUAL_STEP_REASON` are required only for `make record-manual-step`; they must describe non-secret operator intervention and should not be printed by help output.
 - `MANUAL_STEP_NEXT_ACTION` may override the default revalidation instruction for `make record-manual-step`; it must remain non-secret and should point back to Makefile-mediated checks or plans.
+- `REAL_HARDWARE_*` acknowledgement variables default to `no` or unset; `make real-hardware-check` requires them before physical-machine destructive workflows are recommended.
 - Variables containing secrets must not be printed or committed.
 - `VM_DISK` must be a project-relative qcow2 path under `VM_DIR`.
 - `VM_DIR` must not be the project root, `/dev`, absolute, symlinked, or contain parent traversal.
@@ -198,7 +207,9 @@ Required safe targets:
 - `make openspec-validate`
 - `make ansible-check`
 - `make config-check`
+- `make host-check`
 - `make handbook-trace`
+- `make real-hardware-check`
 - `make ansible-live-ping`
 - `make ansible-live-preflight`
 - `make install-plan`
@@ -238,6 +249,7 @@ Expected behavior:
 - `make ansible-check`: validate Ansible availability, syntax-check implemented playbooks, and run ansible-lint when available.
 - `make config-check`: validate `PROFILE`, `FILESYSTEM`, `BOOT_MODE`, `HOSTNAME`, mount paths, optional `INSTALL_DISK`, and destructive confirmation variables without touching live targets or disks.
 - `make handbook-trace`: regenerate the read-only Gentoo AMD64 Handbook traceability report from project metadata.
+- `make real-hardware-check`: run config validation with explicit `INSTALL_DISK`, record a local read-only physical-machine readiness report, and require backup/UEFI/network/power/recovery-media/preview/libvirt-validation acknowledgements without granting destructive permission.
 - `make ansible-live-ping`: validate SSH-based Ansible connectivity to the booted official live ISO target. It should use `ANSIBLE_LIVE_HOST` for network targets and libvirt discovery only for local tests.
 - `make ansible-live-preflight`: run read-only live ISO checks without selecting an install disk or mutating target disks.
 - `make host-check`: validate controller-side host requirements for local libvirt workflows, including tools, resources, OVMF firmware, ISO availability, libvirt access, and safe VM paths.
@@ -434,6 +446,7 @@ Rules:
 - `make ansible-check`
 - `make ansible-live-ping`
 - `make ansible-live-preflight`
+- `make real-hardware-check ANSIBLE_LIVE_HOST=<live-iso-ip> INSTALL_DISK=/dev/disk/by-id/<operator-selected-disk>`
 - `make ansible-dry-run PROFILE=openrc`
 - `make ansible-dry-run PROFILE=systemd`
 - `make vm-check`
@@ -469,6 +482,7 @@ Rules:
 - A target combines unrelated risk classes.
 - Manual intervention is performed but not recorded with `make record-manual-step` before automation resumes.
 - Manual notes include secrets or command transcripts with credentials.
+- Physical-machine destructive workflows are recommended without a successful `make real-hardware-check`.
 - A cleanup target deletes an unchecked path.
 - An Ansible target runs without showing check/plan output first.
 - Codex bootstrap stores tokens in tracked files.
@@ -486,6 +500,7 @@ Rules:
 - Add a safety confirmation script before destructive targets.
 - Add `make install-plan` or `make partition-plan` before apply targets.
 - Record non-secret manual recovery notes with `make record-manual-step`, then rerun `make install-resume-plan` and the relevant read-only plan before continuing.
+- Run `make real-hardware-check` before destructive physical-machine workflows and prefer `/dev/disk/by-id/...` for `INSTALL_DISK`.
 - Stop and rerun safe inventory targets if disk identity changes.
 - Review dangerous targets with `agents/safety-review-agent.md` before use.
 - If secrets are written to project files, remove them immediately and keep them out of commits.
@@ -512,3 +527,4 @@ When Makefile behavior changes, documentation must change in the same commit or 
 - If `FILESYSTEM` behavior changes, update target help, variable defaults, install-plan docs, disk-planning docs, and safety notes in the same change.
 - If failure modes or recovery behavior changes in implementation, update the `Failure Modes` and `Recovery Advice` sections here before finishing.
 - If manual intervention, resume-state, or audit evidence behavior changes, update `docs/manual-escape-hatch-policy.md`, `docs/install-state-and-resume-checkpoints.md`, `docs/install-audit-bundle.md`, this skill, and active OpenSpec tasks together.
+- If real hardware readiness behavior changes, update `docs/real-hardware-readiness.md`, safety docs, this skill, `agents/safety-review-agent.md`, and active OpenSpec tasks together.

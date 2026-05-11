@@ -74,6 +74,8 @@ Future Ansible installer behavior must use the official Gentoo AMD64 Handbook as
 
 Manual intervention is a recovery path, not a safety bypass. If an operator changes installation state outside automation, agents must route the record through `make record-manual-step`, keep the note non-secret, require `make install-resume-plan` or the relevant read-only checks before resuming, and preserve destructive confirmations for later targets.
 
+Real hardware workflows are higher risk than libvirt validation. Before agents suggest destructive physical-machine targets, they must direct the operator through `make real-hardware-check`, prefer stable disk paths such as `/dev/disk/by-id/...`, and state that readiness output never replaces destructive or bootloader confirmations.
+
 ## 11. Ansible reuse-first architecture
 Future Ansible implementation must reuse shared roles, tasks, variables, handlers, templates, validation logic, safety gates, and documentation across OpenRC and systemd console installation flows whenever behavior is common.
 

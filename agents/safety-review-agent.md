@@ -17,6 +17,7 @@ The project can destroy data if disk operations are wrong. Safety review is mand
 - Reject duplicated or inconsistent destructive safety logic.
 - Verify manual intervention records cannot satisfy or bypass destructive confirmations.
 - Verify manual intervention notes are non-secret and force read-only revalidation before automation resumes.
+- Verify physical hardware workflows require the real hardware readiness check before destructive targets are recommended.
 - Produce a structured review decision: `APPROVED`, `APPROVED WITH CHANGES`, or `REJECTED`.
 
 ## 3. Non-goals
@@ -68,6 +69,7 @@ Before partitioning, wiping, or changing any disk:
 - No default disk value may exist.
 - The target disk must be shown by path, model, serial, size, and current partition table.
 - Stable paths such as `/dev/disk/by-id/...` are preferred when available.
+- Physical hardware workflows must run `make real-hardware-check` before destructive apply targets are recommended.
 - Existing mounted partitions on the selected disk must be identified.
 - The proposed partition plan must be printed before execution.
 - The destructive confirmation variable `I_UNDERSTAND_THIS_WIPES_DISK=yes` must be required.
@@ -170,6 +172,7 @@ The Makefile is the public control plane. Safety review must verify:
 - VM/libvirt targets must reject `/dev/*`, absolute VM disk paths, parent traversal, wildcard paths, symlinked artifact paths, project-root artifact directories, project root paths that would make generated libvirt XML unsafe, non-qcow2 existing disk files, stale project-marked domains in start/SSH/rsync/Ansible paths, ISO mismatches, and any libvirt domain disk source that points to a host block device.
 - VM/libvirt targets must not invoke `sudo` by default.
 - VM cleanup targets must delete only generated artifacts for the configured project-owned domain and must not delete ISO files, libvirt networks, pools, volumes, unrelated domains, or secrets.
+- `make real-hardware-check` must be read-only, require explicit `INSTALL_DISK`, prefer stable disk identity paths, require backup/UEFI/network/power/recovery-media/destructive-preview acknowledgements, and state that it does not satisfy destructive confirmations.
 
 ## 13. Ansible Safety Requirements
 For Ansible playbooks, roles, and tasks:

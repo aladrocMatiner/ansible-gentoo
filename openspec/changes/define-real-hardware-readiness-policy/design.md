@@ -17,13 +17,15 @@ Before real hardware destructive operations:
 
 ## Makefile Integration
 
-Planned target:
+Implemented target:
 
 ```sh
-make real-hardware-check
+make real-hardware-check ANSIBLE_LIVE_HOST=<live-iso-ip> INSTALL_DISK=/dev/disk/by-id/<operator-selected-disk>
 ```
 
-This target must be read-only and must not grant permission by itself. It produces readiness status and required manual confirmations.
+This target is read-only, runs configuration validation with `INSTALL_DISK` required, and writes a local readiness report under `logs/real-hardware-readiness/latest.json`.
+
+It requires non-secret acknowledgements through `REAL_HARDWARE_*` variables for backups, UEFI, network, power, recovery media, destructive preview review, and libvirt validation status. It does not grant permission by itself and does not satisfy destructive or bootloader confirmations.
 
 ## Policy
 

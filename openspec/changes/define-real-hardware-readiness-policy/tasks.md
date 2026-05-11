@@ -5,8 +5,8 @@
 - [x] Validate with `openspec validate define-real-hardware-readiness-policy --strict`.
 
 ## Implementation
-- [ ] Define real hardware readiness checklist.
-- [ ] Add Makefile target or documented report path.
-- [ ] Integrate with config validation and destructive safety gates.
-- [ ] Update agents, skills, README, and docs.
-- [ ] Validate OpenSpec.
+- [x] Define real hardware readiness checklist.
+- [x] Add Makefile target or documented report path.
+- [x] Integrate with config validation and destructive safety gates.
+- [x] Update agents, skills, README, and docs.
+- [x] Validate OpenSpec.

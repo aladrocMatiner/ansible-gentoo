@@ -52,6 +52,14 @@ CLEAN_RUN_ID ?=
 MANUAL_STEP_SUMMARY ?=
 MANUAL_STEP_REASON ?=
 MANUAL_STEP_NEXT_ACTION ?= Run make install-resume-plan and relevant read-only checks before resuming automation.
+REAL_HARDWARE_BACKUPS_CONFIRMED ?= no
+REAL_HARDWARE_UEFI_CONFIRMED ?= no
+REAL_HARDWARE_NETWORK_CONFIRMED ?= no
+REAL_HARDWARE_POWER_CONFIRMED ?= no
+REAL_HARDWARE_RECOVERY_MEDIA_CONFIRMED ?= no
+REAL_HARDWARE_DESTRUCTIVE_PREVIEW_REVIEWED ?= no
+REAL_HARDWARE_LIBVIRT_VALIDATED ?= no
+REAL_HARDWARE_LIBVIRT_SKIP_REASON ?=
 
 export LIBVIRT_URI
 export VM_NET_MODE
@@ -106,10 +114,18 @@ export CLEAN_RUN_ID
 export MANUAL_STEP_SUMMARY
 export MANUAL_STEP_REASON
 export MANUAL_STEP_NEXT_ACTION
+export REAL_HARDWARE_BACKUPS_CONFIRMED
+export REAL_HARDWARE_UEFI_CONFIRMED
+export REAL_HARDWARE_NETWORK_CONFIRMED
+export REAL_HARDWARE_POWER_CONFIRMED
+export REAL_HARDWARE_RECOVERY_MEDIA_CONFIRMED
+export REAL_HARDWARE_DESTRUCTIVE_PREVIEW_REVIEWED
+export REAL_HARDWARE_LIBVIRT_VALIDATED
+export REAL_HARDWARE_LIBVIRT_SKIP_REASON
 
 .PHONY: help \
 	vm-check vm-disk vm-define vm-start vm-start-installed vm-validate-first-boot vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
-	ansible-check config-check host-check secret-check handbook-trace ansible-live-ping ansible-live-preflight local-live-preflight local-detect-disks local-install-plan local-partition-plan detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-preview partition-preview format-preview mount-preview bootloader-preview users-preview destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan record-manual-step install-run-clean install-audit install-report cleanup-plan clean-state clean-logs clean-audit clean-stage3-cache reset-test-run \
+	ansible-check config-check host-check real-hardware-check secret-check handbook-trace ansible-live-ping ansible-live-preflight local-live-preflight local-detect-disks local-install-plan local-partition-plan detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-preview partition-preview format-preview mount-preview bootloader-preview users-preview destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan record-manual-step install-run-clean install-audit install-report cleanup-plan clean-state clean-logs clean-audit clean-stage3-cache reset-test-run \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -131,6 +147,7 @@ help:
 		'  make ansible-check   Verify Ansible tooling, syntax, and lint when available' \
 		'  make config-check    Validate installer configuration variables without touching targets' \
 		'  make host-check      Verify host/libvirt requirements for local VM validation' \
+		'  make real-hardware-check Read-only readiness check before physical hardware install' \
 		'  make secret-check    Scan tracked and unignored files for high-risk secret patterns' \
 		'  make handbook-trace  Regenerate Gentoo Handbook traceability report' \
 		'  make ansible-live-ping Validate Ansible connectivity to a live ISO target over SSH' \
@@ -242,7 +259,8 @@ help:
 		'  CLEAN_SCOPE=$(CLEAN_SCOPE)' \
 		'  CLEAN_RUN_ID=$(CLEAN_RUN_ID)' \
 		'  MANUAL_STEP_SUMMARY is required for make record-manual-step and not printed' \
-		'  MANUAL_STEP_REASON is required for make record-manual-step and not printed'
+		'  MANUAL_STEP_REASON is required for make record-manual-step and not printed' \
+		'  REAL_HARDWARE_* variables default to no; see docs/real-hardware-readiness.md'
 
 vm-check:
 	@scripts/vm-check-libvirt.sh
@@ -291,6 +309,10 @@ config-check:
 
 host-check:
 	@scripts/host-check.sh
+
+real-hardware-check:
+	@CONFIG_REQUIRE_INSTALL_DISK=yes scripts/config-check.sh
+	@scripts/real-hardware-check.py
 
 secret-check:
 	@scripts/secret-check.sh

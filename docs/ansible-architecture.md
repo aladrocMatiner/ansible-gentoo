@@ -7,6 +7,8 @@ The Ansible installer phase should turn validated manual Gentoo installation ste
 
 Local libvirt/virsh workflows are a validation harness for that installer. They provide a safe VM target, serial-console SSH bootstrap, and disposable qcow2 disks so the same Ansible playbooks can be tested before real hardware. VM-specific paths, domain names, and `/dev/vda` assumptions must stay out of reusable roles except in test fixtures and examples.
 
+Before destructive workflows are recommended for a physical machine, operators must run `make real-hardware-check` with an explicit network live ISO target and selected disk. That readiness report does not replace destructive or bootloader confirmations.
+
 The architecture must support basic console installs for OpenRC and systemd while reusing as much implementation as possible.
 
 Future installer roles and playbooks must use the official Gentoo AMD64 Handbook as the baseline procedure: <https://wiki.gentoo.org/wiki/Handbook:AMD64>. The project may translate Handbook steps into Ansible tasks, variables, templates, and validations, but deviations must be intentional, documented, and reviewed through OpenSpec.

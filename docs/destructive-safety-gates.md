@@ -16,6 +16,8 @@ For a network target, use the disk path reported by that target:
 make destructive-safety-check ANSIBLE_LIVE_HOST=192.0.2.10 INSTALL_DISK=/dev/<target-disk> I_UNDERSTAND_THIS_WIPES_DISK=yes
 ```
 
+For physical hardware, run `make real-hardware-check` before destructive apply targets. The readiness report does not replace this safety gate and does not satisfy confirmation variables.
+
 This target does not run `parted`, `sgdisk`, `fdisk`, `wipefs`, `mkfs.*`, `mount`, `umount`, `chroot`, `grub-install`, or `efibootmgr`.
 
 ## Checks

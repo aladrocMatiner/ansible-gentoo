@@ -4,6 +4,8 @@
 
 Use `make host-check` for host/libvirt capability validation. `config-check` validates variable shape and safety; `host-check` validates controller tools, resources, OVMF firmware, ISO availability, and libvirt access.
 
+Use `make real-hardware-check` before destructive physical-machine workflows. That target runs config validation with `INSTALL_DISK` required, then records a read-only readiness report; see `docs/real-hardware-readiness.md`.
+
 The machine-readable schema lives at `config/install-schema.yml`.
 
 ## Run
