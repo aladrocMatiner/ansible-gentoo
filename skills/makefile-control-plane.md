@@ -283,6 +283,8 @@ Semi-dangerous targets:
 - `make vm-disk`
 - `make vm-define`
 - `make vm-start`
+- `make vm-start-installed`
+- `make vm-validate-first-boot`
 - `make vm-console`
 - `make vm-viewer`
 - `make vm-ip`
@@ -313,6 +315,8 @@ Expected behavior:
 - `make vm-disk`: create or preserve the project-local qcow2 VM disk.
 - `make vm-define`: define the project-owned libvirt domain from reviewed project-local inputs.
 - `make vm-start`: start the project-owned VM from the official Gentoo live ISO.
+- `make vm-start-installed`: redefine and start the project-owned VM from the installed qcow2 disk without live ISO kernel/initrd boot.
+- `make vm-validate-first-boot`: boot the installed VM disk, wait for SSH, and run read-only first-boot validation; it requires completed install state and explicit `ADMIN_USER`.
 - `make vm-console`: attach to `virsh console`; it may fail if the ISO does not expose a serial login.
 - `make vm-viewer`: open graphical access through a libvirt viewer.
 - `make vm-ip`: discover the guest IP only when the configured network mode supports discovery.

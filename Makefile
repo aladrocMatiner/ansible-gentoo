@@ -32,6 +32,8 @@ ADMIN_AUTHORIZED_KEYS_FILE ?=
 ADMIN_PASSWORD_HASH_FILE ?=
 ROOT_PASSWORD_HASH_FILE ?=
 ENABLE_SSH ?= no
+FIRST_BOOT_USER ?=
+FIRST_BOOT_TIMEOUT ?= 180
 TARGET_MOUNT ?= /mnt/gentoo
 EFI_MOUNT ?= $(TARGET_MOUNT)/boot/efi
 CODEX_INSTALL_METHOD ?= npm
@@ -80,6 +82,8 @@ export ADMIN_AUTHORIZED_KEYS_FILE
 export ADMIN_PASSWORD_HASH_FILE
 export ROOT_PASSWORD_HASH_FILE
 export ENABLE_SSH
+export FIRST_BOOT_USER
+export FIRST_BOOT_TIMEOUT
 export TARGET_MOUNT
 export EFI_MOUNT
 export CODEX_INSTALL_METHOD
@@ -98,7 +102,7 @@ export CLEAN_SCOPE
 export CLEAN_RUN_ID
 
 .PHONY: help \
-	vm-check vm-disk vm-define vm-start vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
+	vm-check vm-disk vm-define vm-start vm-start-installed vm-validate-first-boot vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
 	ansible-check config-check secret-check handbook-trace ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-preview partition-preview format-preview mount-preview bootloader-preview users-preview destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan install-run-clean install-audit install-report cleanup-plan clean-state clean-logs clean-audit clean-stage3-cache reset-test-run \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
@@ -109,6 +113,8 @@ help:
 		'  make vm-disk         Create the project-local qcow2 VM disk if missing' \
 		'  make vm-define       Generate and define the libvirt domain' \
 		'  make vm-start        Start the libvirt VM from the official Gentoo ISO' \
+		'  make vm-start-installed Start the libvirt VM from the installed qcow2 disk' \
+		'  make vm-validate-first-boot Boot installed VM and run read-only first-boot validation' \
 		'  make vm-console      Attach to virsh console for the VM' \
 		'  make vm-viewer       Open graphical access with virt-viewer' \
 		'  make vm-ip           Discover guest IP when managed networking supports it' \
@@ -206,6 +212,8 @@ help:
 		'  ADMIN_PASSWORD_HASH_FILE is optional and not printed' \
 		'  ROOT_PASSWORD_HASH_FILE is optional and not printed' \
 		'  ENABLE_SSH=$(ENABLE_SSH)' \
+		'  FIRST_BOOT_USER=$(FIRST_BOOT_USER)' \
+		'  FIRST_BOOT_TIMEOUT=$(FIRST_BOOT_TIMEOUT)' \
 		'  TARGET_MOUNT=$(TARGET_MOUNT)' \
 		'  EFI_MOUNT=$(EFI_MOUNT)' \
 		'  CODEX_INSTALL_METHOD=$(CODEX_INSTALL_METHOD)' \
@@ -233,6 +241,12 @@ vm-define:
 
 vm-start:
 	@scripts/vm-start.sh
+
+vm-start-installed:
+	@scripts/vm-start-installed.sh
+
+vm-validate-first-boot:
+	@scripts/vm-validate-first-boot.sh
 
 vm-console:
 	@scripts/vm-console.sh

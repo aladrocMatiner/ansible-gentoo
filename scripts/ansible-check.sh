@@ -9,7 +9,7 @@ require_command ansible-playbook
 
 printf '%s\n' 'Checking Ansible syntax for implemented playbooks...'
 for playbook in ansible/playbooks/*.yml; do
-  ansible-playbook -i ansible/inventory/live.yml "$playbook" --syntax-check >/dev/null
+  ansible-playbook -i ansible/inventory/check.yml "$playbook" --syntax-check >/dev/null
 done
 
 if command -v ansible-lint >/dev/null 2>&1; then

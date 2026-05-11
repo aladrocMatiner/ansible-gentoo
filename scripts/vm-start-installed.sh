@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_NAME=vm-define
+SCRIPT_NAME=vm-start-installed
 source "$(dirname "$0")/vm-libvirt-common.sh"
 
 network_xml() {
@@ -29,59 +29,36 @@ load_vm_config
 require_command virsh
 require_command qemu-img
 require_command qemu-system-x86_64
-require_command isoinfo
 validate_vm_config
 require_uefi_firmware
 validate_artifact_paths
 require_libvirt_connection
-require_project_marker_and_no_host_block_devices_if_exists
+
+[[ -f "$VM_DISK" ]] || die "VM_DISK is missing; complete a VM install before first-boot validation: $VM_DISK"
+assert_qcow2_image "$VM_DISK"
+[[ -f "$VM_NVRAM" && ! -L "$VM_NVRAM" ]] || die "VM_NVRAM is missing or unsafe; run make vm-define before installing, then retry: $VM_NVRAM"
 
 if [[ "$VM_NET_MODE" == network ]]; then
   virsh --connect "$LIBVIRT_URI" net-info "$VM_NETWORK" >/dev/null 2>&1 || die "libvirt network not found on $LIBVIRT_URI: $VM_NETWORK"
 fi
 
-resolved_iso=$(resolve_iso_path "$VM_ISO")
-resolved_kernel_args=$(resolve_kernel_args "$resolved_iso")
-
 if domain_exists; then
+  require_project_marker_and_no_host_block_devices
   state=$(virsh --connect "$LIBVIRT_URI" domstate "$VM_NAME" 2>/dev/null || true)
-  case "$state" in
-    running|paused|blocked|idle)
-      die "domain already exists and is active; run make vm-destroy before redefining: $VM_NAME"
-      ;;
-  esac
+  if [[ "$state" == running || "$state" == paused ]]; then
+    virsh --connect "$LIBVIRT_URI" destroy "$VM_NAME"
+  fi
   virsh --connect "$LIBVIRT_URI" undefine "$VM_NAME" --keep-nvram >/dev/null 2>&1 || virsh --connect "$LIBVIRT_URI" undefine "$VM_NAME" >/dev/null
 fi
 
 ensure_artifact_dirs
-if [[ ! -e "$VM_DISK" ]]; then
-  scripts/vm-create-disk.sh
-fi
-[[ -f "$VM_DISK" ]] || die "VM_DISK exists but is not a regular file: $VM_DISK"
-assert_qcow2_image "$VM_DISK"
 assert_safe_generated_file VM_XML "$VM_XML"
-assert_safe_generated_file VM_NVRAM "$VM_NVRAM"
-assert_safe_generated_file VM_KERNEL "$VM_KERNEL"
-assert_safe_generated_file VM_INITRD "$VM_INITRD"
 
-if [[ -e "$VM_NVRAM" ]]; then
-  [[ -f "$VM_NVRAM" && ! -L "$VM_NVRAM" ]] || die "VM_NVRAM exists but is not a regular non-symlink file: $VM_NVRAM"
-else
-  cp -- "$OVMF_VARS_TEMPLATE" "$VM_NVRAM"
-  chmod u+rw -- "$VM_NVRAM"
-fi
-
-isoinfo -i "$resolved_iso" -R -x /boot/gentoo > "$VM_KERNEL"
-isoinfo -i "$resolved_iso" -R -x /boot/gentoo.igz > "$VM_INITRD"
-
-abs_iso=$(normalize_path "$resolved_iso")
 abs_disk=$(normalize_path "$VM_DISK")
 abs_xml=$(normalize_path "$VM_XML")
 abs_nvram=$(normalize_path "$VM_NVRAM")
-abs_kernel=$(normalize_path "$VM_KERNEL")
-abs_initrd=$(normalize_path "$VM_INITRD")
+abs_dir=$(normalize_path "$VM_DIR")
 emulator=$(command -v qemu-system-x86_64)
-xml_kernel_args=$(xml_escape "$resolved_kernel_args")
 
 cat > "$VM_XML" <<EOF
 <domain type='kvm'>
@@ -91,6 +68,7 @@ cat > "$VM_XML" <<EOF
     <gentoo-ai-installer xmlns='https://example.invalid/gentoo-ai-installer'>
       <managed>true</managed>
       <artifact-dir>${VM_DIR}</artifact-dir>
+      <boot-mode>installed-disk</boot-mode>
     </gentoo-ai-installer>
   </metadata>
   <memory unit='MiB'>${VM_RAM}</memory>
@@ -100,9 +78,7 @@ cat > "$VM_XML" <<EOF
     <type arch='x86_64' machine='q35'>hvm</type>
     <loader readonly='yes' type='pflash'>${OVMF_CODE}</loader>
     <nvram>${abs_nvram}</nvram>
-    <kernel>${abs_kernel}</kernel>
-    <initrd>${abs_initrd}</initrd>
-    <cmdline>${xml_kernel_args}</cmdline>
+    <boot dev='hd'/>
   </os>
   <features>
     <acpi/>
@@ -119,12 +95,7 @@ cat > "$VM_XML" <<EOF
       <driver name='qemu' type='qcow2'/>
       <source file='${abs_disk}'/>
       <target dev='vda' bus='virtio'/>
-    </disk>
-    <disk type='file' device='cdrom'>
-      <driver name='qemu' type='raw'/>
-      <source file='${abs_iso}'/>
-      <target dev='sda' bus='sata'/>
-      <readonly/>
+      <boot order='1'/>
     </disk>
 $(network_xml)
     <serial type='pty'>
@@ -146,12 +117,9 @@ $(network_xml)
 EOF
 
 virsh --connect "$LIBVIRT_URI" define "$abs_xml" >/dev/null
-printf 'vm-define: defined project-owned libvirt domain %s on %s\n' "$VM_NAME" "$LIBVIRT_URI"
-printf '  XML: %s\n' "$VM_XML"
-printf '  ISO: %s\n' "$resolved_iso"
-printf '  kernel: %s\n' "$VM_KERNEL"
-printf '  initrd: %s\n' "$VM_INITRD"
-printf '  nvram: %s\n' "$VM_NVRAM"
-printf '  ovmf: %s\n' "$OVMF_CODE"
-printf '  kernel args: %s\n' "$resolved_kernel_args"
+virsh --connect "$LIBVIRT_URI" start "$VM_NAME"
+
+printf 'vm-start-installed: started %s from installed qcow2 disk\n' "$VM_NAME"
 printf '  disk: %s\n' "$VM_DISK"
+printf '  XML: %s\n' "$VM_XML"
+printf '  note: run make vm-define to restore official live ISO boot mode later.\n'

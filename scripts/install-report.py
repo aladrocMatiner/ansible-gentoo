@@ -253,7 +253,7 @@ def next_action(final: dict[str, Any], first_boot: dict[str, Any]) -> str:
     if first_boot.get("status") == "PASS":
         return "Archive evidence and proceed with post-install review."
     if final.get("status") == "PASS":
-        return "Reboot into the installed disk, then run first-boot validation when implemented for the target."
+        return "Reboot into the installed disk, then run first-boot validation when available for the target."
     return "Run missing install phases, then run make final-checks and make install-audit."
 
 

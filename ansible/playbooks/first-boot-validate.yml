@@ -1,0 +1,203 @@
+---
+- name: Validate first boot of installed Gentoo VM
+  hosts: gentoo_installed
+  gather_facts: true
+  tasks:
+    - name: Validate first-boot inputs
+      ansible.builtin.assert:
+        that:
+          - profile in ['openrc', 'systemd']
+          - filesystem in ['ext4', 'btrfs']
+          - expected_hostname is defined
+          - expected_hostname is match('^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$')
+          - admin_user is defined
+          - admin_user is match('^[a-z_][a-z0-9_-]{0,31}\\$?$')
+          - install_run_id is defined
+          - install_run_id is match('^[A-Za-z0-9_.:-]{1,80}$')
+        fail_msg: "FIRST_BOOT_FAILED: first-boot validation inputs are invalid."
+        success_msg: "First-boot validation inputs are valid."
+
+    - name: Read running kernel version
+      ansible.builtin.command:
+        argv:
+          - uname
+          - -r
+      register: first_boot_kernel
+      changed_when: false
+
+    - name: Read installed hostname
+      ansible.builtin.command:
+        argv:
+          - hostname
+      register: first_boot_hostname
+      changed_when: false
+
+    - name: Read root mount details
+      ansible.builtin.command:
+        argv:
+          - findmnt
+          - --mountpoint
+          - /
+          - --noheadings
+          - --output
+          - SOURCE,FSTYPE,OPTIONS,UUID
+      register: first_boot_root_mount
+      changed_when: false
+
+    - name: Read kernel command line
+      ansible.builtin.command:
+        argv:
+          - cat
+          - /proc/cmdline
+      register: first_boot_cmdline
+      changed_when: false
+
+    - name: Read fstab
+      ansible.builtin.slurp:
+        src: /etc/fstab
+      register: first_boot_fstab_raw
+
+    - name: Check UEFI runtime evidence
+      ansible.builtin.stat:
+        path: /sys/firmware/efi
+      register: first_boot_uefi
+
+    - name: Check admin user exists
+      ansible.builtin.command:
+        argv:
+          - getent
+          - passwd
+          - "{{ admin_user }}"
+      register: first_boot_admin_user
+      changed_when: false
+
+    - name: Check NetworkManager status on systemd
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - is-active
+          - NetworkManager.service
+      register: first_boot_networkmanager_systemd
+      changed_when: false
+      failed_when: false
+      when: profile == 'systemd'
+
+    - name: Check NetworkManager status on OpenRC
+      ansible.builtin.command:
+        argv:
+          - rc-service
+          - NetworkManager
+          - status
+      register: first_boot_networkmanager_openrc
+      changed_when: false
+      failed_when: false
+      when: profile == 'openrc'
+
+    - name: Check installed time sync on systemd
+      ansible.builtin.command:
+        argv:
+          - timedatectl
+          - show
+          - -p
+          - NTPSynchronized
+          - --value
+      register: first_boot_time_sync_systemd
+      changed_when: false
+      failed_when: false
+      when: profile == 'systemd'
+
+    - name: Check installed time sync on OpenRC
+      ansible.builtin.command:
+        argv:
+          - chronyc
+          - tracking
+      register: first_boot_time_sync_openrc
+      changed_when: false
+      failed_when: false
+      when: profile == 'openrc'
+
+    - name: Collect boot-critical failures on systemd
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - --failed
+          - --no-legend
+      register: first_boot_failed_units
+      changed_when: false
+      failed_when: false
+      when: profile == 'systemd'
+
+    - name: Store first-boot facts
+      ansible.builtin.set_fact:
+        first_boot_fstab: "{{ first_boot_fstab_raw.content | b64decode }}"
+        first_boot_root_fields: "{{ first_boot_root_mount.stdout.split() }}"
+        first_boot_nm_rc: "{{ first_boot_networkmanager_systemd.rc | default(first_boot_networkmanager_openrc.rc | default(1)) }}"
+        first_boot_time_sync_status: "{{ first_boot_time_sync_systemd.stdout | default((first_boot_time_sync_openrc.rc | default(1)) == 0) }}"
+
+    - name: Validate first-boot state
+      ansible.builtin.assert:
+        that:
+          - ansible_architecture == 'x86_64'
+          - first_boot_hostname.stdout | trim == expected_hostname
+          - first_boot_uefi.stat.exists
+          - first_boot_uefi.stat.isdir
+          - first_boot_root_fields | length >= 4
+          - first_boot_root_fields[1] == filesystem
+          - first_boot_fstab is search('UUID=' ~ (first_boot_root_fields[3] | regex_escape) ~ '\\s+/\\s+' ~ filesystem)
+          - first_boot_cmdline.stdout is search('root=UUID=' ~ (first_boot_root_fields[3] | regex_escape))
+          - first_boot_cmdline.stdout is not search('/dev/')
+          - filesystem != 'btrfs' or first_boot_cmdline.stdout is search('rootflags=subvol=@')
+          - first_boot_kernel.stdout | length > 0
+          - first_boot_admin_user.rc == 0
+          - first_boot_nm_rc | int == 0
+        fail_msg: "FIRST_BOOT_FAILED: installed VM did not satisfy first-boot validation."
+        success_msg: "Installed VM passed first-boot validation."
+
+    - name: Define first-boot evidence path
+      ansible.builtin.set_fact:
+        first_boot_log_dir: "{{ project_root }}/logs/install-runs/{{ install_run_id }}/first-boot"
+
+    - name: Create local first-boot evidence directory
+      ansible.builtin.file:
+        path: "{{ first_boot_log_dir }}"
+        state: directory
+        mode: "0750"
+      delegate_to: localhost
+      become: false
+      changed_when: false
+
+    - name: Record first-boot validation evidence
+      ansible.builtin.copy:
+        dest: "{{ first_boot_log_dir }}/validation.json"
+        mode: "0640"
+        content: |
+          {
+            "status": "PASS",
+            "profile": {{ profile | to_json }},
+            "filesystem": {{ filesystem | to_json }},
+            "hostname": {{ first_boot_hostname.stdout | trim | to_json }},
+            "architecture": {{ ansible_architecture | to_json }},
+            "kernel": {{ first_boot_kernel.stdout | trim | to_json }},
+            "root_mount": {{ first_boot_root_mount.stdout | to_json }},
+            "root_uuid": {{ first_boot_root_fields[3] | to_json }},
+            "kernel_cmdline": {{ first_boot_cmdline.stdout | to_json }},
+            "uefi": {{ (first_boot_uefi.stat.exists and first_boot_uefi.stat.isdir) | to_json }},
+            "networkmanager_rc": {{ (first_boot_nm_rc | int) | to_json }},
+            "admin_user": {{ admin_user | to_json }},
+            "ssh_access_validated": true,
+            "time_sync_status": {{ first_boot_time_sync_status | string | to_json }},
+            "failed_units": {{ first_boot_failed_units.stdout_lines | default([]) | to_nice_json }},
+            "read_only": true
+          }
+      delegate_to: localhost
+      become: false
+      changed_when: false
+
+    - name: Print first-boot validation report
+      ansible.builtin.debug:
+        msg:
+          status: PASS
+          evidence: "{{ first_boot_log_dir }}/validation.json"
+          hostname: "{{ first_boot_hostname.stdout | trim }}"
+          root_uuid: "{{ first_boot_root_fields[3] }}"
+          kernel: "{{ first_boot_kernel.stdout | trim }}"

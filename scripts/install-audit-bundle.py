@@ -41,6 +41,7 @@ EVIDENCE_PATHS = [
     "users/users-access.json",
     "bootloader/grub.json",
     "final-checks/reboot-readiness.json",
+    "first-boot/validation.json",
 ]
 
 

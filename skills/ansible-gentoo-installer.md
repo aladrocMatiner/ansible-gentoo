@@ -286,6 +286,7 @@ Required gates:
 - Confirm audit bundle generation uses `make install-audit` or the final-check/full-install wrappers, reads only project-local `var/state/` and `logs/install-runs/` inputs, and rejects secret-like evidence before copying.
 - Confirm install report generation uses `make install-report`, reads only project-local `var/state/` and `logs/install-runs/` inputs, marks missing evidence as unavailable, and rejects secret-like evidence before writing the summary.
 - Confirm cleanup/reset work uses `make cleanup-plan` before deletion, requires `I_UNDERSTAND_CLEANUP_DELETE=DELETE`, preserves audit bundles by default, and restricts deletion to approved generated artifact roots.
+- Confirm first-boot validation uses `make vm-validate-first-boot`, boots only the project-owned libvirt qcow2 disk, requires completed install state and SSH access to the installed system, and writes read-only evidence under `logs/install-runs/<run-id>/first-boot/`.
 - Confirm installer roles and Makefile targets remain represented in `config/handbook-traceability.json`; regenerate `docs/handbook-traceability.md` with `make handbook-trace` when phases, roles, targets, safety gates, or project deviations change.
 - Confirm logs, state files, and audit bundles do not contain secrets.
 - Confirm operator variables pass the shared config validation before apply workflows.

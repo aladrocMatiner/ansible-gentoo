@@ -111,6 +111,8 @@ make vm-clean
 
 `vm-shutdown` requests a clean guest shutdown. `vm-destroy` forcibly stops only the configured domain and is a no-op when that domain is already inactive. `vm-clean` requires typing `DELETE`; it undefines only the project-owned domain and removes only generated project-local artifacts.
 
+After a completed automated VM install, `make vm-validate-first-boot ADMIN_USER=<admin-user>` redefines the project domain to boot from the installed qcow2 disk and runs read-only installed-system checks over SSH. Run `make vm-define` afterward to restore official live ISO boot mode.
+
 ## Defaults
 
 - libvirt URI: `qemu:///system`

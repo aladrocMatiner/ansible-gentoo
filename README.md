@@ -46,6 +46,8 @@ Use `make install-report` to generate a concise human-readable summary at `logs/
 
 Use `make cleanup-plan` before cleanup and `make clean-state`, `make clean-logs`, `make clean-audit`, `make clean-stage3-cache`, or `make reset-test-run` only with `I_UNDERSTAND_CLEANUP_DELETE=DELETE`; see `docs/cleanup-reset-policy.md`.
 
+Use `make vm-validate-first-boot ADMIN_USER=<admin-user>` after a completed VM install to boot the installed qcow2 disk and run read-only first-boot checks over SSH; see `docs/first-boot-validation.md`.
+
 Use `make handbook-trace` to regenerate the mapping from Makefile targets and Ansible roles to the Gentoo AMD64 Handbook; see `docs/handbook-traceability.md`.
 
 Use `make partition-preview`, `make format-preview`, `make mount-preview`, `make users-preview`, and `make bootloader-preview` to inspect destructive/high-risk operations without setting confirmations; see `docs/destructive-command-preview.md`.
