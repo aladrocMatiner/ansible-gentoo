@@ -122,6 +122,14 @@ make vm-clean
 
 After a completed automated VM install, `make vm-validate-first-boot ADMIN_USER=<admin-user>` redefines the project domain to boot from the installed qcow2 disk and runs read-only installed-system checks over SSH. Run `make vm-define` afterward to restore official live ISO boot mode.
 
+For full disposable VM validation, start with:
+
+```sh
+make vm-e2e-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda ADMIN_USER=<admin-user> ENABLE_SSH=yes
+```
+
+`make vm-e2e-install` can then run the full live-ISO boot, SSH bootstrap, install, first-boot validation, and audit sequence with the normal destructive and bootloader confirmations. See `docs/libvirt-end-to-end-install-validation.md`.
+
 ## Defaults
 
 - libvirt URI: `qemu:///system`

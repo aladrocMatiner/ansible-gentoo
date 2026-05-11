@@ -52,6 +52,8 @@ Use `make vm-validate-first-boot ADMIN_USER=<admin-user>` after a completed VM i
 
 Use `make vm-test-matrix-plan` to plan OpenRC/systemd and ext4/Btrfs libvirt validation entries without creating disks or running destructive installs; see `docs/libvirt-install-test-matrix.md`.
 
+Use `make vm-e2e-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda ADMIN_USER=<admin-user> ENABLE_SSH=yes` before running disposable full-VM validation with `make vm-e2e-install`; see `docs/libvirt-end-to-end-install-validation.md`.
+
 Use `make handbook-trace` to regenerate the mapping from Makefile targets and Ansible roles to the Gentoo AMD64 Handbook; see `docs/handbook-traceability.md`.
 
 The v1 installed-system completion contract is documented in `docs/target-system-baseline.md`.

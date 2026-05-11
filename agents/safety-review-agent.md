@@ -19,6 +19,7 @@ The project can destroy data if disk operations are wrong. Safety review is mand
 - Verify manual intervention notes are non-secret and force read-only revalidation before automation resumes.
 - Verify physical hardware workflows require the real hardware readiness check before destructive targets are recommended.
 - Verify libvirt matrix planning remains read-only unless a later destructive matrix change adds disposable disks and normal confirmations.
+- Verify libvirt end-to-end install validation uses only the project-owned VM and retains normal destructive and bootloader confirmations.
 - Produce a structured review decision: `APPROVED`, `APPROVED WITH CHANGES`, or `REJECTED`.
 
 ## 3. Non-goals
@@ -175,6 +176,7 @@ The Makefile is the public control plane. Safety review must verify:
 - VM cleanup targets must delete only generated artifacts for the configured project-owned domain and must not delete ISO files, libvirt networks, pools, volumes, unrelated domains, or secrets.
 - `make real-hardware-check` must be read-only, require explicit `INSTALL_DISK`, prefer stable disk identity paths, require backup/UEFI/network/power/recovery-media/destructive-preview acknowledgements, and state that it does not satisfy destructive confirmations.
 - `make vm-test-matrix-plan` must not create disks, define domains, start VMs, run destructive install targets, or treat `/dev/vda` as valid outside the planned disposable VM guest context.
+- `make vm-e2e-install` may run destructive install workflows only against the disposable libvirt guest disk, must require explicit `INSTALL_DISK=/dev/vda`, `ADMIN_USER`, `ENABLE_SSH=yes`, `I_UNDERSTAND_THIS_WIPES_DISK=yes`, and `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`, and must not attach host block devices.
 
 ## 13. Ansible Safety Requirements
 For Ansible playbooks, roles, and tasks:

@@ -301,6 +301,7 @@ Required gates:
 - Confirm manual intervention is recorded through `make record-manual-step`, preserved as non-secret run evidence, and revalidated with `make install-resume-plan` or the relevant read-only checks before resume.
 - Confirm physical-machine destructive workflows are preceded by `make real-hardware-check`, stable disk identity is preferred, and readiness output is not treated as destructive confirmation.
 - Confirm libvirt matrix planning covers OpenRC/ext4, OpenRC/Btrfs, systemd/ext4, and systemd/Btrfs without creating disks or running destructive install steps.
+- Confirm libvirt end-to-end validation runs only through `make vm-e2e-plan` and `make vm-e2e-install`, uses explicit `/dev/vda` inside the disposable VM, requires installed SSH, and preserves wipe plus bootloader confirmations.
 - Confirm bootloader/kernel tasks follow the shared boot command line policy.
 - Confirm SSH and time-sync behavior follows target policies and remains init-specific only where needed.
 
@@ -454,6 +455,7 @@ Local `local-*` targets are fallback/diagnostic paths for running Ansible inside
 - Manual revalidation was skipped after state was marked as requiring revalidation.
 - Physical-machine destructive work is attempted without the real hardware readiness check.
 - Libvirt matrix planning omits a supported profile/filesystem combination or treats `/dev/vda` as valid outside the disposable VM context.
+- End-to-end VM validation bypasses the plan target, first-boot validation, audit bundle generation, or normal destructive confirmations.
 - Ansible task hides dangerous commands in `shell` or `command`.
 - Final checks are skipped before reboot.
 
@@ -469,6 +471,7 @@ Local `local-*` targets are fallback/diagnostic paths for running Ansible inside
 - If manual recovery is needed, record the non-secret reason and next action with `make record-manual-step`, then rerun `make install-resume-plan` before continuing.
 - If moving from libvirt to physical hardware, run `make real-hardware-check` with `ANSIBLE_LIVE_HOST` and an explicit stable `INSTALL_DISK` before destructive targets.
 - If validating variants locally, run `make vm-test-matrix-plan` first; enable `VM_TEST_MATRIX_RUN_TARGET_PLANS=yes` only after the live ISO VM has SSH connectivity.
+- If validating a complete disposable VM install, run `make vm-e2e-plan` first, then `make vm-e2e-install` only with explicit `/dev/vda`, `ADMIN_USER`, `ENABLE_SSH=yes`, wipe confirmation, and bootloader confirmation.
 - If a task writes to the wrong path, stop immediately and collect evidence before further mutation.
 - If logs contain secrets, remove them from tracked files and do not commit them.
 
@@ -509,4 +512,5 @@ When phase 2 Ansible behavior changes, documentation must change in the same imp
 - If manual intervention handling changes, update `docs/manual-escape-hatch-policy.md`, `docs/install-state-and-resume-checkpoints.md`, `docs/install-audit-bundle.md`, this skill, `skills/makefile-control-plane.md`, and active OpenSpec tasks together.
 - If real hardware readiness handling changes, update `docs/real-hardware-readiness.md`, `docs/destructive-safety-gates.md`, `docs/install-configuration.md`, this skill, `skills/makefile-control-plane.md`, and active OpenSpec tasks together.
 - If libvirt matrix behavior changes, update `docs/libvirt-install-test-matrix.md`, `docs/libvirt-manual-install-test.md`, `docs/ansible-architecture.md`, this skill, `skills/makefile-control-plane.md`, and active OpenSpec tasks together.
+- If libvirt end-to-end validation changes, update `docs/libvirt-end-to-end-install-validation.md`, `docs/libvirt-manual-install-test.md`, `docs/libvirt-install-test-matrix.md`, this skill, `skills/makefile-control-plane.md`, safety review rules, and active OpenSpec tasks together.
 - Before finishing, confirm logs documentation still states where logs are stored and that secrets must not be logged.

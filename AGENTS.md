@@ -78,6 +78,8 @@ Real hardware workflows are higher risk than libvirt validation. Before agents s
 
 Libvirt matrix workflows are local validation harnesses. Agents must keep matrix planning read-only unless a later OpenSpec change explicitly implements destructive matrix runs with disposable qcow2 disks and the normal destructive confirmations.
 
+Libvirt end-to-end install validation may run the full installer only inside the project-owned disposable VM workflow. Agents must require explicit `INSTALL_DISK=/dev/vda`, `ADMIN_USER`, `ENABLE_SSH=yes`, `I_UNDERSTAND_THIS_WIPES_DISK=yes`, and `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`, and must keep host block devices forbidden.
+
 ## 11. Ansible reuse-first architecture
 Future Ansible implementation must reuse shared roles, tasks, variables, handlers, templates, validation logic, safety gates, and documentation across OpenRC and systemd console installation flows whenever behavior is common.
 

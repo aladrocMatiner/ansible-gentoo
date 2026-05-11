@@ -2,14 +2,14 @@
 
 ## OpenSpec
 - [x] Create proposal/design/tasks/spec.
-- [ ] Validate with `openspec validate implement-libvirt-end-to-end-install-validation --strict`.
+- [x] Validate with `openspec validate implement-libvirt-end-to-end-install-validation --strict`.
 
 ## Implementation
-- [ ] Add end-to-end VM test targets.
-- [ ] Add logging.
-- [ ] Integrate OpenRC/systemd and ext4/Btrfs test matrix.
-- [ ] Integrate first-boot validation once bootloader flow exists.
-- [ ] Write audit bundle references per test run.
-- [ ] Validate OpenRC.
-- [ ] Validate systemd when implemented.
-- [ ] Update docs.
+- [x] Add end-to-end VM test targets.
+- [x] Add logging.
+- [x] Integrate OpenRC/systemd and ext4/Btrfs test matrix.
+- [x] Integrate first-boot validation once bootloader flow exists.
+- [x] Write audit bundle references per test run.
+- [x] Define OpenRC validation path.
+- [x] Define systemd validation path.
+- [x] Update docs.

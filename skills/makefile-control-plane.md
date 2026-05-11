@@ -110,6 +110,7 @@ VM/libvirt variables:
 - `VM_TEST_MATRIX_LOG_DIR`
 - `VM_TEST_MATRIX_INSTALL_DISK`
 - `VM_TEST_MATRIX_RUN_TARGET_PLANS`
+- `VM_E2E_RESET_DISK`
 
 Ansible live target variables:
 
@@ -154,6 +155,7 @@ Recommended VM/libvirt defaults:
 - `VM_TEST_MATRIX_LOG_DIR=logs/libvirt-matrix`
 - `VM_TEST_MATRIX_INSTALL_DISK=/dev/vda`
 - `VM_TEST_MATRIX_RUN_TARGET_PLANS=no`
+- `VM_E2E_RESET_DISK=no`
 
 Recommended Ansible live target defaults:
 
@@ -200,6 +202,7 @@ Rules:
 - VM definitions should pass serial console kernel args so `make vm-console` is usable with the official live ISO.
 - `VM_TEST_MATRIX_INSTALL_DISK=/dev/vda` is allowed only inside the disposable libvirt matrix guest plan.
 - `VM_TEST_MATRIX_RUN_TARGET_PLANS=yes` may run read-only Ansible plan targets after the live ISO VM is booted and SSH-enabled; it must not run destructive install steps.
+- `VM_E2E_RESET_DISK=yes` may reset generated VM artifacts only when `I_UNDERSTAND_CLEANUP_DELETE=DELETE` is also provided.
 
 ## 6. Safe Targets
 Safe targets are read-only, validation-only, or local evidence writers. They must not modify disks, target root, boot entries, users, passwords, or services.
@@ -246,6 +249,7 @@ Required safe targets:
 - `make install-plan PROFILE=openrc`
 - `make install-plan PROFILE=systemd`
 - `make vm-check`
+- `make vm-e2e-plan`
 - `make vm-test-matrix-plan`
 
 Expected behavior:
@@ -296,6 +300,7 @@ Expected behavior:
 - `make install-plan PROFILE=openrc`: summarize the planned OpenRC flow through the shared Ansible install path.
 - `make install-plan PROFILE=systemd`: summarize the planned systemd flow through the shared Ansible install path.
 - `make vm-check`: read-only validation of libvirt tools, ISO resolution, UEFI firmware, network mode, and safe project-local paths.
+- `make vm-e2e-plan`: plan a full disposable libvirt install validation, require explicit `/dev/vda`, `ADMIN_USER`, and `ENABLE_SSH=yes`, integrate matrix planning, and avoid VM mutation.
 - `make vm-test-matrix-plan`: enumerate OpenRC/systemd and ext4/Btrfs libvirt validation entries, validate each entry's configuration, write local matrix evidence, and avoid creating disks or domains.
 
 ## 7. Semi-dangerous Targets
@@ -321,6 +326,7 @@ Semi-dangerous targets:
 - `make vm-start`
 - `make vm-start-installed`
 - `make vm-validate-first-boot`
+- `make vm-e2e-install`
 - `make vm-console`
 - `make vm-viewer`
 - `make vm-ip`
@@ -353,6 +359,7 @@ Expected behavior:
 - `make vm-start`: start the project-owned VM from the official Gentoo live ISO.
 - `make vm-start-installed`: redefine and start the project-owned VM from the installed qcow2 disk without live ISO kernel/initrd boot.
 - `make vm-validate-first-boot`: boot the installed VM disk, wait for SSH, and run read-only first-boot validation; it requires completed install state and explicit `ADMIN_USER`.
+- `make vm-e2e-install`: run the full disposable libvirt install validation sequence. It is destructive inside the VM qcow2 disk, requires explicit `/dev/vda`, `ADMIN_USER`, `ENABLE_SSH=yes`, wipe confirmation, bootloader confirmation, and optional cleanup confirmation when resetting artifacts.
 - `make vm-console`: attach to `virsh console`; it may fail if the ISO does not expose a serial login.
 - `make vm-viewer`: open graphical access through a libvirt viewer.
 - `make vm-ip`: discover the guest IP only when the configured network mode supports discovery.
@@ -460,6 +467,7 @@ Rules:
 - `make ansible-dry-run PROFILE=openrc`
 - `make ansible-dry-run PROFILE=systemd`
 - `make vm-check`
+- `make vm-e2e-plan`
 - `make vm-disk`
 - `make vm-start`
 - `make vm-ssh`
@@ -495,6 +503,7 @@ Rules:
 - Manual notes include secrets or command transcripts with credentials.
 - Physical-machine destructive workflows are recommended without a successful `make real-hardware-check`.
 - Matrix validation skips supported OpenRC/systemd or ext4/Btrfs combinations, or accidentally creates/deletes VM artifacts in the plan target.
+- End-to-end VM validation runs without explicit `/dev/vda`, admin user, `ENABLE_SSH=yes`, wipe confirmation, or bootloader confirmation.
 - A cleanup target deletes an unchecked path.
 - An Ansible target runs without showing check/plan output first.
 - Codex bootstrap stores tokens in tracked files.
@@ -531,6 +540,7 @@ When Makefile behavior changes, documentation must change in the same commit or 
 - If target names, variable names, defaults, or confirmation values change, update this skill, `README.md` or `docs/`, and the active OpenSpec `tasks.md`.
 - If VM/libvirt targets change, update `docs/libvirt-manual-install-test.md`, any QEMU migration note, and active OpenSpec tasks. Document ISO path, qcow2 path, libvirt URI, network mode, serial console, SSH bootstrap, guest `/dev/vda`, Ansible connectivity validation, and cleanup behavior.
 - If VM test matrix targets change, update `docs/libvirt-install-test-matrix.md`, `docs/libvirt-manual-install-test.md`, this skill, and active OpenSpec tasks. Document matrix entries, planned domain/disk names, logs, and which phases are implemented.
+- If VM end-to-end validation changes, update `docs/libvirt-end-to-end-install-validation.md`, `docs/libvirt-manual-install-test.md`, `docs/libvirt-install-test-matrix.md`, this skill, safety review rules, and active OpenSpec tasks. Document confirmations, logs, audit references, and first-boot expectations.
 - If host requirement checks change, update `docs/supported-host-requirements.md`, `docs/libvirt-manual-install-test.md`, `docs/install-configuration.md`, and active OpenSpec tasks.
 - If live ISO Ansible preflight targets change, update `docs/ansible-live-preflight.md`, `docs/libvirt-manual-install-test.md`, `skills/ansible-gentoo-installer.md`, and the active OpenSpec tasks.
 - If local live ISO Ansible fallback targets change, update `docs/live-iso-local-ansible.md`, `docs/ansible-live-preflight.md`, `skills/ansible-gentoo-installer.md`, and the active OpenSpec tasks. Keep network Ansible documented as the primary product path.

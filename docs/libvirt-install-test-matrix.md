@@ -2,7 +2,7 @@
 
 The libvirt install test matrix keeps OpenRC/systemd and ext4/Btrfs validation from drifting. It uses the local libvirt harness as disposable test infrastructure for the reusable network Ansible installer.
 
-The current matrix target is a safe planning target. It does not create disks, define domains, start VMs, partition, format, mount, or install Gentoo.
+The current matrix target is a safe planning target. It does not create disks, define domains, start VMs, partition, format, mount, or install Gentoo. Full validation of one selected entry is exposed separately through `make vm-e2e-plan` and `make vm-e2e-install`; see `docs/libvirt-end-to-end-install-validation.md`.
 
 ## Matrix Entries
 
