@@ -10,3 +10,4 @@
     - role: common/install_state
       vars:
         install_state_phase: partition-plan
+      when: not (install_state_disabled | default(false) | bool)

@@ -1,0 +1,55 @@
+---
+- name: Preview GRUB UEFI bootloader installation
+  hosts: gentoo_live
+  gather_facts: true
+  roles:
+    - role: common/disk_detection
+    - role: common/disk_safety
+      vars:
+        disk_safety_allow_mounted_descendants: true
+  tasks:
+    - name: Check target EFI mount for bootloader preview
+      ansible.builtin.command:
+        argv:
+          - findmnt
+          - --noheadings
+          - --output
+          - SOURCE,TARGET,FSTYPE,OPTIONS
+          - /mnt/gentoo/boot/efi
+      register: bootloader_preview_efi_mount
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Read current EFI boot entries for bootloader preview
+      ansible.builtin.command:
+        argv:
+          - efibootmgr
+          - -v
+      register: bootloader_preview_efi_entries
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Print read-only bootloader preview
+      ansible.builtin.debug:
+        msg:
+          preview_schema_version: 1
+          preview_type: bootloader
+          read_only: true
+          destructive_commands_run: false
+          target_disk: "{{ install_disk }}"
+          efi_mount: /mnt/gentoo/boot/efi
+          efi_mount_state:
+            rc: "{{ bootloader_preview_efi_mount.rc }}"
+            output: "{{ bootloader_preview_efi_mount.stdout_lines | default([]) }}"
+          current_efi_entries:
+            rc: "{{ bootloader_preview_efi_entries.rc }}"
+            output: "{{ bootloader_preview_efi_entries.stdout_lines | default([]) }}"
+          planned_operations:
+            - install sys-boot/grub and sys-boot/efibootmgr inside target if missing
+            - run grub-install for UEFI against the explicit target disk
+            - generate /boot/grub/grub.cfg inside the target
+            - validate root UUID and Btrfs rootflags when applicable
+          required_confirmation: I_UNDERSTAND_BOOTLOADER_CHANGES=yes
+          preview_does_not_confirm: true

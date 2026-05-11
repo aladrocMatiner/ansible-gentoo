@@ -93,7 +93,7 @@ export I_UNDERSTAND_DELETE_INSTALL_STATE
 
 .PHONY: help \
 	vm-check vm-disk vm-define vm-start vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
-	ansible-check config-check secret-check handbook-trace ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan install-run-clean install-audit \
+	ansible-check config-check secret-check handbook-trace ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-preview partition-preview format-preview mount-preview bootloader-preview users-preview destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan install-run-clean install-audit \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -121,6 +121,12 @@ help:
 		'  make partition-plan  Generate read-only partition plan (requires INSTALL_DISK)' \
 		'  make mount-plan      Generate read-only mount plan (requires INSTALL_DISK)' \
 		'  make filesystem-plan Generate read-only filesystem format plan (requires INSTALL_DISK)' \
+		'  make destructive-preview Generate read-only preview for PREVIEW_TARGET=partition|format|mount|bootloader|users' \
+		'  make partition-preview Read-only preview of destructive partition operation' \
+		'  make format-preview  Read-only preview of destructive filesystem operation' \
+		'  make mount-preview   Read-only preview of target root/ESP mount-over operation' \
+		'  make bootloader-preview Read-only preview of GRUB UEFI bootloader operation' \
+		'  make users-preview   Read-only preview of target user/password/SSH access changes' \
 		'  make destructive-safety-check Validate shared destructive disk gates without mutating disks' \
 		'  make partition      DESTRUCTIVE: apply GPT ESP/root partition layout (requires confirmation)' \
 		'  make format         DESTRUCTIVE: create ESP/root filesystems (requires confirmation)' \
@@ -265,6 +271,24 @@ mount-plan:
 
 filesystem-plan:
 	@scripts/ansible-filesystem-plan.sh
+
+destructive-preview:
+	@scripts/ansible-destructive-preview.sh
+
+partition-preview:
+	@PREVIEW_TARGET=partition scripts/ansible-destructive-preview.sh
+
+format-preview:
+	@PREVIEW_TARGET=format scripts/ansible-destructive-preview.sh
+
+mount-preview:
+	@PREVIEW_TARGET=mount scripts/ansible-destructive-preview.sh
+
+bootloader-preview:
+	@PREVIEW_TARGET=bootloader scripts/ansible-destructive-preview.sh
+
+users-preview:
+	@PREVIEW_TARGET=users scripts/ansible-destructive-preview.sh
 
 destructive-safety-check:
 	@scripts/ansible-destructive-safety-check.sh

@@ -1,0 +1,85 @@
+---
+- name: Preview target users and access changes
+  hosts: gentoo_live
+  gather_facts: true
+  vars:
+    preview_target_mount: "{{ target_mount | default('/mnt/gentoo') }}"
+    preview_admin_home: "{{ preview_target_mount }}/home/{{ admin_user }}"
+    preview_authorized_keys_path: "{{ preview_admin_home }}/.ssh/authorized_keys"
+  tasks:
+    - name: Check target root mount for users preview
+      ansible.builtin.command:
+        argv:
+          - findmnt
+          - --mountpoint
+          - "{{ preview_target_mount }}"
+          - --noheadings
+          - --output
+          - SOURCE,TARGET,FSTYPE,OPTIONS
+      register: users_preview_target_mount
+      changed_when: false
+      failed_when: false
+
+    - name: Check target passwd file
+      ansible.builtin.stat:
+        path: "{{ preview_target_mount }}/etc/passwd"
+      register: users_preview_passwd_file
+
+    - name: Check whether admin user already exists in target passwd
+      ansible.builtin.command:
+        argv:
+          - grep
+          - -E
+          - "^{{ admin_user }}:"
+          - "{{ preview_target_mount }}/etc/passwd"
+      register: users_preview_admin_lookup
+      changed_when: false
+      failed_when: false
+      when: users_preview_passwd_file.stat.exists
+
+    - name: Check target sudoers.d directory
+      ansible.builtin.stat:
+        path: "{{ preview_target_mount }}/etc/sudoers.d"
+      register: users_preview_sudoers_dir
+
+    - name: Check current admin authorized_keys path
+      ansible.builtin.stat:
+        path: "{{ preview_authorized_keys_path }}"
+      register: users_preview_authorized_keys
+
+    - name: Print read-only users and access preview
+      ansible.builtin.debug:
+        msg:
+          preview_schema_version: 1
+          preview_type: users
+          read_only: true
+          destructive_commands_run: false
+          target_mount: "{{ preview_target_mount }}"
+          target_mount_state:
+            rc: "{{ users_preview_target_mount.rc }}"
+            output: "{{ users_preview_target_mount.stdout_lines | default([]) }}"
+          admin_user: "{{ admin_user }}"
+          admin_user_exists: "{{ (users_preview_admin_lookup.rc | default(1)) == 0 }}"
+          admin_groups: "{{ admin_groups_csv.split(',') }}"
+          admin_shell: "{{ admin_shell }}"
+          privilege_tool: "{{ privilege_tool }}"
+          enable_ssh: "{{ enable_ssh }}"
+          input_files:
+            admin_authorized_keys_file_set: "{{ admin_authorized_keys_file_set | bool }}"
+            admin_password_hash_file_set: "{{ admin_password_hash_file_set | bool }}"
+            root_password_hash_file_set: "{{ root_password_hash_file_set | bool }}"
+            contents_printed: false
+          current_target_paths:
+            passwd_exists: "{{ users_preview_passwd_file.stat.exists }}"
+            sudoers_dir_exists: "{{ users_preview_sudoers_dir.stat.exists }}"
+            admin_authorized_keys_exists: "{{ users_preview_authorized_keys.stat.exists }}"
+          planned_operations:
+            - create or update the explicit admin user under the target root
+            - ensure configured admin groups are present and assigned
+            - configure sudo policy for the selected privilege tool
+            - apply admin password hash only if ADMIN_PASSWORD_HASH_FILE is set
+            - apply root password hash only if ROOT_PASSWORD_HASH_FILE is set
+            - install admin authorized_keys only if ADMIN_AUTHORIZED_KEYS_FILE is set
+            - enforce installed SSH root-login restrictions when ENABLE_SSH=yes
+          required_confirmation: "review required before make configure-users"
+          preview_does_not_confirm: true

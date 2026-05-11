@@ -41,6 +41,8 @@ Planned targets may include:
 - `make destructive-preview`
 - `make partition-preview`
 - `make format-preview`
+- `make mount-preview`
+- `make users-preview`
 - `make bootloader-preview`
 
 Actual target names must be documented when implemented.

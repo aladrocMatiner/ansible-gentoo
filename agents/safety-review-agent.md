@@ -158,6 +158,9 @@ The Makefile is the public control plane. Safety review must verify:
 - Destructive targets must not use default disk values.
 - Target names must communicate risk, for example `partition`, `format`, or `install-bootloader`, not vague names like `setup`.
 - Plan targets must exist before apply targets, such as `partition-plan` before `partition`.
+- Destructive or high-risk apply targets must have a read-only preview target or embed equivalent preview output before accepting confirmation.
+- Preview targets must not set or persist `I_UNDERSTAND_THIS_WIPES_DISK`, `I_UNDERSTAND_BOOTLOADER_CHANGES`, `confirm_wipe_disk`, or equivalent confirmations.
+- User and password previews must show only non-secret metadata; they must not print password hashes, authorized key contents, private keys, or local secret file paths.
 - Destructive targets must fail closed when required variables are missing.
 - Cleanup targets must validate paths before deletion.
 - VM/libvirt targets must reject `/dev/*`, absolute VM disk paths, parent traversal, wildcard paths, symlinked artifact paths, project-root artifact directories, project root paths that would make generated libvirt XML unsafe, non-qcow2 existing disk files, stale project-marked domains in start/SSH/rsync/Ansible paths, ISO mismatches, and any libvirt domain disk source that points to a host block device.

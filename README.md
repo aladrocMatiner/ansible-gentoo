@@ -44,6 +44,8 @@ Use `make install-audit` to generate a secret-safe evidence bundle for the curre
 
 Use `make handbook-trace` to regenerate the mapping from Makefile targets and Ansible roles to the Gentoo AMD64 Handbook; see `docs/handbook-traceability.md`.
 
+Use `make partition-preview`, `make format-preview`, `make mount-preview`, `make users-preview`, and `make bootloader-preview` to inspect destructive/high-risk operations without setting confirmations; see `docs/destructive-command-preview.md`.
+
 Current Ansible planning targets run from the operator machine over SSH into a booted official Gentoo live ISO. For a real network target, pass `ANSIBLE_LIVE_HOST=<address>` and optionally `ANSIBLE_LIVE_USER=root ANSIBLE_LIVE_PORT=22`. When `ANSIBLE_LIVE_HOST` is empty, the wrapper targets discover the local libvirt VM as the test target.
 
 Current libvirt manual test targets:

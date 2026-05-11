@@ -198,6 +198,12 @@ Required safe targets:
 - `make partition-plan`
 - `make mount-plan`
 - `make filesystem-plan`
+- `make destructive-preview`
+- `make partition-preview`
+- `make format-preview`
+- `make mount-preview`
+- `make bootloader-preview`
+- `make users-preview`
 - `make destructive-safety-check`
 - `make final-checks`
 - `make install-state`
@@ -223,6 +229,12 @@ Expected behavior:
 - `make partition-plan`: require explicit `INSTALL_DISK` and summarize the exact GPT partition layout without writing.
 - `make mount-plan`: require explicit `INSTALL_DISK` and summarize the future root and EFI mount layout without running `mount`, `umount`, or `mkdir`.
 - `make filesystem-plan`: require explicit `INSTALL_DISK` and summarize the future EFI/root filesystem creation plan without running `mkfs.*`, `wipefs`, `mount`, `umount`, or `mkdir`.
+- `make destructive-preview`: dispatch to a read-only preview for `PREVIEW_TARGET=partition|format|mount|bootloader|users` without setting confirmation variables.
+- `make partition-preview`: reuse the partition plan as the destructive partition preview.
+- `make format-preview`: reuse the filesystem plan as the destructive filesystem preview.
+- `make mount-preview`: reuse the mount plan as the mount-over preview before `make mount-target`.
+- `make bootloader-preview`: show target disk, EFI mountpoint, current EFI boot entries when readable, planned GRUB steps, and required bootloader confirmation without changing EFI state.
+- `make users-preview`: show planned admin user, group, sudo, password-hash, authorized_keys, and SSH policy changes without printing secrets or writing the target root.
 - `make destructive-safety-check`: require explicit `INSTALL_DISK` and `I_UNDERSTAND_THIS_WIPES_DISK=yes`, then run the shared read-only disk safety role without mutating disks.
 - `make final-checks`: require explicit `ADMIN_USER`, run read-only reboot readiness checks, write a secret-safe local report, and never reboot automatically.
 - `make install-state`: print the current non-secret install state summary from `var/state/current-install.json`.

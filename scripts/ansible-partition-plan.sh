@@ -34,4 +34,5 @@ ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   -e "profile=${profile}" \
   -e "filesystem=${filesystem}" \
   -e "install_disk=${INSTALL_DISK}" \
+  -e "install_state_disabled=${INSTALL_STATE_DISABLED:-false}" \
   ansible/playbooks/partition-plan.yml

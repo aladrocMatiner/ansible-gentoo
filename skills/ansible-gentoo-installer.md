@@ -279,6 +279,7 @@ Required gates:
 - Confirm OpenRC flows do not call `systemctl`.
 - Confirm systemd flows do not call `rc-update` or `rc-service`.
 - Confirm destructive workflows print or call the shared preview before accepting confirmation.
+- Confirm preview targets are read-only, use `make partition-preview`, `make format-preview`, `make mount-preview`, `make users-preview`, `make bootloader-preview`, or an equivalent documented preview, and never set confirmation variables.
 - Confirm resume checkpoints do not replace destructive confirmations, and resumed destructive workflows compare current disk identity, descendant partition state, filesystem UUIDs, mountpoints, and recorded profile/filesystem values through `common/disk_safety`.
 - Confirm state output is curated and secret-safe; do not write passwords, password hashes, tokens, API keys, private keys, or local credentials into `var/state/` or `logs/install-runs/`.
 - Confirm wrapper failures and Ansible `fail_msg` values use the shared error taxonomy from `docs/logging-and-error-taxonomy.md`; new scripts should use `die_code` when they source `scripts/vm-libvirt-common.sh`.

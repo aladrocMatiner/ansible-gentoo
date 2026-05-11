@@ -12,3 +12,4 @@
     - role: common/install_state
       vars:
         install_state_phase: filesystem-plan
+      when: not (install_state_disabled | default(false) | bool)
