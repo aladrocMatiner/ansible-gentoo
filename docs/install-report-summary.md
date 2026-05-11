@@ -4,7 +4,7 @@
 
 The report is for operator review after planning, install phases, final checks, or audit generation. It does not run Ansible against the target and does not modify the live ISO or installed system.
 
-The report summarizes available evidence against the v1 target baseline in `docs/target-system-baseline.md`.
+The report summarizes available evidence against the v1 target baseline in `docs/target-system-baseline.md`, including installed time-sync evidence from `docs/installed-time-sync-policy.md`.
 
 ## Run
 

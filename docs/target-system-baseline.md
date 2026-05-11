@@ -25,7 +25,7 @@ Every supported v1 install must provide:
 - a console editor,
 - logging service or journald equivalent,
 - cron service or systemd timer equivalent,
-- installed time synchronization,
+- installed time synchronization according to `docs/installed-time-sync-policy.md`,
 - optional installed SSH only when `ENABLE_SSH=yes`.
 
 ## OpenRC Baseline
@@ -38,7 +38,7 @@ For `PROFILE=openrc`, the installed target must use:
 - NetworkManager service enabled through OpenRC,
 - OpenRC-compatible syslog package and service,
 - OpenRC-compatible cron package and service,
-- OpenRC time-sync service,
+- OpenRC time-sync service according to the installed time-sync policy,
 - optional OpenSSH service enabled through OpenRC when `ENABLE_SSH=yes`.
 
 OpenRC workflows must not call `systemctl`.
@@ -53,7 +53,7 @@ For `PROFILE=systemd`, the installed target must use:
 - NetworkManager service enabled through systemd,
 - journald as the default logging baseline,
 - systemd timer/service assumptions instead of OpenRC cron/syslog packages,
-- systemd time-sync service,
+- systemd time-sync service according to the installed time-sync policy,
 - optional OpenSSH service enabled through systemd when `ENABLE_SSH=yes`.
 
 systemd workflows must not call `rc-update` or `rc-service`.
