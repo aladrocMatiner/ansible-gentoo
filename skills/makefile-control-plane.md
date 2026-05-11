@@ -209,6 +209,7 @@ Required safe targets:
 - `make install-state`
 - `make install-resume-plan`
 - `make install-audit`
+- `make install-report`
 - `make install-plan PROFILE=openrc`
 - `make install-plan PROFILE=systemd`
 - `make vm-check`
@@ -240,6 +241,7 @@ Expected behavior:
 - `make install-state`: print the current non-secret install state summary from `var/state/current-install.json`.
 - `make install-resume-plan`: read saved install state, reject secret-like state content, and validate current live ISO disk/profile/filesystem facts without resuming or satisfying destructive confirmations.
 - `make install-audit`: generate a secret-scanned local audit bundle under `logs/install-runs/<run-id>/audit-bundle/` from the current install state.
+- `make install-report`: generate a human-readable, secret-safe Markdown summary under `logs/install-runs/<run-id>/install-report.md` from current state and evidence.
 - `make install-run-clean`: delete only the current state pointer after `I_UNDERSTAND_DELETE_INSTALL_STATE=DELETE`; it must not delete run logs or target filesystems.
 - `make format`: require explicit `INSTALL_DISK` and `I_UNDERSTAND_THIS_WIPES_DISK=yes`, then create only the approved ESP/root filesystems for `FILESYSTEM=ext4` or `FILESYSTEM=btrfs` after printing a destructive preview.
 - `make mount-target`: require explicit `INSTALL_DISK`, reuse the approved mount/filesystem plans, mount only `/mnt/gentoo` and `/mnt/gentoo/boot/efi`, and validate existing mounts for idempotency.

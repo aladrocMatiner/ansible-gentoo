@@ -42,6 +42,8 @@ Installer phases write non-secret checkpoints under `var/state/` and `logs/insta
 
 Use `make install-audit` to generate a secret-safe evidence bundle for the current run under `logs/install-runs/<run-id>/audit-bundle/`; see `docs/install-audit-bundle.md`.
 
+Use `make install-report` to generate a concise human-readable summary at `logs/install-runs/<run-id>/install-report.md`; see `docs/install-report-summary.md`.
+
 Use `make handbook-trace` to regenerate the mapping from Makefile targets and Ansible roles to the Gentoo AMD64 Handbook; see `docs/handbook-traceability.md`.
 
 Use `make partition-preview`, `make format-preview`, `make mount-preview`, `make users-preview`, and `make bootloader-preview` to inspect destructive/high-risk operations without setting confirmations; see `docs/destructive-command-preview.md`.
