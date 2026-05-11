@@ -6,13 +6,13 @@ The project SHALL provide high-level Makefile targets for OpenRC and systemd bas
 #### Scenario: Shared OpenRC flow
 - **WHEN** `make install-openrc` runs
 - **THEN** it SHALL call the shared install flow with OpenRC variables
-- **AND** it SHALL use the same checkpoint, audit, safety, secret, and traceability guardrails as the shared flow
+- **AND** it SHALL use the same run-id, per-phase evidence, audit-reference, safety, secret, and traceability guardrails as the shared flow
 - **AND** it SHALL use the canonical configuration schema and target baseline checks
 
 #### Scenario: Shared systemd flow
 - **WHEN** `make install-systemd` runs
 - **THEN** it SHALL call the shared install flow with systemd variables
-- **AND** it SHALL use the same checkpoint, audit, safety, secret, and traceability guardrails as the shared flow
+- **AND** it SHALL use the same run-id, per-phase evidence, audit-reference, safety, secret, and traceability guardrails as the shared flow
 - **AND** it SHALL use the canonical configuration schema and target baseline checks
 
 #### Scenario: Shared flow passes quality gate

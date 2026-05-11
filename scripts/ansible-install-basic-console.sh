@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_NAME=ansible-install-basic-console
+source "$(dirname "$0")/vm-libvirt-common.sh"
+
+validate_required_username() {
+  local value=$1
+
+  [[ -n "$value" ]] || die "ADMIN_USER is required for full install orchestration"
+  [[ "$value" =~ ^[a-z_][a-z0-9_-]{0,31}\$?$ ]] || die "ADMIN_USER must be a conservative local username: $value"
+}
+
+load_vm_config
+require_command ansible-playbook
+require_command git
+CONFIG_DESTRUCTIVE=yes CONFIG_REQUIRE_INSTALL_DISK=yes scripts/config-check.sh
+scripts/secret-check.sh
+require_ansible_live_target install-basic-console
+
+profile=${PROFILE:-openrc}
+case "$profile" in
+  openrc|systemd) ;;
+  *) die "PROFILE must be 'openrc' or 'systemd', got: $profile" ;;
+esac
+
+filesystem=${FILESYSTEM:-ext4}
+case "$filesystem" in
+  ext4|btrfs) ;;
+  *) die "FILESYSTEM must be 'ext4' or 'btrfs', got: $filesystem" ;;
+esac
+
+enable_ssh=${ENABLE_SSH:-no}
+case "$enable_ssh" in
+  yes|no) ;;
+  *) die "ENABLE_SSH must be 'yes' or 'no', got: $enable_ssh" ;;
+esac
+
+install_disk=${INSTALL_DISK:-}
+assert_install_disk_input "$install_disk"
+
+confirm_wipe_disk=${I_UNDERSTAND_THIS_WIPES_DISK:-}
+[[ "$confirm_wipe_disk" == yes ]] || die "full install requires I_UNDERSTAND_THIS_WIPES_DISK=yes"
+
+bootloader_confirmation=${I_UNDERSTAND_BOOTLOADER_CHANGES:-}
+[[ "$bootloader_confirmation" == yes ]] || die "full install requires I_UNDERSTAND_BOOTLOADER_CHANGES=yes"
+
+admin_user=${ADMIN_USER:-}
+validate_required_username "$admin_user"
+
+project_root=$(pwd -P)
+inventory_file=$(mktemp --suffix=.yml)
+extra_vars_file=$(mktemp --suffix=.yml)
+trap 'rm -f "$inventory_file" "$extra_vars_file"' EXIT
+
+cat >"$inventory_file" <<EOF
+all:
+  hosts:
+    gentoo_live:
+      ansible_connection: ssh
+      ansible_host: ${ANSIBLE_LIVE_HOST}
+      ansible_port: ${ANSIBLE_LIVE_PORT}
+      ansible_user: ${ANSIBLE_LIVE_USER}
+      ansible_python_interpreter: auto_silent
+EOF
+
+cat >"$extra_vars_file" <<EOF
+profile: "${profile}"
+filesystem: "${filesystem}"
+install_disk: "${install_disk}"
+confirm_wipe_disk: "${confirm_wipe_disk}"
+bootloader_confirmation: "${bootloader_confirmation}"
+hostname: "${HOSTNAME:-gentoo}"
+timezone: "${TIMEZONE:-UTC}"
+locale: "${LOCALE:-en_US.UTF-8}"
+keymap: "${KEYMAP:-us}"
+enable_ssh: "${enable_ssh}"
+admin_user: "${admin_user}"
+admin_groups_csv: "${ADMIN_GROUPS:-wheel}"
+admin_shell: "${ADMIN_SHELL:-/bin/bash}"
+privilege_tool: "${PRIVILEGE_TOOL:-sudo}"
+admin_authorized_keys_file: "${ADMIN_AUTHORIZED_KEYS_FILE:-}"
+admin_password_hash_file: "${ADMIN_PASSWORD_HASH_FILE:-}"
+root_password_hash_file: "${ROOT_PASSWORD_HASH_FILE:-}"
+stage3_mirror: "${STAGE3_MIRROR:-https://distfiles.gentoo.org/releases/amd64/autobuilds}"
+stage3_cache_dir: "${STAGE3_CACHE_DIR:-/tmp/gentoo-ai-installer/stage3}"
+portage_gentoo_mirrors: "${PORTAGE_GENTOO_MIRRORS:-https://distfiles.gentoo.org}"
+project_root: "${project_root}"
+controller_secret_check: "passed"
+EOF
+
+printf 'Running full Gentoo basic console install for %s %s on %s@%s port %s\n' "$profile" "$filesystem" "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$ANSIBLE_LIVE_PORT"
+printf 'INSTALL_DISK=%s\n' "$install_disk"
+printf 'ADMIN_USER=%s\n' "$admin_user"
+printf 'ENABLE_SSH=%s\n' "$enable_ssh"
+printf 'I_UNDERSTAND_THIS_WIPES_DISK=%s\n' "$confirm_wipe_disk"
+printf 'I_UNDERSTAND_BOOTLOADER_CHANGES=%s\n' "$bootloader_confirmation"
+printf '%s\n' 'This is a destructive full install flow: it partitions, formats, mounts, extracts stage3, configures the target, installs GRUB, and runs final checks.'
+printf '%s\n' 'It does not reboot automatically.'
+
+ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
+  -i "$inventory_file" \
+  --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10" \
+  -e "@${extra_vars_file}" \
+  "ansible/playbooks/install-${profile}.yml"

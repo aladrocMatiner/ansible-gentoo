@@ -1,0 +1,71 @@
+---
+- name: Install Gentoo basic console system
+  hosts: gentoo_live
+  gather_facts: true
+  vars_files:
+    - ../group_vars/all.yml
+    - "../group_vars/{{ profile | default('openrc') }}.yml"
+  pre_tasks:
+    - name: Define shared install run id
+      ansible.builtin.set_fact:
+        install_run_id: "{{ ansible_date_time.iso8601_basic_short }}"
+
+    - name: Report shared orchestration sequence
+      ansible.builtin.debug:
+        msg:
+          install_run_id: "{{ install_run_id }}"
+          profile: "{{ profile | default('openrc') }}"
+          filesystem: "{{ filesystem | default('ext4') }}"
+          handbook_baseline: "Gentoo AMD64 Handbook"
+          shared_sequence:
+            - live preflight
+            - disk detection and shared disk safety
+            - partition plan and partition apply
+            - refreshed disk safety and filesystem apply
+            - mount target
+            - stage3 install
+            - chroot preparation
+            - Portage baseline
+            - target identity
+            - fstab
+            - kernel
+            - packages and services
+            - users
+            - bootloader
+            - final checks
+          checkpoints: "all implemented roles receive the shared install_run_id for per-phase evidence"
+          audit_bundle: "final checks reference the future audit bundle path; implement-install-audit-bundle owns bundle generation"
+  roles:
+    - role: common/live_preflight
+    - role: common/disk_detection
+    - role: common/disk_safety
+      vars:
+        disk_safety_require_confirmation: true
+    - role: common/install_plan
+    - role: common/partition_plan
+    - role: common/partitioning
+    - role: common/disk_detection
+    - role: common/disk_safety
+      vars:
+        disk_safety_require_confirmation: true
+    - role: common/install_plan
+    - role: common/partition_plan
+    - role: common/mount_plan
+    - role: common/filesystem_plan
+    - role: common/filesystem
+    - role: common/mount_target
+    - role: common/stage3
+    - role: common/chroot
+    - role: common/portage
+    - role: common/locale_timezone_hostname
+    - role: common/fstab
+    - role: common/kernel
+    - role: common/ssh
+    - role: common/package_install
+    - role: common/users
+    - role: common/disk_detection
+    - role: common/disk_safety
+      vars:
+        disk_safety_allow_mounted_descendants: true
+    - role: common/bootloader
+    - role: common/final_checks

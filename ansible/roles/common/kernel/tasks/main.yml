@@ -325,10 +325,10 @@
 - name: Validate target kernel artifacts
   ansible.builtin.assert:
     that:
-      - kernel_boot_artifacts.stdout_lines | select('match', '^vmlinuz-.+') | list | length >= 1
+      - kernel_boot_artifacts.stdout_lines | select('match', '^(vmlinuz|kernel)-.+') | list | length >= 1
       - kernel_boot_artifacts.stdout_lines | select('match', '^(initramfs-.+|initrd.*)') | list | length >= 1
       - kernel_module_dirs.stdout_lines | length >= 1
-    fail_msg: "KERNEL_INSTALL_FAILED: expected vmlinuz, initramfs, and module artifacts were not found under the target root."
+    fail_msg: "KERNEL_INSTALL_FAILED: expected kernel/vmlinuz, initramfs, and module artifacts were not found under the target root."
     success_msg: "Kernel, initramfs, and module artifacts exist in the target root."
 
 - name: Read target fstab for boot validation context

@@ -1,0 +1,5 @@
+---
+- name: Run OpenRC basic console install through shared flow
+  ansible.builtin.import_playbook: install-basic-console.yml
+  vars:
+    profile: openrc

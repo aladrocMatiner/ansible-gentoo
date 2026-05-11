@@ -333,6 +333,7 @@ Required behavior:
 - OpenRC and systemd install targets must call shared safety gates before variant-specific roles run.
 - `make partition` must partition only; it must not format, mount, chroot, install packages, or install bootloaders.
 - `make install-bootloader` must require explicit `INSTALL_DISK` and `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`; show disk identity and current EFI entries; install GRUB for UEFI; generate `grub.cfg`; validate the boot command line; and avoid partitioning, formatting, wiping, user changes, or reboot.
+- `make install`, `make install-openrc`, and `make install-systemd` must run the shared basic-console Ansible flow rather than duplicating OpenRC/systemd command chains; they require explicit `INSTALL_DISK`, `ADMIN_USER`, `I_UNDERSTAND_THIS_WIPES_DISK=yes`, and `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`.
 
 `make install-bootloader` may not wipe disks, but it changes persistent boot state and must use the same seriousness as destructive targets. It must use `/mnt/gentoo/boot/efi` as the live ISO path and `/boot/efi` inside chroot, and record bootloader evidence.
 

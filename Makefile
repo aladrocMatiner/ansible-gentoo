@@ -89,7 +89,7 @@ export INSTALL_DISK
 
 .PHONY: help \
 	vm-check vm-disk vm-define vm-start vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
-	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks \
+	ansible-check config-check secret-check ansible-live-ping ansible-live-preflight detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -130,6 +130,9 @@ help:
 		'  make configure-users Configure target admin user, sudo policy, and optional SSH keys' \
 		'  make install-bootloader HIGH-RISK: install GRUB for UEFI (requires confirmation)' \
 		'  make final-checks    Run read-only reboot readiness checks before manual reboot' \
+		'  make install         DESTRUCTIVE: run full basic console install for PROFILE' \
+		'  make install-openrc  DESTRUCTIVE: run full OpenRC basic console install' \
+		'  make install-systemd DESTRUCTIVE: run full systemd basic console install' \
 		'  make vm-shutdown     Request clean guest shutdown' \
 		'  make vm-destroy      Stop the configured VM without deleting artifacts' \
 		'  make vm-clean        Undefine VM and delete generated artifacts after confirmation' \
@@ -292,6 +295,15 @@ install-bootloader:
 
 final-checks:
 	@scripts/ansible-final-checks.sh
+
+install:
+	@scripts/ansible-install-basic-console.sh
+
+install-openrc:
+	@PROFILE=openrc scripts/ansible-install-basic-console.sh
+
+install-systemd:
+	@PROFILE=systemd scripts/ansible-install-basic-console.sh
 
 vm-shutdown:
 	@scripts/vm-shutdown.sh

@@ -11,7 +11,7 @@ After individual roles exist, operators need stable Makefile targets that execut
 - Add thin `install-openrc.yml` and `install-systemd.yml`.
 - Add Makefile targets `install-openrc`, `install-systemd`, and possibly `install`.
 - Require all destructive confirmations for full install.
-- Integrate install-state checkpoints, audit bundle generation, and Handbook traceability where practical.
+- Reuse the shared install run id for per-phase evidence, reference the future audit bundle path, and keep the role sequence traceable to the Gentoo AMD64 Handbook. Durable resume checkpoints and audit bundle assembly remain owned by their dedicated OpenSpec changes.
 - Require config validation and target system baseline checks before full install orchestration.
 - Require the shared flow and thin entrypoints to pass Ansible quality standards and `make ansible-check`.
 
@@ -29,7 +29,7 @@ After individual roles exist, operators need stable Makefile targets that execut
 
 ## Acceptance Criteria
 - OpenRC and systemd install targets reuse the same shared role sequence.
-- Shared orchestration records checkpoints and audit evidence for each phase.
+- Shared orchestration records per-phase evidence under one install run id and exposes the future audit bundle path without duplicating the dedicated audit-bundle implementation.
 - Shared orchestration reports target baseline coverage.
 - Full install works in the libvirt VM.
 - `openspec validate implement-basic-console-install-orchestration --strict` passes.

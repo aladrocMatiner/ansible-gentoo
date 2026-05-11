@@ -218,6 +218,8 @@ Currently implemented shared roles and workflows:
 - `common/users`: creates or updates the target admin user, configures sudo through `wheel` by default, applies optional password hashes from gitignored controller-local files with `no_log`, installs optional admin authorized keys, enforces installed SSH root-login restrictions when SSH is enabled, and records non-secret evidence.
 - `common/bootloader`: requires explicit `install_disk` and `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`, shows EFI entries before GRUB actions, installs `sys-boot/grub` and `sys-boot/efibootmgr`, runs guarded UEFI `grub-install`, generates `grub.cfg`, validates the approved root command line, and records bootloader evidence.
 - `common/final_checks`: runs read-only reboot readiness checks, requires `ADMIN_USER`, validates fstab, kernel/initramfs, GRUB/EFI files, Btrfs subvolumes, services, users, target identity, Portage baseline, SSH policy, and writes a secret-safe readiness report.
+- `ansible/playbooks/install-basic-console.yml`: shared destructive orchestration sequence that wires the implemented roles together in Handbook order and passes one `install_run_id` to per-phase evidence logs.
+- `ansible/playbooks/install-openrc.yml` and `ansible/playbooks/install-systemd.yml`: thin entrypoints that select only the init variant and import the shared install flow.
 - `init/openrc`: enables target services with `rc-update` only.
 - `init/systemd`: enables target services with `systemctl` only.
 
@@ -307,8 +309,8 @@ make filesystem-plan PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda
 make configure-users PROFILE=openrc ADMIN_USER=gentoo
 make install-bootloader PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda I_UNDERSTAND_BOOTLOADER_CHANGES=yes
 make final-checks PROFILE=openrc FILESYSTEM=btrfs ADMIN_USER=gentoo
-make install-openrc
-make install-systemd
+make install-openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda ADMIN_USER=gentoo I_UNDERSTAND_THIS_WIPES_DISK=yes I_UNDERSTAND_BOOTLOADER_CHANGES=yes
+make install-systemd FILESYSTEM=btrfs INSTALL_DISK=/dev/vda ADMIN_USER=gentoo I_UNDERSTAND_THIS_WIPES_DISK=yes I_UNDERSTAND_BOOTLOADER_CHANGES=yes
 ```
 
 The `/dev/vda` examples are VM-only examples for the local libvirt harness. For real network targets, use the explicit disk path reported by `make detect-disks ANSIBLE_LIVE_HOST=...`.

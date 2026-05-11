@@ -209,6 +209,8 @@ Expected playbooks:
 
 Rules:
 
+- The shared flow must call implemented roles in Gentoo Handbook order: preflight, disk safety, partitioning, filesystem, mount target, stage3, chroot, Portage, identity, fstab, kernel, packages/services, users, bootloader, and final checks.
+- Thin OpenRC/systemd entrypoints must select variant variables only; they must not duplicate the shared role sequence.
 - Future installer playbooks and roles must be derived from the official Gentoo AMD64 Handbook flow unless an approved OpenSpec change documents a deliberate deviation.
 - Planning playbooks must be runnable without mutation.
 - Apply playbooks must require prior plan output and confirmations.
@@ -393,10 +395,11 @@ Target expectations:
 - `make partition-plan INSTALL_DISK=...`: require an explicit disk and produce a read-only GPT partition plan without partitioning.
 - `make install-plan PROFILE=openrc`: gather facts and create an operator-readable OpenRC install plan.
 - `make install-plan PROFILE=systemd`: gather facts and create an operator-readable systemd install plan.
-- `make install-openrc`: execute the approved OpenRC install with required confirmations.
-- `make install-systemd`: execute the approved systemd install with required confirmations.
 - `make partition`: destructive target that applies only the approved GPT ESP/root layout after shared disk safety gates and explicit wipe confirmation.
 - `make final-checks`: run read-only validation before manual reboot; require `ADMIN_USER` so the installed admin account and sudo policy can be checked.
+- `make install`: execute the shared destructive basic-console install flow for the selected `PROFILE`.
+- `make install-openrc`: thin destructive target that runs the shared flow with `PROFILE=openrc` and required confirmations.
+- `make install-systemd`: thin destructive target that runs the shared flow with `PROFILE=systemd` and required confirmations.
 
 Operators should not run `ansible-playbook` directly.
 Makefile targets should pass init-specific variables into shared Ansible flows where practical.

@@ -91,7 +91,7 @@ Layout intent:
 - `group_vars/systemd.yml`: systemd variant values such as stage3 variant, profile, units, and journald assumptions.
 - `playbooks/install-openrc.yml`: thin OpenRC entrypoint that sets or loads OpenRC variables and calls the shared flow.
 - `playbooks/install-systemd.yml`: thin systemd entrypoint that sets or loads systemd variables and calls the shared flow.
-- `playbooks/install-basic-console.yml`: shared console install flow used by both variants where practical.
+- `playbooks/install-basic-console.yml`: shared console install flow used by both variants; it must contain the Handbook-ordered role sequence once.
 - `roles/common/*`: shared implementation for behavior that does not genuinely differ by init system.
 - `roles/init/openrc`: OpenRC-only behavior.
 - `roles/init/systemd`: systemd-only behavior.
@@ -210,6 +210,7 @@ The Makefile is the only operator-facing control plane. The agent must expose An
 - `make install-plan PROFILE=systemd`: collect facts and produce a systemd installation plan without destructive changes.
 - `make install-openrc`: run the approved OpenRC install flow with required confirmations.
 - `make install-systemd`: run the approved systemd install flow with required confirmations.
+- `make install`: run the shared basic-console install flow for the selected `PROFILE`.
 - `make partition-plan`: show disk model, size, serial, current partition table, and proposed changes.
 - `make partition`: perform partitioning only when Makefile `INSTALL_DISK` is provided and `I_UNDERSTAND_THIS_WIPES_DISK=yes`.
 - `make final-checks`: validate target system state before reboot.

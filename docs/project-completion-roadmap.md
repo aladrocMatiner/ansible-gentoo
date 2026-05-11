@@ -45,6 +45,7 @@ Implemented infrastructure and installer workflow layers:
 17. Minimal console package installation and init-specific service enablement.
 18. GRUB UEFI bootloader installation with root UUID validation.
 19. Read-only reboot readiness final checks.
+20. Shared basic-console install orchestration with thin OpenRC/systemd Makefile targets.
 
 Read-only planning targets do not mutate the live ISO target. Destructive and target-mutating targets are exposed through Makefile targets and are gated by explicit variables, shared safety checks, or target-root assertions depending on the risk level.
 
@@ -170,6 +171,8 @@ Implemented target: `make final-checks ADMIN_USER=<name>`.
 
 ### 34. `implement-basic-console-install-orchestration`
 Wire approved roles into thin OpenRC/systemd entrypoints over a shared install flow.
+
+Implemented targets: `make install`, `make install-openrc`, and `make install-systemd`.
 
 ### 35. `implement-libvirt-install-test-matrix`
 Validate OpenRC/systemd and ext4/Btrfs combinations in libvirt, first as read-only plans and later as destructive full-install runs.
