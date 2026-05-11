@@ -281,6 +281,7 @@ Required gates:
 - Confirm destructive workflows print or call the shared preview before accepting confirmation.
 - Confirm resume checkpoints do not replace destructive confirmations, and resumed destructive workflows compare current disk identity, descendant partition state, filesystem UUIDs, mountpoints, and recorded profile/filesystem values through `common/disk_safety`.
 - Confirm state output is curated and secret-safe; do not write passwords, password hashes, tokens, API keys, private keys, or local credentials into `var/state/` or `logs/install-runs/`.
+- Confirm wrapper failures and Ansible `fail_msg` values use the shared error taxonomy from `docs/logging-and-error-taxonomy.md`; new scripts should use `die_code` when they source `scripts/vm-libvirt-common.sh`.
 - Confirm logs, state files, and audit bundles do not contain secrets.
 - Confirm operator variables pass the shared config validation before apply workflows.
 - Confirm manual intervention is recorded and revalidated before resume.

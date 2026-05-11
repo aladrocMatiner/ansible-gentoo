@@ -22,44 +22,44 @@ SECRET_VALUE_RE = re.compile(
 )
 
 
-def die(message: str) -> None:
-    print(f"install-state: {message}", file=sys.stderr)
+def die(code: str, message: str) -> None:
+    print(f"install-state: {code}: {message}", file=sys.stderr)
     raise SystemExit(1)
 
 
 def validate_state_file_path(path: Path) -> None:
     if path.is_absolute():
-        die(f"state file must be project-relative under var/state: {path}")
+        die("INSTALL_STATE_INVALID", f"state file must be project-relative under var/state: {path}")
     if ".." in path.parts:
-        die(f"state file must not contain parent traversal: {path}")
+        die("INSTALL_STATE_INVALID", f"state file must not contain parent traversal: {path}")
     if len(path.parts) < 3 or path.parts[0] != "var" or path.parts[1] != "state":
-        die(f"state file must be under var/state: {path}")
+        die("INSTALL_STATE_INVALID", f"state file must be under var/state: {path}")
 
     current = Path()
     for part in path.parts[:-1]:
         current = current / part
         if current.is_symlink():
-            die(f"state path component must not be a symlink: {current}")
+            die("INSTALL_STATE_INVALID", f"state path component must not be a symlink: {current}")
 
 
 def load_state(path: Path, *, required: bool) -> dict[str, Any] | None:
     validate_state_file_path(path)
     if not path.exists():
         if required:
-            die(f"state file not found: {path}")
+            die("INSTALL_STATE_INVALID", f"state file not found: {path}")
         return None
     if not path.is_file():
-        die(f"state path is not a regular file: {path}")
+        die("INSTALL_STATE_INVALID", f"state path is not a regular file: {path}")
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        die(f"state file is not valid JSON: {path}: {exc}")
+        die("INSTALL_STATE_INVALID", f"state file is not valid JSON: {path}: {exc}")
     if not isinstance(data, dict):
-        die(f"state file must contain a JSON object: {path}")
+        die("INSTALL_STATE_INVALID", f"state file must contain a JSON object: {path}")
     secret_hits = find_secret_like_fields(data)
     if secret_hits:
         joined = ", ".join(secret_hits[:8])
-        die(f"state file contains secret-like fields or values: {joined}")
+        die("INSTALL_STATE_SECRET_RISK", f"state file contains secret-like fields or values: {joined}")
     return data
 
 
@@ -83,13 +83,13 @@ def find_secret_like_fields(value: Any, path: str = "$") -> list[str]:
 def checkpoint_from_state(state: dict[str, Any]) -> dict[str, Any]:
     checkpoint = state.get("resume_checkpoint")
     if not isinstance(checkpoint, dict) or not checkpoint:
-        die("state does not contain a usable resume_checkpoint")
+        die("RESUME_CHECKPOINT_INVALID", "state does not contain a usable resume_checkpoint")
     selected_disk = checkpoint.get("selected_disk")
     if not isinstance(selected_disk, dict):
-        die("resume_checkpoint is missing selected_disk")
+        die("RESUME_CHECKPOINT_INVALID", "resume_checkpoint is missing selected_disk")
     descendants = checkpoint.get("descendants")
     if not isinstance(descendants, list):
-        die("resume_checkpoint is missing descendant block state")
+        die("RESUME_CHECKPOINT_INVALID", "resume_checkpoint is missing descendant block state")
     return checkpoint
 
 
@@ -130,13 +130,13 @@ def command_resume_vars(args: argparse.Namespace) -> None:
     run_id = state.get("run_id")
 
     if not install_disk:
-        die("state does not contain install_disk")
+        die("INSTALL_STATE_INVALID", "state does not contain install_disk")
     if not profile:
-        die("state does not contain profile")
+        die("INSTALL_STATE_INVALID", "state does not contain profile")
     if not filesystem:
-        die("state does not contain filesystem")
+        die("INSTALL_STATE_INVALID", "state does not contain filesystem")
     if not run_id:
-        die("state does not contain run_id")
+        die("INSTALL_STATE_INVALID", "state does not contain run_id")
 
     values = {
         "INSTALL_STATE_FILE": str(state_path),
@@ -152,7 +152,7 @@ def command_resume_vars(args: argparse.Namespace) -> None:
 
 def command_clean(args: argparse.Namespace) -> None:
     if args.confirm != "DELETE":
-        die("clean requires I_UNDERSTAND_DELETE_INSTALL_STATE=DELETE")
+        die("CONFIRMATION_MISSING", "clean requires I_UNDERSTAND_DELETE_INSTALL_STATE=DELETE")
     state_path = args.state_file
     validate_state_file_path(state_path)
     if not state_path.exists():
@@ -163,9 +163,9 @@ def command_clean(args: argparse.Namespace) -> None:
     try:
         resolved.relative_to(allowed_root)
     except ValueError:
-        die(f"refusing to delete state outside var/state: {state_path}")
+        die("INSTALL_STATE_INVALID", f"refusing to delete state outside var/state: {state_path}")
     if state_path.is_symlink() or not state_path.is_file():
-        die(f"refusing to delete non-regular state path: {state_path}")
+        die("INSTALL_STATE_INVALID", f"refusing to delete non-regular state path: {state_path}")
     state_path.unlink()
     print(f"Deleted install state pointer: {state_path}")
     print("Run logs under logs/install-runs/ were not deleted.")

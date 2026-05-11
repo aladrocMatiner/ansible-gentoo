@@ -7,8 +7,14 @@ die() {
   exit 1
 }
 
+die_code() {
+  local code=$1
+  shift
+  die "${code}: $*"
+}
+
 require_command() {
-  command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"
+  command -v "$1" >/dev/null 2>&1 || die_code HOST_REQUIREMENT_MISSING "required command not found: $1"
 }
 
 has_glob_chars() {
@@ -182,13 +188,13 @@ assert_network_name() {
 assert_install_disk_input() {
   local disk=$1
 
-  [[ -n "$disk" ]] || die "INSTALL_DISK is required and has no default"
-  [[ "$disk" == /dev/* ]] || die "INSTALL_DISK must be an explicit /dev path visible inside the live ISO: $disk"
-  [[ "$disk" != /dev && "$disk" != /dev/ ]] || die "INSTALL_DISK must name a concrete disk, not /dev"
-  [[ "$disk" != *".."* ]] || die "INSTALL_DISK must not contain parent traversal: $disk"
-  [[ "$disk" != *"="* ]] || die "INSTALL_DISK must not contain '=' characters: $disk"
-  ! has_glob_chars "$disk" || die "INSTALL_DISK must not contain wildcard characters: $disk"
-  ! has_unsafe_chars "$disk" || die "INSTALL_DISK contains unsafe characters: $disk"
+  [[ -n "$disk" ]] || die_code DISK_UNSAFE "INSTALL_DISK is required and has no default"
+  [[ "$disk" == /dev/* ]] || die_code DISK_UNSAFE "INSTALL_DISK must be an explicit /dev path visible inside the live ISO: $disk"
+  [[ "$disk" != /dev && "$disk" != /dev/ ]] || die_code DISK_UNSAFE "INSTALL_DISK must name a concrete disk, not /dev"
+  [[ "$disk" != *".."* ]] || die_code DISK_UNSAFE "INSTALL_DISK must not contain parent traversal: $disk"
+  [[ "$disk" != *"="* ]] || die_code DISK_UNSAFE "INSTALL_DISK must not contain '=' characters: $disk"
+  ! has_glob_chars "$disk" || die_code DISK_UNSAFE "INSTALL_DISK must not contain wildcard characters: $disk"
+  ! has_unsafe_chars "$disk" || die_code DISK_UNSAFE "INSTALL_DISK contains unsafe characters: $disk"
 }
 
 resolve_iso_path() {
@@ -473,18 +479,18 @@ require_ansible_live_target() {
     ANSIBLE_LIVE_PORT=${ANSIBLE_LIVE_PORT:-22}
     assert_host "$ANSIBLE_LIVE_HOST"
     assert_port ANSIBLE_LIVE_PORT "$ANSIBLE_LIVE_PORT"
-    [[ "$ANSIBLE_LIVE_USER" =~ ^[A-Za-z0-9_.-]+$ ]] || die "ANSIBLE_LIVE_USER contains unsafe characters: $ANSIBLE_LIVE_USER"
+    [[ "$ANSIBLE_LIVE_USER" =~ ^[A-Za-z0-9_.-]+$ ]] || die_code CONFIG_INVALID "ANSIBLE_LIVE_USER contains unsafe characters: $ANSIBLE_LIVE_USER"
     return 0
   fi
 
   validate_vm_config
   if ! ssh_target_env="$(scripts/vm-ssh-target.sh env)"; then
-    die "Unable to determine Ansible live ISO SSH target. Set ANSIBLE_LIVE_HOST for a network-reachable live ISO target, or start the local Gentoo live VM, run make vm-bootstrap-ssh, and verify libvirt DHCP/console networking before running $workflow."
+    die_code NETWORK_UNAVAILABLE "Unable to determine Ansible live ISO SSH target. Set ANSIBLE_LIVE_HOST for a network-reachable live ISO target, or start the local Gentoo live VM, run make vm-bootstrap-ssh, and verify libvirt DHCP/console networking before running $workflow."
   fi
   eval "$ssh_target_env"
-  [[ -n "${ANSIBLE_LIVE_USER:-}" ]] || die "VM SSH target discovery did not provide ANSIBLE_LIVE_USER"
-  [[ -n "${ANSIBLE_LIVE_HOST:-}" ]] || die "VM SSH target discovery did not provide ANSIBLE_LIVE_HOST"
-  [[ -n "${ANSIBLE_LIVE_PORT:-}" ]] || die "VM SSH target discovery did not provide ANSIBLE_LIVE_PORT"
+  [[ -n "${ANSIBLE_LIVE_USER:-}" ]] || die_code NETWORK_UNAVAILABLE "VM SSH target discovery did not provide ANSIBLE_LIVE_USER"
+  [[ -n "${ANSIBLE_LIVE_HOST:-}" ]] || die_code NETWORK_UNAVAILABLE "VM SSH target discovery did not provide ANSIBLE_LIVE_HOST"
+  [[ -n "${ANSIBLE_LIVE_PORT:-}" ]] || die_code NETWORK_UNAVAILABLE "VM SSH target discovery did not provide ANSIBLE_LIVE_PORT"
 }
 
 validate_artifact_paths() {

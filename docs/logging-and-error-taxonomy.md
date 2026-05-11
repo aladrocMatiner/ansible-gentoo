@@ -12,6 +12,7 @@ Project commands should report stable error codes so failures can be reviewed wi
 | `NETWORK_UNAVAILABLE` | Network, DNS, route, or SSH readiness failed. |
 | `DISK_UNSAFE` | Disk input is missing, ambiguous, mounted, or unsafe. |
 | `DESTRUCTIVE_CONFIRMATION_MISSING` | A destructive workflow lacks the required explicit confirmation. |
+| `CONFIRMATION_MISSING` | A non-disk operation that still requires explicit confirmation is missing that confirmation. |
 | `VERIFY_FAILED` | Checksum, signature, UUID, or generated-file verification failed. |
 | `SECRET_LEAK_RISK` | A value appears to contain a secret or a forbidden secret channel is in use. |
 | `MOUNT_UNSAFE` | A mount target is missing, already mounted unexpectedly, or outside the approved path. |
@@ -24,6 +25,10 @@ Project commands should report stable error codes so failures can be reviewed wi
 | `PORTAGE_FAILED` | Portage sync, profile, package, or configuration operation failed. |
 | `BOOTLOADER_UNSAFE` | UEFI, EFI mount, GRUB, or boot entry safety checks failed. |
 | `FINAL_CHECK_FAILED` | Reboot-readiness validation failed. |
+| `INSTALL_STATE_INVALID` | Install state is missing, malformed, incomplete, outside the approved path, or unsafe to consume. |
+| `INSTALL_STATE_SECRET_RISK` | Install state contains secret-like keys or values and must not be used. |
+| `RESUME_CHECKPOINT_INVALID` | Resume validation was requested but the recorded checkpoint is absent or incomplete. |
+| `RESUME_CHECKPOINT_MISMATCH` | Current target disk, partition, filesystem, UUID, mount, profile, or filesystem facts differ from the checkpoint. |
 | `VM_VALIDATION_FAILED` | Local libvirt harness validation failed. |
 | `UNSUPPORTED_CONFIGURATION` | The requested behavior is outside the approved project scope. |
 
@@ -53,3 +58,26 @@ logs/install-runs/<run-id>/
 ```
 
 Current read-only checks may print their report to stdout and must remain safe to run before a run id exists.
+
+## Implementation Conventions
+
+Bash wrappers that source `scripts/vm-libvirt-common.sh` should use:
+
+- `require_command`, which reports `HOST_REQUIREMENT_MISSING`,
+- `assert_install_disk_input`, which reports `DISK_UNSAFE`,
+- `require_ansible_live_target`, which reports `NETWORK_UNAVAILABLE` for failed target discovery,
+- `die_code <CODE> <message>` when adding new wrapper-level validation.
+
+Ansible assertions should start `fail_msg` with the stable code, for example:
+
+```yaml
+fail_msg: "DISK_UNSAFE: INSTALL_DISK is required."
+```
+
+Python helpers should print errors as:
+
+```text
+<script>: <CODE>: <safe summary>
+```
+
+New codes must be added to this document when introduced.
