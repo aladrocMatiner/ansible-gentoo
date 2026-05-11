@@ -6,6 +6,7 @@ Installer failures need a compact evidence bundle for debugging. Without a stand
 
 - Add a project-local install audit bundle produced at key checkpoints and final readiness.
 - Include non-secret variables, hardware/disk summaries, UUIDs, fstab, package policy, service enablement status, bootloader evidence, Ansible logs, OpenSpec change id, and final checks.
+- Include stage3 download verification evidence from the download cache/mirror policy without bundling downloaded tarballs.
 - Redact or reject secrets before writing bundle files.
 - Expose bundle generation through Makefile targets.
 

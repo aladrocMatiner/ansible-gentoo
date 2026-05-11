@@ -4,6 +4,8 @@
 
 It runs from the operator machine over SSH into the official Gentoo live ISO target. It mutates only the target root under `/mnt/gentoo`. It does not install packages, install a kernel, install a bootloader, create users, enable services, run `emerge @world`, or install Codex into the target system.
 
+Mirror behavior follows `docs/download-cache-and-mirror-policy.md`.
+
 ## Required State
 
 Run the earlier apply targets first:

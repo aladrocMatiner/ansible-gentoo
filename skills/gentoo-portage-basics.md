@@ -26,6 +26,7 @@ Use this skill:
 - Required packages for `gentoo-kernel-bin`, GRUB, EFI boot support, NetworkManager, editor, privilege escalation, and init-specific syslog/cron policy.
 - Network and DNS status.
 - Mirror selection.
+- Download cache and mirror policy in `docs/download-cache-and-mirror-policy.md`.
 - Whether Codex was bootstrapped in the live ISO only.
 
 ## 4. `make.conf` Principles

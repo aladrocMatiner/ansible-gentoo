@@ -5,8 +5,8 @@
 - [x] Validate with `openspec validate define-download-cache-and-mirror-policy --strict`.
 
 ## Implementation
-- [ ] Define cache paths and mirror variables.
-- [ ] Update stage3 proposal to use cache policy.
-- [ ] Update Portage proposal to document mirror policy.
-- [ ] Update audit bundle and cleanup/reset proposals.
-- [ ] Update docs and skills.
+- [x] Define cache paths and mirror variables.
+- [x] Update stage3 proposal to use cache policy.
+- [x] Update Portage proposal to document mirror policy.
+- [x] Update audit bundle and cleanup/reset proposals.
+- [x] Update docs and skills.

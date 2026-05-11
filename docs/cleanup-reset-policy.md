@@ -6,6 +6,8 @@ The VM cleanup path remains `make vm-clean`; it undefines only the configured pr
 
 `STAGE3_CACHE_DIR` is a live-target path in the normal SSH-driven installer flow. Stage3 cache cleanup therefore runs through Ansible against the live ISO target.
 
+Cache boundaries follow `docs/download-cache-and-mirror-policy.md`.
+
 ## Targets
 
 Preview cleanup candidates without deleting:

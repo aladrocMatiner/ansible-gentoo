@@ -2,6 +2,8 @@
 
 The audit bundle is a local, secret-safe evidence bundle for the current install run. It helps review or debug an installation without manually collecting every role log.
 
+Download evidence follows `docs/download-cache-and-mirror-policy.md`. The bundle includes verification evidence, not downloaded stage3 tarballs.
+
 ## Target
 
 Generate the bundle through the Makefile:

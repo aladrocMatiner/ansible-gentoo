@@ -30,6 +30,7 @@ Before any future `format` implementation is used, the operator should review `m
 - Selected stage3: official Gentoo amd64 stage3 tarball matching `PROFILE` and `stage3_variant`.
 - Network, DNS, and time status.
 - Download directory.
+- Download cache and mirror policy in `docs/download-cache-and-mirror-policy.md`.
 - Verification files such as checksums and signatures when available.
 - Whether `/mnt/gentoo` is empty or already contains a Gentoo root.
 

@@ -35,6 +35,7 @@ Do not use this skill to bypass OpenSpec or safety review for destructive automa
 - Installed time synchronization policy: `docs/installed-time-sync-policy.md`.
 - Installed SSH policy: `docs/installed-ssh-policy.md`.
 - Boot kernel command line policy: `docs/boot-kernel-commandline-policy.md`.
+- Download cache and mirror policy: `docs/download-cache-and-mirror-policy.md`.
 - Btrfs policy, when `FILESYSTEM=btrfs`, is shared across init systems and documented in `docs/btrfs-layout-policy.md`: root `@`, `@home`, `@var`, `@var_log`, `@var_cache`, and `@snapshots`; root must mount with `subvol=@`.
 - Project Handbook choices: NetworkManager for v1 networking, GRUB for UEFI, EFI mounted at `/boot/efi` in the installed system, and `gentoo-kernel-bin` with required installkernel/initramfs support.
 - Planned shared guardrails: install configuration schema, config validation report, target system baseline, installed time sync policy, installed SSH policy, boot kernel command line policy, download/cache mirror policy, Portage world update policy, destructive previews, audit bundles, secret input policy, logging/error taxonomy, Handbook traceability, live ISO network bootstrap hardening, host requirements, cleanup/reset policy, manual escape hatch, libvirt matrix validation, first-boot validation, and install report summary. Implemented install state checkpoints are written through `common/install_state`.

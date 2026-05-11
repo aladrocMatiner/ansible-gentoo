@@ -4,6 +4,8 @@
 
 It does not partition, format, mount target filesystems, chroot, configure Portage, install packages, create users, enable services, install a kernel, or install a bootloader.
 
+Download cache and mirror behavior follows `docs/download-cache-and-mirror-policy.md`; signature and checksum behavior follows `docs/stage3-signature-policy.md`.
+
 ## Required State
 
 Run the previous apply targets first against the same live ISO target:
