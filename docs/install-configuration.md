@@ -2,6 +2,8 @@
 
 `make config-check` validates operator-provided installer variables before any live ISO, disk, or target-root workflow runs. It is read-only and host-only: it does not connect over SSH, inspect disks, create filesystems, mount paths, or modify libvirt.
 
+Use `make host-check` for host/libvirt capability validation. `config-check` validates variable shape and safety; `host-check` validates controller tools, resources, OVMF firmware, ISO availability, and libvirt access.
+
 The machine-readable schema lives at `config/install-schema.yml`.
 
 ## Run

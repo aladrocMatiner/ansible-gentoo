@@ -28,7 +28,7 @@ Each entry records phase, Handbook section, Makefile targets, Ansible roles, imp
 | Users and access | implemented | User administration | `make configure-users` | `common/users` |
 | Bootloader | implemented | Configuring the bootloader | `make install-bootloader` | `common/bootloader` |
 | Final checks and reboot readiness | implemented | Rebooting the system | `make final-checks`<br>`make install-audit` | `common/final_checks` |
-| Local libvirt validation | implemented | Project-specific validation harness; not a Handbook installation step | `make vm-check`<br>`make vm-disk`<br>`make vm-define`<br>`make vm-start`<br>`make vm-bootstrap-ssh`<br>`make vm-ansible-ping` | _None_ |
+| Local libvirt validation | implemented | Project-specific validation harness; not a Handbook installation step | `make host-check`<br>`make vm-check`<br>`make vm-disk`<br>`make vm-define`<br>`make vm-start`<br>`make vm-bootstrap-ssh`<br>`make vm-ansible-ping` | _None_ |
 
 ## Details
 
@@ -446,6 +446,7 @@ OpenSpec references:
 - Handbook section: Project-specific validation harness; not a Handbook installation step
 
 Make targets:
+- make host-check
 - make vm-check
 - make vm-disk
 - make vm-define

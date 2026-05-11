@@ -103,7 +103,7 @@ export CLEAN_RUN_ID
 
 .PHONY: help \
 	vm-check vm-disk vm-define vm-start vm-start-installed vm-validate-first-boot vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
-	ansible-check config-check secret-check handbook-trace ansible-live-ping ansible-live-preflight local-live-preflight local-detect-disks local-install-plan local-partition-plan detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-preview partition-preview format-preview mount-preview bootloader-preview users-preview destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan install-run-clean install-audit install-report cleanup-plan clean-state clean-logs clean-audit clean-stage3-cache reset-test-run \
+	ansible-check config-check host-check secret-check handbook-trace ansible-live-ping ansible-live-preflight local-live-preflight local-detect-disks local-install-plan local-partition-plan detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-preview partition-preview format-preview mount-preview bootloader-preview users-preview destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan install-run-clean install-audit install-report cleanup-plan clean-state clean-logs clean-audit clean-stage3-cache reset-test-run \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -124,6 +124,7 @@ help:
 		'  make vm-ansible-ping Validate Ansible connectivity to the live ISO over SSH' \
 		'  make ansible-check   Verify Ansible tooling, syntax, and lint when available' \
 		'  make config-check    Validate installer configuration variables without touching targets' \
+		'  make host-check      Verify host/libvirt requirements for local VM validation' \
 		'  make secret-check    Scan tracked and unignored files for high-risk secret patterns' \
 		'  make handbook-trace  Regenerate Gentoo Handbook traceability report' \
 		'  make ansible-live-ping Validate Ansible connectivity to a live ISO target over SSH' \
@@ -278,6 +279,9 @@ ansible-check:
 
 config-check:
 	@scripts/config-check.sh
+
+host-check:
+	@scripts/host-check.sh
 
 secret-check:
 	@scripts/secret-check.sh

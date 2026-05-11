@@ -18,10 +18,11 @@ Place the official Gentoo live ISO in one of these supported locations:
 Validate tools, libvirt connectivity, ISO resolution, UEFI firmware, network mode, and path safety:
 
 ```sh
+make host-check
 make vm-check
 ```
 
-`vm-check` is read-only. It does not create domains, disks, NVRAM files, or artifact directories. It verifies OVMF/UEFI firmware is available and refuses an existing project domain that is not configured for OVMF UEFI boot.
+`host-check` and `vm-check` are read-only. They do not create domains, disks, NVRAM files, or artifact directories. `host-check` verifies host resources and controller-side libvirt prerequisites before VM workflows; `vm-check` verifies OVMF/UEFI firmware is available and refuses an existing project domain that is not configured for OVMF UEFI boot.
 
 `vm-start` validates ISO resolution, UEFI firmware, libvirt networking, and path safety before it creates a missing disk or defines a missing domain. If those prerequisites are unavailable, it fails without creating new VM artifacts. When a matching inactive domain already exists, `vm-start` also verifies that the configured qcow2 disk, per-VM NVRAM, extracted kernel, and extracted initrd are present before asking libvirt to start it.
 

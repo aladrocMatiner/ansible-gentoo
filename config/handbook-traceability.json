@@ -169,7 +169,7 @@
     {
       "phase": "Local libvirt validation",
       "handbook_section": "Project-specific validation harness; not a Handbook installation step",
-      "make_targets": ["vm-check", "vm-disk", "vm-define", "vm-start", "vm-bootstrap-ssh", "vm-ansible-ping"],
+      "make_targets": ["host-check", "vm-check", "vm-disk", "vm-define", "vm-start", "vm-bootstrap-ssh", "vm-ansible-ping"],
       "ansible_roles": [],
       "status": "implemented",
       "safety_gates": ["qcow2 only", "project-local VM artifacts", "no host block devices", "official ISO"],
