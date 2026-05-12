@@ -32,7 +32,7 @@ logs/install-runs/<run-id>/install-report.md
 The report includes available non-secret data for:
 
 - run id, last completed phase, and completed phase list
-- profile, filesystem, boot mode, target mount, EFI mount, and install disk
+- profile, filesystem, stage3 flavor, boot mode, target mount, EFI mount, and install disk
 - hostname, timezone, locale, and keymap
 - root and EFI UUIDs, fstab entries, and Btrfs root command-line policy
 - kernel artifacts, module directories, GRUB status, and boot command line

@@ -2,27 +2,26 @@
 
 ## Summary
 
-Add a Makefile-mediated libvirt end-to-end matrix runner that executes the four supported disposable VM install cases:
+Add a Makefile-mediated libvirt end-to-end matrix runner that executes the supported disposable VM install cases:
 
-- amd64 OpenRC + ext4
-- amd64 OpenRC + Btrfs
-- amd64 systemd + ext4
-- amd64 systemd + Btrfs
+- amd64 OpenRC/systemd
+- ext4/Btrfs
+- standard/hardened/musl stage3 flavors
 
 The runner will call the existing single-case `make vm-e2e-install` workflow for each case, preserve per-case logs and state, and write a matrix summary report.
 
 ## Motivation
 
-The project now validates individual full installs successfully, but repeating the four-case matrix manually is error-prone. A formal runner gives operators and contributors one documented target for validating the supported local libvirt matrix before changing installer logic or preparing for real hardware testing.
+The project now validates individual full installs successfully, but repeating the full matrix manually is error-prone. A formal runner gives operators and contributors one documented target for validating the supported local libvirt matrix before changing installer logic or preparing for real hardware testing.
 
 ## Problem Statement
 
-`make vm-test-matrix-plan` enumerates the four cases, and `make vm-e2e-install` validates one selected case. There is no single operator-facing target that runs all four full disposable VM installs with consistent environment, reset behavior, logs, and summary evidence.
+`make vm-test-matrix-plan` enumerates the supported cases, and `make vm-e2e-install` validates one selected case. There is no single operator-facing target that runs all full disposable VM installs with consistent environment, reset behavior, logs, and summary evidence.
 
 ## Scope
 
 - Add `make vm-e2e-matrix`.
-- Add a script that runs the four cases through `make vm-e2e-install`.
+- Add a script that runs the supported matrix cases through `make vm-e2e-install`.
 - Run cases in parallel by default, with bounded configurable parallelism.
 - Require the same destructive-in-VM confirmations as single-case E2E installs.
 - Require reset/cleanup confirmation so every case starts from a fresh qcow2 and case state pointer.
@@ -49,7 +48,7 @@ The project now validates individual full installs successfully, but repeating t
 ## Acceptance Criteria
 
 - `make vm-e2e-matrix` exists and is listed in `make help`.
-- The runner executes all four supported cases by invoking `make vm-e2e-install` with case-specific `PROFILE` and `FILESYSTEM`.
+- The runner executes all supported cases by invoking `make vm-e2e-install` with case-specific `PROFILE`, `FILESYSTEM`, and `STAGE3_FLAVOR`.
 - The runner defaults to bounded parallel execution and supports `VM_E2E_MATRIX_PARALLEL`.
 - The runner refuses unsupported matrix cases, unsafe log paths, unsafe names, manual `VM_DISK` overrides, and guest disks other than `/dev/vda`.
 - The runner writes per-case logs and a JSON summary report.

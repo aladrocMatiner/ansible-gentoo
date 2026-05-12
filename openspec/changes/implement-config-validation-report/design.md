@@ -8,7 +8,7 @@ The report must validate:
 - missing required variables for the requested mode,
 - no-default `INSTALL_DISK` behavior,
 - destructive confirmation only when needed,
-- `PROFILE` and `stage3_variant` consistency,
+- `PROFILE`, `stage3_variant`, and `stage3_flavor` consistency,
 - `FILESYSTEM` and Btrfs policy consistency,
 - UEFI-only boot mode,
 - target mount paths under `/mnt/gentoo`,

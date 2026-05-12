@@ -8,19 +8,19 @@ Always start with the read-only plan:
 
 ```sh
 make vm-list-cases
-make vm-e2e-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda ADMIN_USER=<admin-user> ENABLE_SSH=yes ADMIN_AUTHORIZED_KEYS_FILE=<public-key-file>
+make vm-e2e-plan PROFILE=openrc FILESYSTEM=ext4 STAGE3_FLAVOR=standard INSTALL_DISK=/dev/vda ADMIN_USER=<admin-user> ENABLE_SSH=yes ADMIN_AUTHORIZED_KEYS_FILE=<public-key-file>
 ```
 
 The plan:
 
 - validates that the selected entry is supported,
-- uses the case-specific VM identity derived from `PROFILE` and `FILESYSTEM`,
+- uses the case-specific VM identity derived from `PROFILE`, `FILESYSTEM`, and `STAGE3_FLAVOR`,
 - requires explicit `INSTALL_DISK=/dev/vda`,
 - requires `ADMIN_USER` because first-boot validation needs an installed account,
 - requires `ENABLE_SSH=yes` because first-boot validation connects over SSH,
 - requires `ADMIN_AUTHORIZED_KEYS_FILE` containing public keys so first-boot validation can authenticate,
 - integrates the libvirt matrix planner,
-- writes `logs/libvirt-e2e/<timestamp>-<profile>-<filesystem>/e2e-plan.json`,
+- writes `logs/libvirt-e2e/<timestamp>-<profile>-<filesystem>[-<stage3-flavor>]/e2e-plan.json`,
 - does not create disks, define domains, start VMs, partition, format, install, or reboot.
 
 ## Full Disposable VM Validation
@@ -31,6 +31,7 @@ Run this only when the VM is intended to be disposable:
 make vm-e2e-install \
   PROFILE=openrc \
   FILESYSTEM=ext4 \
+  STAGE3_FLAVOR=standard \
   INSTALL_DISK=/dev/vda \
   ADMIN_USER=<admin-user> \
   ENABLE_SSH=yes \
@@ -47,7 +48,7 @@ The wrapper runs:
 4. `vm-start`
 5. `vm-bootstrap-ssh`
 6. `vm-ansible-ping`
-7. full shared basic-console install for the selected profile/filesystem
+7. full shared basic-console install for the selected profile/filesystem/stage3 flavor
 8. `vm-shutdown` to let the live ISO flush and unmount the installed filesystems cleanly
 9. `vm-validate-first-boot`
 10. `install-audit`
@@ -66,6 +67,7 @@ To reset generated VM artifacts and the selected case state pointer before the r
 make vm-e2e-install \
   PROFILE=openrc \
   FILESYSTEM=ext4 \
+  STAGE3_FLAVOR=standard \
   INSTALL_DISK=/dev/vda \
   ADMIN_USER=<admin-user> \
   ENABLE_SSH=yes \
@@ -81,7 +83,7 @@ make vm-e2e-install \
 The wrapper writes step logs under:
 
 ```text
-logs/libvirt-e2e/<timestamp>-<profile>-<filesystem>/
+logs/libvirt-e2e/<timestamp>-<profile>-<filesystem>[-<stage3-flavor>]/
 ```
 
 The install itself writes normal state, audit, and report evidence under:
@@ -95,9 +97,9 @@ These paths are ignored by git.
 
 ## Matrix Integration
 
-`vm-e2e-plan` includes the OpenRC/systemd and ext4/Btrfs matrix planner. Single-case destructive execution validates the selected entry.
+`vm-e2e-plan` includes the OpenRC/systemd, ext4/Btrfs, and standard/hardened/musl matrix planner. Single-case destructive execution validates the selected entry.
 
-To reset and validate all four disposable libvirt cases through the same single-case workflow, run:
+To reset and validate all 12 disposable libvirt cases through the same single-case workflow, run:
 
 ```sh
 make vm-e2e-matrix \
@@ -110,14 +112,22 @@ make vm-e2e-matrix \
   I_UNDERSTAND_BOOTLOADER_CHANGES=yes
 ```
 
-`vm-e2e-matrix` runs:
+`vm-e2e-matrix` runs every supported combination:
 
 - `amd64-openrc-ext4`
 - `amd64-openrc-btrfs`
 - `amd64-systemd-ext4`
 - `amd64-systemd-btrfs`
+- `amd64-openrc-ext4-hardened`
+- `amd64-openrc-btrfs-hardened`
+- `amd64-systemd-ext4-hardened`
+- `amd64-systemd-btrfs-hardened`
+- `amd64-openrc-ext4-musl`
+- `amd64-openrc-btrfs-musl`
+- `amd64-systemd-ext4-musl`
+- `amd64-systemd-btrfs-musl`
 
-The target runs cases in parallel by default. Use `VM_E2E_MATRIX_PARALLEL=1..4` to change concurrency. The target requires `VM_E2E_RESET_DISK=yes` so every case starts from a fresh qcow2 and case state pointer.
+The target runs cases in parallel by default. Use `VM_E2E_MATRIX_PARALLEL=1..12` to change concurrency. The target requires `VM_E2E_RESET_DISK=yes` so every case starts from a fresh qcow2 and case state pointer.
 
 Matrix logs are written under:
 
@@ -130,7 +140,7 @@ logs/libvirt-e2e-matrix/<timestamp>/<case>/vm-e2e-install.log
 
 - Host block devices are never valid VM disks.
 - The generated `VM_DISK` must remain a project-relative qcow2 path under `VM_DIR`.
-- `VM_NAME` is a base name; VM targets derive `<base>[-VM_TEST_IMAGE_NAME]-amd64-<profile>-<filesystem>`.
+- `VM_NAME` is a base name; VM targets derive `<base>[-VM_TEST_IMAGE_NAME]-amd64-<profile>-<filesystem>[-<stage3-flavor>]`.
 - `INSTALL_DISK=/dev/vda` is valid only inside the libvirt guest.
 - Full validation still requires `I_UNDERSTAND_THIS_WIPES_DISK=yes`.
 - Bootloader validation still requires `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`.
@@ -143,7 +153,7 @@ logs/libvirt-e2e-matrix/<timestamp>/<case>/vm-e2e-install.log
 
 ## Failure Modes
 
-- `VM_E2E_INVALID`: unsupported profile/filesystem, missing `ADMIN_USER`, missing `ADMIN_AUTHORIZED_KEYS_FILE`, or missing explicit `/dev/vda`.
+- `VM_E2E_INVALID`: unsupported profile/filesystem/stage3 flavor, missing `ADMIN_USER`, missing `ADMIN_AUTHORIZED_KEYS_FILE`, or missing explicit `/dev/vda`.
 - `DESTRUCTIVE_CONFIRMATION_MISSING`: required install or bootloader confirmation is missing.
 - `CONFIRMATION_MISSING`: reset was requested without cleanup confirmation.
 - VM bootstrap failure: open the selected case console with `make vm-console PROFILE=<profile> FILESYSTEM=<filesystem>` and inspect the live ISO.

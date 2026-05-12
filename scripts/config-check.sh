@@ -153,7 +153,7 @@ validate_install_disk_if_set() {
 validate_no_secret_like_values() {
   local label value
 
-  for label in HOSTNAME TIMEZONE LOCALE KEYMAP ADMIN_USER TARGET_MOUNT EFI_MOUNT INSTALL_DISK STAGE3_MIRROR STAGE3_CACHE_DIR PORTAGE_GENTOO_MIRRORS; do
+  for label in HOSTNAME TIMEZONE LOCALE KEYMAP ADMIN_USER TARGET_MOUNT EFI_MOUNT INSTALL_DISK STAGE3_FLAVOR STAGE3_MIRROR STAGE3_CACHE_DIR PORTAGE_GENTOO_MIRRORS; do
     value=${!label:-}
     [[ -z "$value" ]] && continue
     if [[ "$value" == *"-----BEGIN "* || "$value" == sk-* || "$value" == *" API KEY "* ]]; then
@@ -174,6 +174,7 @@ schema_exists() {
 
 profile=${PROFILE:-openrc}
 filesystem=${FILESYSTEM:-ext4}
+stage3_flavor=${STAGE3_FLAVOR:-standard}
 boot_mode=${BOOT_MODE:-uefi}
 target_hostname=${HOSTNAME:-gentoo}
 timezone=${TIMEZONE:-UTC}
@@ -209,6 +210,11 @@ esac
 case "$filesystem" in
   ext4|btrfs) ;;
   *) add_error CONFIG_INVALID "FILESYSTEM must be ext4 or btrfs" ;;
+esac
+
+case "$stage3_flavor" in
+  standard|hardened|musl) ;;
+  *) add_error CONFIG_INVALID "STAGE3_FLAVOR must be standard, hardened, or musl" ;;
 esac
 
 case "$boot_mode" in
@@ -281,6 +287,7 @@ printf 'Configuration validation report\n'
 printf '  schema: %s\n' "$SCHEMA_PATH"
 printf '  PROFILE: %s\n' "$profile"
 printf '  FILESYSTEM: %s\n' "$filesystem"
+printf '  STAGE3_FLAVOR: %s\n' "$stage3_flavor"
 printf '  STAGE3_MIRROR: %s\n' "$stage3_mirror"
 printf '  STAGE3_CACHE_DIR: %s\n' "$stage3_cache_dir"
 printf '  PORTAGE_GENTOO_MIRRORS: %s\n' "$portage_gentoo_mirrors"

@@ -5,7 +5,7 @@ The project SHALL validate supported platform/init/filesystem variants in libvir
 
 #### Scenario: Plan matrix
 - **WHEN** matrix planning is requested
-- **THEN** the workflow SHALL enumerate amd64 OpenRC/ext4, amd64 OpenRC/Btrfs, amd64 systemd/ext4, and amd64 systemd/Btrfs entries
+- **THEN** the workflow SHALL enumerate amd64 OpenRC/systemd, ext4/Btrfs, and supported stage3 flavor entries
 - **AND** it SHALL identify which validation phases are implemented for each entry
 
 #### Scenario: Plan matrix with manual image label
@@ -21,4 +21,4 @@ The project SHALL validate supported platform/init/filesystem variants in libvir
 
 #### Scenario: Matrix evidence
 - **WHEN** a matrix entry completes
-- **THEN** it SHALL write logs and status evidence associated with that platform/profile/filesystem case
+- **THEN** it SHALL write logs and status evidence associated with that platform/profile/filesystem/stage3 flavor case

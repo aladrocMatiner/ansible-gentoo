@@ -12,18 +12,24 @@ Use official Gentoo release metadata under:
 https://distfiles.gentoo.org/releases/amd64/autobuilds/
 ```
 
-Supported basic console variants:
+Supported basic console stage3 selectors:
 
-- `PROFILE=openrc`: `current-stage3-amd64-openrc/`
-- `PROFILE=systemd`: `current-stage3-amd64-systemd/`
+| `PROFILE` | `STAGE3_FLAVOR` | Directory | Latest file |
+| --- | --- | --- | --- |
+| `openrc` | `standard` | `current-stage3-amd64-openrc/` | `latest-stage3-amd64-openrc.txt` |
+| `systemd` | `standard` | `current-stage3-amd64-systemd/` | `latest-stage3-amd64-systemd.txt` |
+| `openrc` | `hardened` | `current-stage3-amd64-hardened-openrc/` | `latest-stage3-amd64-hardened-openrc.txt` |
+| `systemd` | `hardened` | `current-stage3-amd64-hardened-systemd/` | `latest-stage3-amd64-hardened-systemd.txt` |
+| `openrc` | `musl` | `current-stage3-amd64-musl-openrc/` | `latest-stage3-amd64-musl-openrc.txt` |
+| `systemd` | `musl` | `current-stage3-amd64-musl-systemd/` | `latest-stage3-amd64-musl-systemd.txt` |
 
-The stage3 implementation must select one of those variant directories from the selected `PROFILE` and derived `stage3_variant`. It must not silently substitute desktop, hardened, musl, no-multilib, non-amd64, or unrelated variants.
+The stage3 implementation must select one of those directories from `PROFILE` and `STAGE3_FLAVOR`. It must not silently substitute desktop, LLVM, SELinux, no-multilib, split-usr, non-amd64, or unrelated variants.
 
 ## Required Metadata Files
 
 For the selected variant, the workflow must use official metadata where available:
 
-- `latest-stage3-amd64-openrc.txt` or `latest-stage3-amd64-systemd.txt`
+- the `latest-stage3-*` file matching `PROFILE` and `STAGE3_FLAVOR`
 - selected `stage3-amd64-<variant>-<timestamp>.tar.xz`
 - selected tarball `.DIGESTS` or `.DIGESTS.asc`
 - selected tarball `.asc`
@@ -80,8 +86,9 @@ The selected stage3 must match all of these values:
 - architecture: `amd64`
 - `PROFILE=openrc` maps to `stage3_variant=openrc`
 - `PROFILE=systemd` maps to `stage3_variant=systemd`
-- selected metadata path matches the selected variant
-- selected tarball filename matches the selected variant
+- `STAGE3_FLAVOR` is `standard`, `hardened`, or `musl`
+- selected metadata path matches the selected profile and flavor
+- selected tarball filename matches the selected profile and flavor
 
 Filename checks are not sufficient by themselves when official metadata can be parsed. Metadata selection and variant variables must agree.
 
@@ -95,7 +102,7 @@ logs/install-runs/<run-id>/stage3/
 
 Evidence must include:
 
-- selected profile and stage3 variant,
+- selected profile, stage3 variant, and stage3 flavor,
 - source mirror or URL,
 - selected metadata file names,
 - selected tarball file name,
@@ -110,8 +117,8 @@ Do not log API keys, private SSH keys, tokens, passwords, cookies, or private mi
 
 ## Failure Modes
 
-- selected variant does not match `PROFILE`
-- metadata path does not match selected variant
+- selected variant does not match `PROFILE` and `STAGE3_FLAVOR`
+- metadata path does not match selected profile and flavor
 - metadata download fails
 - tarball download fails
 - checksum metadata is missing

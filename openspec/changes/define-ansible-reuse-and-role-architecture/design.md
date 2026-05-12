@@ -140,6 +140,7 @@ Shared variables should be defined once in `group_vars/all.yml` or equivalent:
 - `filesystem`
 - `boot_mode`
 - `stage3_variant`
+- `stage3_flavor`
 - `init_system`
 - `enable_ssh`
 - `confirm_wipe_disk`
@@ -161,6 +162,7 @@ Required variable rules:
 - `confirm_wipe_disk` must be explicitly set for destructive operations.
 - `init_system` must be either `openrc` or `systemd`.
 - `stage3_variant` must match `init_system`.
+- `stage3_flavor` must be `standard`, `hardened`, or `musl` and select the matching official stage3/profile family.
 - `filesystem` defaults may remain simple, such as `ext4`, but must be documented.
 - `boot_mode` defaults may remain `uefi`, but BIOS fallback must be explicit if supported later.
 - `vm_guest_mode=true` may relax only host-specific assumptions that do not weaken disk safety.

@@ -95,8 +95,14 @@ Profile selection must:
 
 Current variant data:
 
-- `PROFILE=openrc`: `default/linux/amd64/23.0`
-- `PROFILE=systemd`: `default/linux/amd64/23.0/systemd`
+| `PROFILE` | `STAGE3_FLAVOR` | Portage profile |
+| --- | --- | --- |
+| `openrc` | `standard` | `default/linux/amd64/23.0` |
+| `systemd` | `standard` | `default/linux/amd64/23.0/systemd` |
+| `openrc` | `hardened` | `default/linux/amd64/23.0/hardened` |
+| `systemd` | `hardened` | `default/linux/amd64/23.0/hardened/systemd` |
+| `openrc` | `musl` | `default/linux/amd64/23.0/musl` |
+| `systemd` | `musl` | `default/linux/amd64/23.0/musl/systemd` |
 
 If the selected profile is not clearly amd64 and does not match the requested init system, stop and reselect.
 

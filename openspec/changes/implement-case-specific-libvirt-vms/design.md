@@ -2,14 +2,22 @@
 
 ## Context
 
-The current project distinguishes reusable Ansible execution over SSH from the local libvirt validation harness. The v1 platform is `amd64`, and the install matrix already identifies four amd64 cases:
+The current project distinguishes reusable Ansible execution over SSH from the local libvirt validation harness. The v1 platform is `amd64`, and the install matrix identifies amd64 cases from init profile, filesystem, and stage3 flavor:
 
-| Case | Platform | Profile | Filesystem |
-| --- | --- | --- | --- |
-| `amd64-openrc-ext4` | `amd64` | `openrc` | `ext4` |
-| `amd64-openrc-btrfs` | `amd64` | `openrc` | `btrfs` |
-| `amd64-systemd-ext4` | `amd64` | `systemd` | `ext4` |
-| `amd64-systemd-btrfs` | `amd64` | `systemd` | `btrfs` |
+| Case | Platform | Profile | Filesystem | Stage3 flavor |
+| --- | --- | --- | --- | --- |
+| `amd64-openrc-ext4` | `amd64` | `openrc` | `ext4` | `standard` |
+| `amd64-openrc-btrfs` | `amd64` | `openrc` | `btrfs` | `standard` |
+| `amd64-systemd-ext4` | `amd64` | `systemd` | `ext4` | `standard` |
+| `amd64-systemd-btrfs` | `amd64` | `systemd` | `btrfs` | `standard` |
+| `amd64-openrc-ext4-hardened` | `amd64` | `openrc` | `ext4` | `hardened` |
+| `amd64-openrc-btrfs-hardened` | `amd64` | `openrc` | `btrfs` | `hardened` |
+| `amd64-systemd-ext4-hardened` | `amd64` | `systemd` | `ext4` | `hardened` |
+| `amd64-systemd-btrfs-hardened` | `amd64` | `systemd` | `btrfs` | `hardened` |
+| `amd64-openrc-ext4-musl` | `amd64` | `openrc` | `ext4` | `musl` |
+| `amd64-openrc-btrfs-musl` | `amd64` | `openrc` | `btrfs` | `musl` |
+| `amd64-systemd-ext4-musl` | `amd64` | `systemd` | `ext4` | `musl` |
+| `amd64-systemd-btrfs-musl` | `amd64` | `systemd` | `btrfs` | `musl` |
 
 Today the matrix planner can name entries, but executable VM operations still center on a generic configured VM unless overridden manually. This change defines a project rule and implementation plan for case-specific libvirt domains and artifacts.
 
@@ -106,13 +114,13 @@ If the current implementation uses different intermediate paths, it must preserv
 
 The implementation must prevent accidental disk sharing between cases. The default disk path must be case-specific. If an operator supplies `VM_DISK` manually, the workflow must still validate the path, print it before use, and ensure matrix workflows do not reuse that override for multiple cases.
 
-Generated libvirt metadata should include the project ownership marker plus optional `VM_TEST_IMAGE_NAME`, platform `amd64`, the selected `PROFILE`, `FILESYSTEM`, and case name. Existing domains with matching names but missing or conflicting metadata must be refused for normal start, SSH bootstrap, and cleanup paths unless a recovery path explicitly proves they are safe project artifacts.
+Generated libvirt metadata should include the project ownership marker plus optional `VM_TEST_IMAGE_NAME`, platform `amd64`, the selected `PROFILE`, `FILESYSTEM`, `STAGE3_FLAVOR`, and case name. Existing domains with matching names but missing or conflicting metadata must be refused for normal start, SSH bootstrap, and cleanup paths unless a recovery path explicitly proves they are safe project artifacts.
 
 If deterministic MAC addresses are generated, they must be unique per case. If libvirt generates MAC addresses automatically, IP discovery must still filter by the selected case domain rather than a generic VM name.
 
 ### Makefile Interface
 
-Existing VM targets should accept `PROFILE` and `FILESYSTEM` and compute case-specific VM values before calling scripts:
+Existing VM targets should accept `PROFILE`, `FILESYSTEM`, and later approved selectors such as `STAGE3_FLAVOR`, then compute case-specific VM values before calling scripts:
 
 ```sh
 make vm-list-cases
@@ -127,7 +135,7 @@ make vm-e2e-install PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda ADMIN_U
 make vm-clean PROFILE=openrc FILESYSTEM=ext4 I_UNDERSTAND_CLEANUP_DELETE=DELETE
 ```
 
-`make vm-list-cases` should be read-only. It should print the four supported cases, generated VM names, qcow2 paths, state paths, and whether the corresponding domain currently exists.
+`make vm-list-cases` should be read-only. It should print all currently supported cases, generated VM names, qcow2 paths, state paths, derived user-mode SSH ports, and whether the corresponding domain currently exists.
 
 `VM_TEST_IMAGE_NAME=<image-name>` should be accepted by list and matrix targets as an optional label. It must be printed in the selected configuration when set. It must not be required for normal validation.
 
@@ -142,7 +150,7 @@ make vm-amd64-systemd-btrfs-start
 
 Aliases must delegate to the same shared case-selection logic. They must not duplicate script command chains.
 
-The no-override default `make vm-start` may map to `PROFILE=openrc FILESYSTEM=ext4`, because those defaults already exist. Documentation must make clear that this now means the `amd64-openrc-ext4` case VM, not a generic domain named only `gentoo-ai-installer`.
+The no-override default `make vm-start` may map to `PROFILE=openrc FILESYSTEM=ext4 STAGE3_FLAVOR=standard`, because those defaults already exist. Documentation must make clear that this now means the `amd64-openrc-ext4` standard stage3 case VM, not a generic domain named only `gentoo-ai-installer`.
 
 ### Matrix Integration
 
@@ -181,7 +189,7 @@ Local VM wrappers may set case-specific default `INSTALL_STATE_FILE` values for 
 
 Update:
 
-- `README.md` with links to all four per-case quickstarts.
+- `README.md` with links to all supported per-case quickstarts.
 - `docs/quickstarts/openrc-ext4.md`, `docs/quickstarts/openrc-btrfs.md`, `docs/quickstarts/systemd-ext4.md`, and `docs/quickstarts/systemd-btrfs.md` with commands for one-case VM validation.
 - `docs/libvirt-manual-install-test.md` with case selection examples.
 - `docs/libvirt-install-test-matrix.md` with concrete case VM names.
@@ -203,5 +211,5 @@ Quickstarts must describe how to include a manual test image label with `VM_TEST
 - Operators may confuse `/dev/vda` VM examples with real hardware. Mitigation: keep `/dev/vda` labeled as VM-only in docs and require explicit `INSTALL_DISK`.
 - Existing generic VM workflows could break if the migration is abrupt. Mitigation: preserve compatibility aliases where practical and document the case-specific default.
 - If cleanup is too broad, unrelated VM artifacts could be deleted. Mitigation: cleanup must target configured case artifacts only and validate paths before deletion.
-- If all four VMs are run at the same time, shared SSH ports, state files, or domain MACs could collide. Mitigation: default to managed networking, derive per-case state paths, and validate unique case identity before defining domains.
+- If all supported case VMs are run at the same time, shared SSH ports, state files, or domain MACs could collide. Mitigation: default to managed networking, derive per-case state paths, and validate unique case identity before defining domains.
 - Existing generic domains or disks may remain after migration. Mitigation: do not auto-delete them; document how to inspect and clean them separately after confirmation.

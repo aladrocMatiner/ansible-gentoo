@@ -78,6 +78,7 @@ The roles are shared by OpenRC and systemd flows. Init-specific behavior in this
 - require `PROFILE`/`profile` to be `openrc` or `systemd`,
 - map `PROFILE=openrc` to `init_system=openrc` and `stage3_variant=openrc`,
 - map `PROFILE=systemd` to `init_system=systemd` and `stage3_variant=systemd`,
+- map `STAGE3_FLAVOR=standard|hardened|musl` to the selected official stage3/profile family,
 - report the selected filesystem plan: `ext4` or `btrfs`,
 - report the v1 assumptions: amd64, UEFI, `gentoo-kernel-bin`, GRUB, NetworkManager, no LUKS,
 - report the expected v1 layout as a plan only: 512 MiB EFI system partition and either ext4 root or Btrfs root using the remaining disk,

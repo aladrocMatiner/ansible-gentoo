@@ -24,10 +24,15 @@ case "$INSTALL_STATE_FILESYSTEM" in
   *) die "install state FILESYSTEM/filesystem must be 'ext4' or 'btrfs', got: $INSTALL_STATE_FILESYSTEM" ;;
 esac
 
+case "${INSTALL_STATE_STAGE3_FLAVOR:-standard}" in
+  standard|hardened|musl) ;;
+  *) die "install state STAGE3_FLAVOR/stage3_flavor must be 'standard', 'hardened', or 'musl', got: ${INSTALL_STATE_STAGE3_FLAVOR}" ;;
+esac
+
 printf 'Validating install resume plan for run %s\n' "$INSTALL_STATE_RUN_ID"
 printf 'Last completed phase: %s\n' "$INSTALL_STATE_LAST_PHASE"
 printf 'Install disk from state: %s\n' "$INSTALL_STATE_INSTALL_DISK"
-printf 'Profile/filesystem from state: %s/%s\n' "$INSTALL_STATE_PROFILE" "$INSTALL_STATE_FILESYSTEM"
+printf 'Profile/filesystem/stage3 flavor from state: %s/%s/%s\n' "$INSTALL_STATE_PROFILE" "$INSTALL_STATE_FILESYSTEM" "${INSTALL_STATE_STAGE3_FLAVOR:-standard}"
 if [[ "${INSTALL_STATE_MANUAL_REVALIDATION_REQUIRED:-no}" == "yes" ]]; then
   printf '%s\n' 'Manual intervention was recorded; this resume plan is the required revalidation step.'
 fi
@@ -45,4 +50,5 @@ ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   -e "install_disk=${INSTALL_STATE_INSTALL_DISK}" \
   -e "profile=${INSTALL_STATE_PROFILE}" \
   -e "filesystem=${INSTALL_STATE_FILESYSTEM}" \
+  -e "stage3_flavor=${INSTALL_STATE_STAGE3_FLAVOR:-standard}" \
   ansible/playbooks/install-resume-plan.yml

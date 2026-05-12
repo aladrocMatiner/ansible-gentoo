@@ -10,6 +10,8 @@ Expose operator-facing local targets through Makefile. The target names may eith
 ## Inventory
 Create `ansible/inventory/local.yml` with one host representing the live ISO and `ansible_connection=local`.
 
+The local inventory should use `/usr/bin/python3` as the interpreter. Do not use a host-user shim path or auto-discovered interpreter that may resolve to a controller-specific Python installation when the repository is copied into the live ISO.
+
 Local inventory must not rely on globally disabled host-key checking. Host-key exceptions are only valid for host-to-temporary-live-ISO SSH wrappers, not for local execution inside the live ISO.
 
 ## Safety

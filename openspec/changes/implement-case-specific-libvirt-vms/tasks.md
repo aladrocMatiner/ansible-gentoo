@@ -16,7 +16,7 @@
 - [x] 2.6 Derive case-specific local install-state paths for VM validation runs.
 - [x] 2.7 Validate that generated case names remain within libvirt name length and character limits.
 - [x] 2.8 Validate `VM_TEST_IMAGE_NAME` as a conservative label and reject paths, shell metacharacters, and secret-like values.
-- [x] 2.9 Add project ownership metadata that records optional `VM_TEST_IMAGE_NAME`, platform `amd64`, the selected profile, filesystem, and case name in generated domain XML.
+- [x] 2.9 Add project ownership metadata that records optional `VM_TEST_IMAGE_NAME`, platform `amd64`, the selected profile, filesystem, stage3 flavor, and case name in generated domain XML.
 
 ## 3. Makefile Integration
 
@@ -44,7 +44,7 @@
 - [x] 5.3 Ensure cleanup deletes only validated artifacts for the selected case.
 - [x] 5.4 Refuse to overwrite or redefine existing libvirt domains unless they are verified as project-owned.
 - [x] 5.5 Keep destructive install confirmations unchanged for work inside the VM.
-- [x] 5.6 Refuse existing domains whose project metadata conflicts with the selected image-name/amd64 profile/filesystem case.
+- [x] 5.6 Refuse existing domains whose project metadata conflicts with the selected image-name/amd64 profile/filesystem/stage3 flavor case.
 - [x] 5.7 Ensure manual `VM_DISK` overrides cannot be reused accidentally across matrix cases.
 
 ## 6. Matrix Alignment
@@ -69,7 +69,7 @@
 
 ## 8. Verification
 
-- [x] 8.1 Run the safe case listing target and confirm all four generated names include platform, profile, and filesystem.
+- [x] 8.1 Run the safe case listing target and confirm generated names include platform, profile, filesystem, and stage3 flavor when non-standard.
 - [x] 8.2 Run `make vm-test-matrix-plan`.
 - [x] 8.3 Run `make vm-check PROFILE=openrc FILESYSTEM=ext4` and one additional non-default case if host tools are available.
 - [x] 8.4 Run `make ansible-check`.

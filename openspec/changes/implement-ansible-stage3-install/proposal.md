@@ -33,7 +33,7 @@ This change maps to the Gentoo AMD64 Handbook "The stage file" section. The impl
 ## Acceptance Criteria
 - OpenRC selects amd64 OpenRC stage3.
 - systemd selects amd64 systemd stage3.
-- Selected stage3 variant matches `PROFILE` and `stage3_variant`.
+- Selected stage3 variant matches `PROFILE`, `stage3_variant`, and `stage3_flavor`.
 - Verification failure stops extraction.
 - Verification logs include filename, timestamp, checksum status, and signature status.
 - Cached stage3 artifacts are reverified before extraction.

@@ -14,10 +14,16 @@
     install_state_requested_current_file: "{{ install_state_checkpoint_file | default(lookup('ansible.builtin.env', 'INSTALL_STATE_FILE'), true) | default('var/state/current-install.json', true) }}"
     install_state_env_profile: "{{ lookup('ansible.builtin.env', 'PROFILE') | default('', true) }}"
     install_state_env_filesystem: "{{ lookup('ansible.builtin.env', 'FILESYSTEM') | default('', true) }}"
+    install_state_env_stage3_flavor: "{{ lookup('ansible.builtin.env', 'STAGE3_FLAVOR') | default('', true) }}"
+
+- name: Define install state default stage3 flavor suffix
+  ansible.builtin.set_fact:
+    install_state_default_stage3_flavor: "{{ stage3_flavor | default(install_state_env_stage3_flavor, true) | default('standard', true) }}"
+    install_state_default_stage3_suffix: "{{ '' if (stage3_flavor | default(install_state_env_stage3_flavor, true) | default('standard', true)) == 'standard' else '-' ~ (stage3_flavor | default(install_state_env_stage3_flavor, true) | default('standard', true)) }}"
 
 - name: Define install state default run id
   ansible.builtin.set_fact:
-    install_state_default_run_id: "{{ lookup('ansible.builtin.pipe', 'date -u +%Y%m%dT%H%M%S%NZ') }}-{{ profile | default(install_state_env_profile, true) | default('unknown', true) }}-{{ filesystem | default(install_state_env_filesystem, true) | default('unknown', true) }}"
+    install_state_default_run_id: "{{ lookup('ansible.builtin.pipe', 'date -u +%Y%m%dT%H%M%S%NZ') }}-{{ profile | default(install_state_env_profile, true) | default('unknown', true) }}-{{ filesystem | default(install_state_env_filesystem, true) | default('unknown', true) }}{{ install_state_default_stage3_suffix }}"
 
 - name: Validate install state file path
   ansible.builtin.assert:
@@ -111,6 +117,7 @@
   ansible.builtin.set_fact:
     install_state_profile: "{{ profile | default(install_state_env_profile, true) | default(install_state_existing.profile | default(''), true) }}"
     install_state_filesystem: "{{ filesystem | default(install_state_env_filesystem, true) | default(install_state_existing.filesystem | default(''), true) }}"
+    install_state_stage3_flavor: "{{ stage3_flavor | default(install_state_env_stage3_flavor, true) | default(install_state_existing.stage3_flavor | default('standard'), true) }}"
     install_state_boot_mode: "{{ boot_mode | default(install_state_existing.boot_mode | default('uefi')) }}"
     install_state_target_mount: "{{ target_mount | default(install_state_existing.target_mount | default('/mnt/gentoo')) }}"
     install_state_efi_mount: "{{ efi_mount | default(install_state_existing.efi_mount | default('/mnt/gentoo/boot/efi')) }}"
@@ -124,6 +131,7 @@
       timestamp: "{{ ansible_date_time.iso8601 }}"
       profile: "{{ install_state_profile }}"
       filesystem: "{{ install_state_filesystem }}"
+      stage3_flavor: "{{ install_state_stage3_flavor }}"
       boot_mode: "{{ install_state_boot_mode }}"
       target_mount: "{{ install_state_target_mount }}"
       efi_mount: "{{ install_state_efi_mount }}"
@@ -137,7 +145,7 @@
       {{
         (
           disk_safety_report.current_checkpoint
-          | combine({'profile': install_state_profile, 'filesystem': install_state_filesystem}, recursive=true)
+          | combine({'profile': install_state_profile, 'filesystem': install_state_filesystem, 'stage3_flavor': install_state_stage3_flavor}, recursive=true)
         )
         if (disk_safety_report is defined and disk_safety_report.current_checkpoint is defined)
         else (install_state_existing.resume_checkpoint | default({}))
@@ -152,6 +160,7 @@
       updated_at: "{{ ansible_date_time.iso8601 }}"
       profile: "{{ install_state_profile }}"
       filesystem: "{{ install_state_filesystem }}"
+      stage3_flavor: "{{ install_state_stage3_flavor }}"
       boot_mode: "{{ install_state_boot_mode }}"
       target_mount: "{{ install_state_target_mount }}"
       efi_mount: "{{ install_state_efi_mount }}"

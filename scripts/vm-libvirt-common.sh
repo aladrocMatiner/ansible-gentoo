@@ -216,15 +216,39 @@ validate_case_selection() {
     ext4|btrfs) ;;
     *) die "FILESYSTEM must be 'ext4' or 'btrfs', got: $FILESYSTEM" ;;
   esac
+  case "$STAGE3_FLAVOR" in
+    standard|hardened|musl) ;;
+    *) die "STAGE3_FLAVOR must be 'standard', 'hardened', or 'musl', got: $STAGE3_FLAVOR" ;;
+  esac
+}
+
+case_key_from() {
+  local profile=$1
+  local filesystem=$2
+  local stage3_flavor=$3
+
+  if [[ "$stage3_flavor" == standard ]]; then
+    printf '%s-%s-%s\n' "$VM_PLATFORM" "$profile" "$filesystem"
+  else
+    printf '%s-%s-%s-%s\n' "$VM_PLATFORM" "$profile" "$filesystem" "$stage3_flavor"
+  fi
 }
 
 case_ssh_host_port() {
-  case "$PROFILE/$FILESYSTEM" in
-    openrc/ext4) printf '%s\n' 2222 ;;
-    openrc/btrfs) printf '%s\n' 2223 ;;
-    systemd/ext4) printf '%s\n' 2224 ;;
-    systemd/btrfs) printf '%s\n' 2225 ;;
-    *) die "unsupported VM case for SSH port derivation: $PROFILE/$FILESYSTEM" ;;
+  case "$PROFILE/$FILESYSTEM/$STAGE3_FLAVOR" in
+    openrc/ext4/standard) printf '%s\n' 2222 ;;
+    openrc/btrfs/standard) printf '%s\n' 2223 ;;
+    systemd/ext4/standard) printf '%s\n' 2224 ;;
+    systemd/btrfs/standard) printf '%s\n' 2225 ;;
+    openrc/ext4/hardened) printf '%s\n' 2226 ;;
+    openrc/btrfs/hardened) printf '%s\n' 2227 ;;
+    systemd/ext4/hardened) printf '%s\n' 2228 ;;
+    systemd/btrfs/hardened) printf '%s\n' 2229 ;;
+    openrc/ext4/musl) printf '%s\n' 2230 ;;
+    openrc/btrfs/musl) printf '%s\n' 2231 ;;
+    systemd/ext4/musl) printf '%s\n' 2232 ;;
+    systemd/btrfs/musl) printf '%s\n' 2233 ;;
+    *) die "unsupported VM case for SSH port derivation: $PROFILE/$FILESYSTEM/$STAGE3_FLAVOR" ;;
   esac
 }
 
@@ -234,7 +258,7 @@ derive_case_vm_name() {
   local prefix
 
   if [[ "$base_name" == *"-amd64-"* ]]; then
-    die "VM_NAME must be the base name, not a full case name; use PROFILE and FILESYSTEM to select the case: $base_name"
+    die "VM_NAME must be the base name, not a full case name; use PROFILE, FILESYSTEM, and STAGE3_FLAVOR to select the case: $base_name"
   fi
   assert_conservative_name VM_NAME "$base_name"
   assert_safe_test_image_name "$test_image_name"
@@ -244,7 +268,11 @@ derive_case_vm_name() {
     prefix="${prefix}-${test_image_name}"
   fi
 
-  printf '%s-%s-%s-%s\n' "$prefix" "$VM_PLATFORM" "$PROFILE" "$FILESYSTEM"
+  if [[ "$STAGE3_FLAVOR" == standard ]]; then
+    printf '%s-%s-%s-%s\n' "$prefix" "$VM_PLATFORM" "$PROFILE" "$FILESYSTEM"
+  else
+    printf '%s-%s-%s-%s-%s\n' "$prefix" "$VM_PLATFORM" "$PROFILE" "$FILESYSTEM" "$STAGE3_FLAVOR"
+  fi
 }
 
 default_base_disk_path() {
@@ -397,6 +425,7 @@ load_vm_config() {
   VM_NET_MODE=${VM_NET_MODE:-network}
   PROFILE=${PROFILE:-openrc}
   FILESYSTEM=${FILESYSTEM:-ext4}
+  STAGE3_FLAVOR=${STAGE3_FLAVOR:-standard}
   validate_case_selection
   if [[ "${VM_CASE_DERIVED:-no}" == yes ]]; then
     VM_BASE_NAME=${VM_BASE_NAME:-gentoo-test}
@@ -406,7 +435,7 @@ load_vm_config() {
   VM_TEST_IMAGE_NAME=${VM_TEST_IMAGE_NAME:-}
   VM_ISO=${VM_ISO:-gentoo.iso}
   VM_DIR=${VM_DIR:-var/libvirt}
-  VM_CASE_KEY="${VM_PLATFORM}-${PROFILE}-${FILESYSTEM}"
+  VM_CASE_KEY=$(case_key_from "$PROFILE" "$FILESYSTEM" "$STAGE3_FLAVOR")
   derived_vm_name=$(derive_case_vm_name "$VM_BASE_NAME" "$VM_TEST_IMAGE_NAME")
   if [[ "${VM_CASE_DERIVED:-no}" == yes ]]; then
     [[ "${VM_NAME:-}" == "$derived_vm_name" ]] || die "derived VM_NAME does not match selected case: ${VM_NAME:-unset} != $derived_vm_name"
@@ -449,7 +478,7 @@ load_vm_config() {
   VM_KNOWN_HOSTS="${VM_LOG_DIR}/known_hosts"
   export VM_CASE_DERIVED VM_BASE_NAME VM_PLATFORM VM_CASE_KEY VM_CASE_NAME
   export VM_NAME VM_TEST_IMAGE_NAME VM_DIR VM_DISK VM_XML VM_NVRAM_DIR VM_NVRAM VM_KERNEL VM_INITRD VM_LOG_DIR VM_KNOWN_HOSTS
-  export VM_SSH_HOST_PORT PROFILE FILESYSTEM INSTALL_STATE_FILE
+  export VM_SSH_HOST_PORT PROFILE FILESYSTEM STAGE3_FLAVOR INSTALL_STATE_FILE
 }
 
 validate_vm_config() {
@@ -458,7 +487,7 @@ validate_vm_config() {
   assert_conservative_name VM_BASE_NAME "$VM_BASE_NAME"
   assert_safe_test_image_name "$VM_TEST_IMAGE_NAME"
   assert_safe_name "$VM_NAME"
-  [[ "$VM_CASE_KEY" == "${VM_PLATFORM}-${PROFILE}-${FILESYSTEM}" ]] || die "VM case key is inconsistent: $VM_CASE_KEY"
+  [[ "$VM_CASE_KEY" == "$(case_key_from "$PROFILE" "$FILESYSTEM" "$STAGE3_FLAVOR")" ]] || die "VM case key is inconsistent: $VM_CASE_KEY"
   assert_safe_rel_dir VM_DIR "$VM_DIR"
   assert_safe_rel_dir VM_LOG_DIR "$VM_LOG_DIR"
   assert_safe_disk "$VM_DIR" "$VM_DISK"
@@ -562,6 +591,9 @@ require_domain_metadata_value() {
   fi
 
   mapfile -t values < <(printf '%s\n' "$xml" | domain_metadata_values "$tag")
+  if [[ "$tag" == "stage3-flavor" && "$expected" == standard && "${#values[@]}" -eq 0 ]]; then
+    return 0
+  fi
   [[ "${#values[@]}" -eq 1 ]] || die "project domain must have exactly one <$tag> metadata value; found ${#values[@]}: $VM_NAME"
   [[ "${values[0]}" == "$expected" ]] || die "project domain metadata <$tag> does not match selected case: ${values[0]} != $expected"
 }
@@ -575,6 +607,7 @@ require_project_domain_metadata_matches_case() {
   require_domain_metadata_value "$xml" "platform" "$VM_PLATFORM"
   require_domain_metadata_value "$xml" "profile" "$PROFILE"
   require_domain_metadata_value "$xml" "filesystem" "$FILESYSTEM"
+  require_domain_metadata_value "$xml" "stage3-flavor" "$STAGE3_FLAVOR"
   require_domain_metadata_value "$xml" "case-key" "$VM_CASE_KEY"
   require_domain_metadata_value "$xml" "case-domain" "$VM_NAME"
 }
@@ -583,6 +616,7 @@ require_project_domain_matches_config() {
   local xml resolved_iso abs_iso abs_disk abs_nvram abs_kernel abs_initrd abs_dir source
   local disk_sources=()
   local cdrom_sources=()
+  local boot_modes=()
   local artifact_dirs=()
 
   xml=$(domain_xml)
@@ -599,6 +633,10 @@ require_project_domain_matches_config() {
   abs_dir=$(normalize_path "$VM_DIR")
 
   mapfile -t cdrom_sources < <(printf '%s\n' "$xml" | domain_cdrom_sources)
+  mapfile -t boot_modes < <(printf '%s\n' "$xml" | domain_metadata_values "boot-mode")
+  if [[ "${#cdrom_sources[@]}" -eq 0 && "${boot_modes[0]:-}" == "installed-disk" ]]; then
+    die "project domain is currently configured for installed-disk boot; run make vm-define to restore official live ISO boot mode before vm-check/vm-start: $VM_NAME"
+  fi
   [[ "${#cdrom_sources[@]}" -eq 1 ]] || die "project domain must have exactly one ISO CD-ROM source; found ${#cdrom_sources[@]}: $VM_NAME"
   [[ "${cdrom_sources[0]}" == "$abs_iso" ]] || die "project domain ISO source does not match VM_ISO: ${cdrom_sources[0]} != $abs_iso"
 
@@ -678,6 +716,7 @@ ensure_artifact_dirs() {
 print_vm_identity() {
   printf 'libvirt VM case:\n'
   printf '  selected case: %s\n' "$VM_CASE_KEY"
+  printf '  stage3 flavor: %s\n' "$STAGE3_FLAVOR"
   printf '  base name: %s\n' "$VM_BASE_NAME"
   if [[ -n "$VM_TEST_IMAGE_NAME" ]]; then
     printf '  test image label: %s\n' "$VM_TEST_IMAGE_NAME"
@@ -702,6 +741,7 @@ print_config() {
 
   printf 'libvirt VM configuration:\n'
   printf '  selected case: %s\n' "$VM_CASE_KEY"
+  printf '  STAGE3_FLAVOR: %s\n' "$STAGE3_FLAVOR"
   printf '  VM_BASE_NAME: %s\n' "$VM_BASE_NAME"
   printf '  VM_TEST_IMAGE_NAME: %s\n' "${VM_TEST_IMAGE_NAME:-}"
   printf '  LIBVIRT_URI: %s\n' "$LIBVIRT_URI"

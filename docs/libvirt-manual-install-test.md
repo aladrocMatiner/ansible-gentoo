@@ -23,9 +23,9 @@ make vm-list-cases
 make vm-check
 ```
 
-`host-check`, `vm-list-cases`, and `vm-check` are read-only. They do not create domains, disks, NVRAM files, or artifact directories. `host-check` verifies host resources and controller-side libvirt prerequisites before VM workflows; `vm-list-cases` prints the four supported amd64 case identities and generated artifacts; `vm-check` verifies OVMF/UEFI firmware is available and refuses an existing project domain that is not configured for OVMF UEFI boot.
+`host-check`, `vm-list-cases`, and `vm-check` are read-only. They do not create domains, disks, NVRAM files, or artifact directories. `host-check` verifies host resources and controller-side libvirt prerequisites before VM workflows and accepts a project-owned domain that is currently configured for installed-disk first-boot validation. `vm-list-cases` prints the 12 supported amd64 case identities and generated artifacts for OpenRC/systemd, ext4/Btrfs, and standard/hardened/musl stage3 flavors. `vm-check` verifies the selected VM is ready for the live ISO path and refuses an existing project domain that is currently configured for installed-disk boot; rerun `make vm-define` when you need to return that case to live-ISO boot.
 
-VM targets derive case-specific artifacts from `PROFILE` and `FILESYSTEM`. The default no-override case is `PROFILE=openrc FILESYSTEM=ext4`, which maps to:
+VM targets derive case-specific artifacts from `PROFILE`, `FILESYSTEM`, and `STAGE3_FLAVOR`. The default no-override case is `PROFILE=openrc FILESYSTEM=ext4 STAGE3_FLAVOR=standard`, which maps to:
 
 ```text
 domain: gentoo-test-amd64-openrc-ext4
@@ -38,6 +38,7 @@ Use another case by passing selectors:
 ```sh
 make vm-check PROFILE=systemd FILESYSTEM=btrfs
 make vm-start PROFILE=systemd FILESYSTEM=btrfs
+make vm-check PROFILE=openrc FILESYSTEM=btrfs STAGE3_FLAVOR=musl
 ```
 
 Use `VM_TEST_IMAGE_NAME=<label>` to distinguish a manual test line:
@@ -47,7 +48,7 @@ make vm-list-cases VM_TEST_IMAGE_NAME=handbook
 make vm-start PROFILE=openrc FILESYSTEM=ext4 VM_TEST_IMAGE_NAME=handbook
 ```
 
-The label is inserted before `amd64`, for example `gentoo-test-handbook-amd64-openrc-ext4`. It must be a conservative non-secret label and is not the ISO path.
+The label is inserted before `amd64`, for example `gentoo-test-handbook-amd64-openrc-ext4` or `gentoo-test-handbook-amd64-openrc-btrfs-musl`. It must be a conservative non-secret label and is not the ISO path.
 
 `vm-start` validates ISO resolution, UEFI firmware, libvirt networking, and path safety before it creates a missing disk or defines a missing domain. If those prerequisites are unavailable, it fails without creating new VM artifacts. When a matching inactive domain already exists, `vm-start` also verifies that the configured qcow2 disk, per-VM NVRAM, extracted kernel, and extracted initrd are present before asking libvirt to start it.
 
@@ -118,16 +119,17 @@ make install-plan PROFILE=openrc INSTALL_DISK=/dev/vda
 
 This matches `/dev/vda` against live ISO disk inventory only; it does not write to the qcow2 disk.
 
-To check that supported profile/filesystem variants stay represented, run the read-only matrix planner:
+To check that supported profile/filesystem/stage3 flavor variants stay represented, run the read-only matrix planner:
 
 ```sh
 make vm-test-matrix-plan
 ```
 
-It enumerates amd64 OpenRC/ext4, amd64 OpenRC/Btrfs, amd64 systemd/ext4, and amd64 systemd/Btrfs with the same generated domain and qcow2 names used by executable VM targets. It does not create or boot those domains; see `docs/libvirt-install-test-matrix.md`.
+It enumerates amd64 OpenRC/systemd, ext4/Btrfs, and standard/hardened/musl stage3 flavor cases with the same generated domain and qcow2 names used by executable VM targets. It does not create or boot those domains; see `docs/libvirt-install-test-matrix.md`.
 
 For one-case-at-a-time validation, use the per-case quickstarts:
 
+- [quickstart index](quickstarts/README.md)
 - [amd64 OpenRC + ext4](quickstarts/openrc-ext4.md)
 - [amd64 OpenRC + Btrfs](quickstarts/openrc-btrfs.md)
 - [amd64 systemd + ext4](quickstarts/systemd-ext4.md)
@@ -198,7 +200,7 @@ The VM disk must be a qcow2 file under the configured project-local artifact dir
 - symlinked path components,
 - existing disk files that are not qcow2.
 
-Generated domains include a project ownership marker and case metadata: base name, optional test image label, platform `amd64`, selected `PROFILE`, selected `FILESYSTEM`, case key, case domain, and artifact directory. Targets that start, inspect, SSH into, rsync to, or bootstrap SSH in a domain refuse to operate on an existing domain with the same name unless it is marked as project-owned and matches the configured official ISO plus generated artifacts: `VM_ISO`, `VM_DISK`, per-VM NVRAM, extracted kernel, extracted initrd, artifact directory metadata, and selected case metadata. Existing domains that reference `/dev/*` or libvirt block devices are rejected even if they carry the marker.
+Generated domains include a project ownership marker and case metadata: base name, optional test image label, platform `amd64`, selected `PROFILE`, selected `FILESYSTEM`, selected `STAGE3_FLAVOR`, case key, case domain, and artifact directory. Targets that start, inspect, SSH into, rsync to, or bootstrap SSH in a domain refuse to operate on an existing domain with the same name unless it is marked as project-owned and matches the configured official ISO plus generated artifacts: `VM_ISO`, `VM_DISK`, per-VM NVRAM, extracted kernel, extracted initrd, artifact directory metadata, and selected case metadata. Existing domains that reference `/dev/*` or libvirt block devices are rejected even if they carry the marker.
 
 Shutdown, forced stop, and cleanup require matching selected case metadata. Redefinition may replace an inactive project-marked domain only when it does not reference host block devices; use that path to regenerate older safe project XML with current case metadata.
 

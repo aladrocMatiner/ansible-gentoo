@@ -70,6 +70,7 @@ Local mode requires the live ISO session itself to provide:
 - `bash`,
 - `make`,
 - `ansible-playbook`,
+- `/usr/bin/python3` for the local Ansible interpreter,
 - root shell privileges,
 - network, DNS, and correct time for later download steps,
 - write access to the project directory for Ansible temporary files and state logs.

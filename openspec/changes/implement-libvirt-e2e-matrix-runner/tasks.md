@@ -11,7 +11,7 @@
 - [x] 2.1 Add `scripts/vm-e2e-matrix.py`.
 - [x] 2.2 Validate required operator inputs and confirmations.
 - [x] 2.3 Reject unsafe names, unsafe log paths, manual `VM_DISK` overrides, and guest disks other than `/dev/vda`.
-- [x] 2.4 Run all four supported cases through `make vm-e2e-install`.
+- [x] 2.4 Run all supported cases through `make vm-e2e-install`.
 - [x] 2.5 Support bounded parallelism with `VM_E2E_MATRIX_PARALLEL`.
 - [x] 2.6 Write per-case logs and matrix summary JSON.
 - [x] 2.7 Return non-zero if any case fails.

@@ -1,11 +1,11 @@
 ## Why
 
-The installer will support amd64 OpenRC/systemd and ext4/Btrfs. A single happy-path VM test is not enough to catch drift between variants.
+The installer will support amd64 OpenRC/systemd, ext4/Btrfs, and standard/hardened/musl stage3 flavors. A single happy-path VM test is not enough to catch drift between variants.
 
 ## What Changes
 
 - Define a libvirt-backed test matrix for basic console install validation.
-- Cover amd64 OpenRC + ext4, amd64 OpenRC + Btrfs, amd64 systemd + ext4, and amd64 systemd + Btrfs.
+- Cover amd64 OpenRC/systemd, ext4/Btrfs, and standard/hardened/musl stage3 flavor combinations.
 - Support an optional manual test image label in planned matrix names.
 - Keep tests on project-local qcow2 disks and the official Gentoo live ISO.
 - Separate read-only plan validation from destructive full-install validation.

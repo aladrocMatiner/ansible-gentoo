@@ -22,5 +22,6 @@
           install_disk: "{{ install_disk }}"
           profile: "{{ profile | default('') }}"
           filesystem: "{{ filesystem | default('') }}"
+          stage3_flavor: "{{ stage3_flavor | default('standard') }}"
           destructive_confirmation_required_later: true
           bootloader_confirmation_required_later: true

@@ -46,6 +46,27 @@
     path: "{{ system_target_root }}/usr/share/zoneinfo/{{ target_timezone }}"
   register: system_timezone_file
 
+- name: Install target timezone data when missing
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ system_target_root }}"
+      - /usr/bin/emerge
+      - --verbose
+      - --noreplace
+      - sys-libs/timezone-data
+  register: system_timezone_data_install
+  changed_when: true
+  failed_when: system_timezone_data_install.rc != 0
+  when:
+    - not ansible_check_mode
+    - not system_timezone_file.stat.exists
+
+- name: Recheck target timezone file after timezone data handling
+  ansible.builtin.stat:
+    path: "{{ system_target_root }}/usr/share/zoneinfo/{{ target_timezone }}"
+  register: system_timezone_file
+
 - name: Validate target timezone file
   ansible.builtin.assert:
     that:
@@ -116,6 +137,11 @@
   register: system_locale_env
   when: not ansible_check_mode
 
+- name: Check target locale generator
+  ansible.builtin.stat:
+    path: "{{ system_target_root }}/usr/sbin/locale-gen"
+  register: system_locale_gen_binary
+
 - name: Generate target locale when locale.gen changed
   ansible.builtin.command:
     argv:
@@ -128,6 +154,8 @@
   when:
     - not ansible_check_mode
     - system_locale_gen.changed
+    - system_locale_gen_binary.stat.exists
+    - system_locale_gen_binary.stat.executable
 
 - name: Refresh target environment after locale change
   ansible.builtin.command:
@@ -214,6 +242,7 @@
         "timezone": {{ target_timezone | to_json }},
         "localtime_link": {{ system_localtime_link.stdout | to_json }},
         "locale": {{ target_locale | to_json }},
+        "locale_gen_available": {{ (system_locale_gen_binary.stat.exists | default(false)) | to_json }},
         "keymap": {{ target_keymap | to_json }},
         "locale_gen_ran": {{ (system_locale_gen_run is defined and system_locale_gen_run is changed) | to_json }},
         "env_update_ran": {{ (system_env_update is defined and system_env_update is changed) | to_json }},

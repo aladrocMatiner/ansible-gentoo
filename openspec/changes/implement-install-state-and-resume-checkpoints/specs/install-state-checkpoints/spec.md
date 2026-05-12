@@ -5,7 +5,7 @@ The project SHALL record non-secret checkpoints for installer phases so operator
 
 #### Scenario: Record phase checkpoint
 - **WHEN** a Makefile-mediated installer phase completes
-- **THEN** the workflow SHALL record the completed phase, selected profile, filesystem, boot mode, relevant non-secret inputs, and validation evidence in project-local state
+- **THEN** the workflow SHALL record the completed phase, selected profile, filesystem, stage3 flavor, boot mode, relevant non-secret inputs, and validation evidence in project-local state
 - **AND** state files SHALL NOT contain passwords, API keys, private keys, login tokens, or secret variable values
 
 #### Scenario: Resume validation

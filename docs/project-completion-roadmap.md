@@ -175,7 +175,7 @@ Wire approved roles into thin OpenRC/systemd entrypoints over a shared install f
 Implemented targets: `make install`, `make install-openrc`, and `make install-systemd`.
 
 ### 35. `implement-libvirt-install-test-matrix`
-Validate OpenRC/systemd and ext4/Btrfs combinations in libvirt, first as read-only plans and later as destructive full-install runs.
+Validate OpenRC/systemd, ext4/Btrfs, and standard/hardened/musl stage3 flavor combinations in libvirt, first as read-only plans and later as destructive full-install runs.
 
 ### 36. `implement-first-boot-validation`
 After a VM install, boot from the installed disk without relying on the live ISO and verify network, hostname, root UUID, admin user, requested passwordless sudo mode, and optional SSH.

@@ -88,6 +88,7 @@ xml_vm_test_image_name=$(xml_escape "$VM_TEST_IMAGE_NAME")
 xml_vm_platform=$(xml_escape "$VM_PLATFORM")
 xml_profile=$(xml_escape "$PROFILE")
 xml_filesystem=$(xml_escape "$FILESYSTEM")
+xml_stage3_flavor=$(xml_escape "$STAGE3_FLAVOR")
 xml_case_key=$(xml_escape "$VM_CASE_KEY")
 xml_case_domain=$(xml_escape "$VM_NAME")
 xml_artifact_dir=$(xml_escape "$VM_DIR")
@@ -104,6 +105,7 @@ cat > "$VM_XML" <<EOF
       <platform>${xml_vm_platform}</platform>
       <profile>${xml_profile}</profile>
       <filesystem>${xml_filesystem}</filesystem>
+      <stage3-flavor>${xml_stage3_flavor}</stage3-flavor>
       <case-key>${xml_case_key}</case-key>
       <case-domain>${xml_case_domain}</case-domain>
       <artifact-dir>${xml_artifact_dir}</artifact-dir>

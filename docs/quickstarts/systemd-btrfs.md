@@ -9,6 +9,7 @@ Use these selectors:
 ```sh
 PROFILE=systemd
 FILESYSTEM=btrfs
+STAGE3_FLAVOR=standard
 INSTALL_DISK=/dev/vda
 ```
 
@@ -21,7 +22,7 @@ disk: var/libvirt/gentoo-test-amd64-systemd-btrfs.qcow2
 state: var/state/libvirt/gentoo-test-amd64-systemd-btrfs/current-install.json
 ```
 
-`INSTALL_DISK=/dev/vda` is valid only inside this disposable VM. Btrfs plans must include the approved root subvolume mount option `subvol=@`.
+`STAGE3_FLAVOR=standard` is the default and is omitted from the generated case name. `INSTALL_DISK=/dev/vda` is valid only inside this disposable VM. Btrfs plans must include the approved root subvolume mount option `subvol=@`.
 
 For a manual test label, add `VM_TEST_IMAGE_NAME=<label>` to the commands. Example: `VM_TEST_IMAGE_NAME=handbook` derives `gentoo-test-handbook-amd64-systemd-btrfs`.
 

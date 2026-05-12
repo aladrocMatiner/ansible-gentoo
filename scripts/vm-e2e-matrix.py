@@ -17,10 +17,18 @@ from typing import Any
 
 MATRIX_PLATFORM = "amd64"
 MATRIX_ENTRIES = [
-    ("openrc", "ext4"),
-    ("openrc", "btrfs"),
-    ("systemd", "ext4"),
-    ("systemd", "btrfs"),
+    ("openrc", "ext4", "standard"),
+    ("openrc", "btrfs", "standard"),
+    ("systemd", "ext4", "standard"),
+    ("systemd", "btrfs", "standard"),
+    ("openrc", "ext4", "hardened"),
+    ("openrc", "btrfs", "hardened"),
+    ("systemd", "ext4", "hardened"),
+    ("systemd", "btrfs", "hardened"),
+    ("openrc", "ext4", "musl"),
+    ("openrc", "btrfs", "musl"),
+    ("systemd", "ext4", "musl"),
+    ("systemd", "btrfs", "musl"),
 ]
 PUBLIC_KEY_RE = re.compile(
     r"^[ \t]*(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(256|384|521)|"
@@ -116,13 +124,19 @@ def validate_inputs() -> dict[str, str | int | Path]:
     log_root = validate_project_dir("VM_E2E_MATRIX_LOG_DIR", env("VM_E2E_MATRIX_LOG_DIR", "logs/libvirt-e2e-matrix"))
     install_disk = env("VM_TEST_MATRIX_INSTALL_DISK", "/dev/vda")
     parallel_text = env("VM_E2E_MATRIX_PARALLEL", "4")
+    ssh_host_port = env("VM_SSH_HOST_PORT", "2222")
 
     validate_conservative_name("VM_NAME", vm_base_name)
     if "-amd64-" in vm_base_name:
-        die("VM_E2E_MATRIX_INVALID", "VM_NAME must be the base name; use PROFILE and FILESYSTEM for case selection")
+        die("VM_E2E_MATRIX_INVALID", "VM_NAME must be the base name; use PROFILE, FILESYSTEM, and STAGE3_FLAVOR for case selection")
     validate_optional_test_image_name(vm_test_image_name)
     validate_no_manual_vm_disk(vm_dir, vm_base_name)
 
+    if ssh_host_port != "2222":
+        die(
+            "VM_E2E_MATRIX_INVALID",
+            "vm-e2e-matrix derives unique SSH host ports per case; leave VM_SSH_HOST_PORT at the default 2222",
+        )
     if env("ANSIBLE_LIVE_HOST"):
         die("VM_E2E_MATRIX_INVALID", "vm-e2e-matrix is local-libvirt only; unset ANSIBLE_LIVE_HOST")
     if install_disk != "/dev/vda":
@@ -156,9 +170,15 @@ def validate_inputs() -> dict[str, str | int | Path]:
     }
 
 
-def case_name(vm_base_name: str, vm_test_image_name: str, profile: str, filesystem: str) -> str:
+def case_key(profile: str, filesystem: str, stage3_flavor: str) -> str:
+    if stage3_flavor == "standard":
+        return f"{MATRIX_PLATFORM}-{profile}-{filesystem}"
+    return f"{MATRIX_PLATFORM}-{profile}-{filesystem}-{stage3_flavor}"
+
+
+def case_name(vm_base_name: str, vm_test_image_name: str, profile: str, filesystem: str, stage3_flavor: str) -> str:
     prefix = f"{vm_base_name}-{vm_test_image_name}" if vm_test_image_name else vm_base_name
-    name = f"{prefix}-{MATRIX_PLATFORM}-{profile}-{filesystem}"
+    name = f"{prefix}-{case_key(profile, filesystem, stage3_flavor)}"
     validate_conservative_name("case VM name", name)
     return name
 
@@ -201,6 +221,7 @@ def start_case(entry: dict[str, Any]) -> subprocess.Popen[str]:
         **os.environ,
         "PROFILE": entry["profile"],
         "FILESYSTEM": entry["filesystem"],
+        "STAGE3_FLAVOR": entry["stage3_flavor"],
         "INSTALL_DISK": entry["install_disk"],
         "VM_E2E_RESET_DISK": "yes",
     }
@@ -231,6 +252,7 @@ def finish_case(entry: dict[str, Any], process: subprocess.Popen[str]) -> dict[s
         "platform": MATRIX_PLATFORM,
         "profile": entry["profile"],
         "filesystem": entry["filesystem"],
+        "stage3_flavor": entry["stage3_flavor"],
         "vm_name": entry["vm_name"],
         "vm_disk": str(entry["vm_disk"]),
         "install_disk": entry["install_disk"],
@@ -252,9 +274,9 @@ def main() -> None:
         die("VM_E2E_MATRIX_INVALID", f"matrix run directory is unsafe: {run_dir}")
 
     pending: deque[dict[str, Any]] = deque()
-    for profile, filesystem in MATRIX_ENTRIES:
-        matrix_case = f"{MATRIX_PLATFORM}-{profile}-{filesystem}"
-        vm_name = case_name(str(config["vm_base_name"]), str(config["vm_test_image_name"]), profile, filesystem)
+    for profile, filesystem, stage3_flavor in MATRIX_ENTRIES:
+        matrix_case = case_key(profile, filesystem, stage3_flavor)
+        vm_name = case_name(str(config["vm_base_name"]), str(config["vm_test_image_name"]), profile, filesystem, stage3_flavor)
         vm_disk = Path(config["vm_dir"]) / f"{vm_name}.qcow2"
         if vm_disk.is_absolute() or ".." in vm_disk.parts or vm_disk.parts[: len(Path(config["vm_dir"]).parts)] != Path(config["vm_dir"]).parts:
             die("VM_E2E_MATRIX_INVALID", f"case VM disk escaped VM_DIR: {vm_disk}")
@@ -265,6 +287,7 @@ def main() -> None:
                 "case": matrix_case,
                 "profile": profile,
                 "filesystem": filesystem,
+                "stage3_flavor": stage3_flavor,
                 "vm_name": vm_name,
                 "vm_disk": vm_disk,
                 "state_file": Path("var/state/libvirt") / vm_name / "current-install.json",
@@ -280,7 +303,7 @@ def main() -> None:
     print("Libvirt E2E matrix validation")
     print(f"  run directory: {run_dir}")
     print(f"  parallelism: {parallel}")
-    print("  this will reset disposable qcow2 disks and install all four cases")
+    print(f"  this will reset disposable qcow2 disks and install all {len(MATRIX_ENTRIES)} supported cases")
 
     while pending or running:
         while pending and len(running) < parallel:

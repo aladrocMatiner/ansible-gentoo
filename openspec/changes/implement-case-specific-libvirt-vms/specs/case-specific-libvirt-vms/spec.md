@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Case-Specific Libvirt VM Identity
-The local libvirt validation harness SHALL provide deterministic VM identities for each supported platform/profile/filesystem case.
+The local libvirt validation harness SHALL provide deterministic VM identities for each supported platform/profile/filesystem/stage3 flavor case.
 
 #### Scenario: Derive OpenRC ext4 VM identity
 - **WHEN** the operator selects `PROFILE=openrc` and `FILESYSTEM=ext4`
@@ -34,7 +34,7 @@ Operator-facing libvirt VM actions SHALL be exposed through Makefile targets tha
 
 #### Scenario: List supported cases
 - **WHEN** the operator runs the safe case listing target
-- **THEN** the workflow SHALL list amd64 OpenRC/ext4, amd64 OpenRC/Btrfs, amd64 systemd/ext4, and amd64 systemd/Btrfs
+- **THEN** the workflow SHALL list amd64 OpenRC/systemd, ext4/Btrfs, and supported stage3 flavor cases
 - **AND** it SHALL print the derived VM domain name, qcow2 path, and state path for each case without creating, starting, stopping, or deleting any VM artifact
 - **AND** it SHALL include the selected manual test image label in derived names when `VM_TEST_IMAGE_NAME` is set
 
@@ -46,7 +46,7 @@ Operator-facing libvirt VM actions SHALL be exposed through Makefile targets tha
 
 #### Scenario: Plan matrix with executable names
 - **WHEN** the operator runs `make vm-test-matrix-plan`
-- **THEN** the report SHALL list the case-specific VM name and qcow2 disk path for amd64 OpenRC/ext4, amd64 OpenRC/Btrfs, amd64 systemd/ext4, and amd64 systemd/Btrfs
+- **THEN** the report SHALL list the case-specific VM name and qcow2 disk path for every supported case
 - **AND** those names SHALL match the executable VM target naming rules
 - **AND** the report SHALL record `VM_TEST_IMAGE_NAME` when it is set
 
@@ -65,7 +65,7 @@ Case-specific libvirt VM workflows SHALL keep generated artifacts within approve
 
 #### Scenario: Verify domain ownership and case metadata
 - **WHEN** a libvirt domain already exists for a generated case name
-- **THEN** normal VM workflows SHALL verify project ownership metadata and matching image-name/platform/profile/filesystem metadata before operating on it
+- **THEN** normal VM workflows SHALL verify project ownership metadata and matching image-name/platform/profile/filesystem/stage3 flavor metadata before operating on it
 - **AND** they SHALL refuse unrelated or conflicting domains with a clear recovery message
 
 #### Scenario: Avoid shared case state
@@ -101,8 +101,8 @@ The project SHALL document a separate Makefile-driven quickstart for each suppor
 
 #### Scenario: Quickstart exists for every case
 - **WHEN** an operator wants to validate one supported case at a time
-- **THEN** documentation SHALL provide one quickstart for amd64 OpenRC/ext4, amd64 OpenRC/Btrfs, amd64 systemd/ext4, and amd64 systemd/Btrfs
-- **AND** each quickstart SHALL include the platform, optional manual test image label, selected profile, filesystem, VM name, qcow2 path, install-state path, `/dev/vda` VM-only warning, read-only plans, disposable install command, validation command, cleanup command, and failure modes
+- **THEN** documentation SHALL provide one quickstart for every supported case
+- **AND** each quickstart SHALL include the platform, optional manual test image label, selected profile, filesystem, stage3 flavor, VM name, qcow2 path, install-state path, `/dev/vda` VM-only warning, read-only plans, disposable install command, validation command, cleanup command, and failure modes
 
 #### Scenario: Quickstarts use generated case artifacts
 - **WHEN** quickstart documentation references local libvirt VM artifacts

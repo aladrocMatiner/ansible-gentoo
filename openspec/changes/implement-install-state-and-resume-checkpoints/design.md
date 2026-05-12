@@ -24,6 +24,7 @@ The run state should record non-secret values:
 
 - profile/init system,
 - filesystem,
+- stage3 flavor,
 - boot mode,
 - target mount path,
 - selected install disk path,

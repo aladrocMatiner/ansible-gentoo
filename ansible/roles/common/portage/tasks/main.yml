@@ -5,12 +5,9 @@
     portage_common_flags: "-O2 -pipe"
     portage_detected_jobs: "{{ ansible_processor_nproc | default(ansible_processor_vcpus | default(2)) | int }}"
     portage_mirror_value: "{{ portage_gentoo_mirrors | default('https://distfiles.gentoo.org') }}"
+    portage_stage3_flavor: "{{ stage3_flavor | default('standard') }}"
 
-- name: Clamp Portage MAKEOPTS job count
-  ansible.builtin.set_fact:
-    portage_makeopts_jobs: "{{ [[portage_detected_jobs | int, 1] | max, 8] | min }}"
-
-- name: Validate Portage baseline inputs
+- name: Validate Portage selector inputs
   ansible.builtin.assert:
     that:
       - profile is defined
@@ -19,13 +16,34 @@
       - init_system == profile
       - stage3_variant is defined
       - stage3_variant == profile
+      - portage_stage3_flavor in ['standard', 'hardened', 'musl']
+    fail_msg: "PORTAGE_FAILED: profile, init system, stage3 variant, or stage3 flavor is outside the approved baseline."
+    success_msg: "Portage selector inputs are approved."
+
+- name: Derive matching Portage profile path
+  ansible.builtin.set_fact:
+    portage_profile_flavor_suffix: "{{ '' if portage_stage3_flavor == 'standard' else '/' ~ portage_stage3_flavor }}"
+    portage_profile_init_suffix: "{{ '/systemd' if profile == 'systemd' else '' }}"
+
+- name: Define matching Portage profile path
+  ansible.builtin.set_fact:
+    portage_profile_path: "default/linux/amd64/23.0{{ portage_profile_flavor_suffix }}{{ portage_profile_init_suffix }}"
+    portage_profile_description: "Gentoo amd64 {{ portage_stage3_flavor }} {{ profile }} profile"
+
+- name: Clamp Portage MAKEOPTS job count
+  ansible.builtin.set_fact:
+    portage_makeopts_jobs: "{{ [[portage_detected_jobs | int, 1] | max, 8] | min }}"
+
+- name: Validate Portage baseline inputs
+  ansible.builtin.assert:
+    that:
       - portage_profile_path is defined
-      - portage_profile_path is match('^default/linux/amd64/23\\.0(/systemd)?$')
+      - portage_profile_path is match('^default/linux/amd64/23\\.0((/systemd)|(/hardened(/systemd)?)|(/musl(/systemd)?))?$')
       - portage_target_root == '/mnt/gentoo'
       - portage_target_root != '/'
       - portage_mirror_value is match('^https://.+')
       - not (portage_mirror_value is search('\\s'))
-    fail_msg: "PORTAGE_FAILED: Portage profile, mirror, or target root is outside the approved baseline."
+    fail_msg: "PORTAGE_FAILED: Portage profile, stage3 flavor, mirror, or target root is outside the approved baseline."
     success_msg: "Portage baseline inputs are approved."
 
 - name: Require extracted stage3 before Portage baseline
@@ -114,6 +132,9 @@
   register: portage_sync
   changed_when: true
   failed_when: portage_sync.rc != 0
+  retries: 4
+  delay: 45
+  until: portage_sync.rc == 0
   when: not ansible_check_mode
 
 - name: List available Portage profiles
@@ -187,7 +208,7 @@
     that:
       - portage_profile_selected.stdout is regex('/profiles/' ~ (portage_profile_path | regex_escape) ~ '$')
     fail_msg: "PORTAGE_FAILED: selected Portage profile does not match {{ portage_profile_path }}."
-    success_msg: "Selected Portage profile matches the requested init system."
+    success_msg: "Selected Portage profile matches the requested init system and stage3 flavor."
 
 - name: Find pending protected config file updates
   ansible.builtin.command:
@@ -231,6 +252,7 @@
         "profile": {{ profile | to_json }},
         "init_system": {{ init_system | to_json }},
         "stage3_variant": {{ stage3_variant | to_json }},
+        "stage3_flavor": {{ portage_stage3_flavor | to_json }},
         "portage_profile_path": {{ portage_profile_path | to_json }},
         "portage_profile_description": {{ portage_profile_description | default('') | to_json }},
         "selected_profile": {{ portage_profile_selected.stdout | to_json }},
@@ -254,6 +276,7 @@
     portage_report:
       changed: "{{ (not ansible_check_mode) and ((portage_sync is changed) or (portage_profile_set is defined and portage_profile_set is changed)) }}"
       profile: "{{ profile }}"
+      stage3_flavor: "{{ portage_stage3_flavor }}"
       portage_profile: "{{ portage_profile_path }}"
       makeopts: "-j{{ portage_makeopts_jobs }}"
       mirrors: "{{ portage_mirror_value }}"

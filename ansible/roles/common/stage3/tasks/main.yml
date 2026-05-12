@@ -4,16 +4,18 @@
     that:
       - profile is defined
       - profile in ['openrc', 'systemd']
-    fail_msg: "STAGE3_UNSAFE: PROFILE/profile must be openrc or systemd."
-    success_msg: "Stage3 profile is supported."
+      - stage3_flavor | default('standard') in ['standard', 'hardened', 'musl']
+    fail_msg: "STAGE3_UNSAFE: PROFILE/profile or STAGE3_FLAVOR/stage3_flavor is outside the approved stage3 policy."
+    success_msg: "Stage3 profile and flavor are supported."
 
 - name: Derive stage3 selection facts
   ansible.builtin.set_fact:
     stage3_profile: "{{ profile }}"
     stage3_variant: "{{ profile }}"
-    stage3_base_name: "stage3-amd64-{{ profile }}"
-    stage3_variant_dir: "current-stage3-amd64-{{ profile }}"
-    stage3_latest_name: "latest-stage3-amd64-{{ profile }}.txt"
+    stage3_flavor_selected: "{{ stage3_flavor | default('standard') }}"
+    stage3_base_name: "{{ 'stage3-amd64-' ~ profile if (stage3_flavor | default('standard')) == 'standard' else 'stage3-amd64-' ~ (stage3_flavor | default('standard')) ~ '-' ~ profile }}"
+    stage3_variant_dir: "{{ 'current-' ~ ('stage3-amd64-' ~ profile if (stage3_flavor | default('standard')) == 'standard' else 'stage3-amd64-' ~ (stage3_flavor | default('standard')) ~ '-' ~ profile) }}"
+    stage3_latest_name: "{{ 'latest-' ~ ('stage3-amd64-' ~ profile if (stage3_flavor | default('standard')) == 'standard' else 'stage3-amd64-' ~ (stage3_flavor | default('standard')) ~ '-' ~ profile) ~ '.txt' }}"
     stage3_mirror_base: "{{ stage3_mirror | default('https://distfiles.gentoo.org/releases/amd64/autobuilds') | regex_replace('/+$', '') }}"
     stage3_cache_path: "{{ stage3_cache_dir | default('/tmp/gentoo-ai-installer/stage3') }}"
     stage3_target_root: "{{ target_mount | default('/mnt/gentoo') }}"
@@ -22,6 +24,7 @@
   ansible.builtin.assert:
     that:
       - stage3_profile == stage3_variant
+      - stage3_flavor_selected in ['standard', 'hardened', 'musl']
       - stage3_mirror_base is match('^https://.+')
       - not (stage3_mirror_base is search('\\s'))
       - stage3_cache_path is match('^/.+')
@@ -31,8 +34,8 @@
       - not (stage3_cache_path is match('^' ~ (stage3_target_root | regex_escape) ~ '/'))
       - stage3_target_root == '/mnt/gentoo'
       - stage3_target_root != '/'
-    fail_msg: "STAGE3_UNSAFE: stage3 mirror, cache, variant, or target root is outside the approved policy."
-    success_msg: "Stage3 mirror, cache, variant, and target root are within policy."
+    fail_msg: "STAGE3_UNSAFE: stage3 mirror, cache, profile, flavor, or target root is outside the approved policy."
+    success_msg: "Stage3 mirror, cache, profile, flavor, and target root are within policy."
 
 - name: Require stage3 verification tools
   ansible.builtin.stat:
@@ -116,6 +119,9 @@
     stage3_latest_path: "{{ stage3_cache_path }}/{{ stage3_latest_name }}"
     stage3_gnupg_dir: "{{ stage3_cache_path }}/gnupg"
     stage3_checksum_check_path: "{{ stage3_cache_path }}/stage3.sha512.check"
+    stage3_download_timeout_seconds: 120
+    stage3_download_retries_count: 5
+    stage3_download_retry_delay_seconds: 15
 
 - name: Create live ISO stage3 cache directory
   ansible.builtin.file:
@@ -137,6 +143,11 @@
     dest: "{{ stage3_latest_path }}"
     mode: "0644"
     force: true
+    timeout: "{{ stage3_download_timeout_seconds }}"
+  register: stage3_latest_download
+  retries: "{{ stage3_download_retries_count }}"
+  delay: "{{ stage3_download_retry_delay_seconds }}"
+  until: stage3_latest_download is succeeded
   when: not ansible_check_mode
 
 - name: Extract selected stage3 filename from official metadata
@@ -167,9 +178,9 @@
     that:
       - stage3_tarball_name is match('^' ~ (stage3_base_name | regex_escape) ~ '-[0-9TZ]+\\.tar\\.xz$')
       - stage3_tarball_name is search('amd64')
-      - stage3_tarball_name is search(stage3_variant)
+      - stage3_tarball_name is search(stage3_profile)
     fail_msg: "STAGE3_VARIANT_MISMATCH: selected {{ stage3_tarball_name }} does not match {{ stage3_base_name }}."
-    success_msg: "Selected stage3 filename matches the requested profile and variant."
+    success_msg: "Selected stage3 filename matches the requested profile and flavor."
 
 - name: Download selected stage3 tarball
   ansible.builtin.get_url:
@@ -177,6 +188,11 @@
     dest: "{{ stage3_tarball_path }}"
     mode: "0644"
     force: false
+    timeout: "{{ stage3_download_timeout_seconds }}"
+  register: stage3_tarball_download
+  retries: "{{ stage3_download_retries_count }}"
+  delay: "{{ stage3_download_retry_delay_seconds }}"
+  until: stage3_tarball_download is succeeded
   when: not ansible_check_mode
 
 - name: Download selected stage3 DIGESTS metadata
@@ -185,6 +201,11 @@
     dest: "{{ stage3_digest_path }}"
     mode: "0644"
     force: true
+    timeout: "{{ stage3_download_timeout_seconds }}"
+  register: stage3_digest_download
+  retries: "{{ stage3_download_retries_count }}"
+  delay: "{{ stage3_download_retry_delay_seconds }}"
+  until: stage3_digest_download is succeeded
   when: not ansible_check_mode
 
 - name: Download selected stage3 detached signature
@@ -193,17 +214,26 @@
     dest: "{{ stage3_signature_path }}"
     mode: "0644"
     force: true
+    timeout: "{{ stage3_download_timeout_seconds }}"
+  register: stage3_signature_download
+  retries: "{{ stage3_download_retries_count }}"
+  delay: "{{ stage3_download_retry_delay_seconds }}"
+  until: stage3_signature_download is succeeded
   when: not ansible_check_mode
 
 - name: Check optional stage3 SHA256 metadata
   ansible.builtin.uri:
     url: "{{ stage3_sha256_url }}"
     method: HEAD
+    timeout: "{{ stage3_download_timeout_seconds }}"
     status_code:
       - 200
       - 404
   register: stage3_sha256_head
   changed_when: false
+  retries: "{{ stage3_download_retries_count }}"
+  delay: "{{ stage3_download_retry_delay_seconds }}"
+  until: stage3_sha256_head is succeeded
   when: not ansible_check_mode
 
 - name: Download optional stage3 SHA256 metadata
@@ -212,6 +242,11 @@
     dest: "{{ stage3_sha256_path }}"
     mode: "0644"
     force: true
+    timeout: "{{ stage3_download_timeout_seconds }}"
+  register: stage3_sha256_download
+  retries: "{{ stage3_download_retries_count }}"
+  delay: "{{ stage3_download_retry_delay_seconds }}"
+  until: stage3_sha256_download is succeeded
   when:
     - not ansible_check_mode
     - stage3_sha256_head.status == 200
@@ -346,6 +381,7 @@
       {
         "profile": {{ stage3_profile | to_json }},
         "stage3_variant": {{ stage3_variant | to_json }},
+        "stage3_flavor": {{ stage3_flavor_selected | to_json }},
         "mirror": {{ stage3_mirror_base | to_json }},
         "variant_url": {{ stage3_variant_url | to_json }},
         "latest_metadata": {{ stage3_latest_name | to_json }},
@@ -408,6 +444,7 @@
       {
         "profile": {{ stage3_profile | to_json }},
         "stage3_variant": {{ stage3_variant | to_json }},
+        "stage3_flavor": {{ stage3_flavor_selected | to_json }},
         "tarball": {{ stage3_tarball_name | to_json }},
         "target_root": {{ stage3_target_root | to_json }},
         "changed": {{ stage3_extract.changed | default(false) | to_json }},
@@ -425,6 +462,7 @@
       changed: "{{ not ansible_check_mode }}"
       profile: "{{ stage3_profile }}"
       stage3_variant: "{{ stage3_variant }}"
+      stage3_flavor: "{{ stage3_flavor_selected }}"
       tarball: "{{ stage3_tarball_name }}"
       target_root: "{{ stage3_target_root }}"
       checksum: SHA512

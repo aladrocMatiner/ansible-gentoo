@@ -5,7 +5,7 @@ The audit bundle is technical. Operators also need a concise human-readable summ
 ## What Changes
 
 - Add an install report summary generated from state, audit, and final checks.
-- Summarize selected profile, filesystem, disk, partitions, UUIDs, hostname, users, network, time sync, SSH when enabled, Portage update/config status, bootloader, boot command line status, and validation status.
+- Summarize selected profile, filesystem, stage3 flavor, disk, partitions, UUIDs, hostname, users, network, time sync, SSH when enabled, Portage update/config status, bootloader, boot command line status, and validation status.
 - Summarize available evidence against the target system baseline.
 - Include next steps after reboot and what was intentionally not automated.
 - Keep secrets out of the report.

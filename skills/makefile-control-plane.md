@@ -61,6 +61,7 @@ Required project variables:
 - `HOSTNAME`
 - `PROFILE`
 - `FILESYSTEM`
+- `STAGE3_FLAVOR`
 - `BOOT_MODE`
 - `CODEX_INSTALL_METHOD`
 - `STAGE3_MIRROR`
@@ -126,6 +127,7 @@ Recommended defaults:
 - `HOSTNAME=gentoo`
 - `PROFILE=openrc`
 - `FILESYSTEM=ext4`
+- `STAGE3_FLAVOR=standard`
 - `BOOT_MODE=uefi`
 - `CODEX_INSTALL_METHOD=npm`
 - `STAGE3_MIRROR=https://distfiles.gentoo.org/releases/amd64/autobuilds`
@@ -142,7 +144,7 @@ Recommended VM/libvirt defaults:
 
 - `LIBVIRT_URI=qemu:///system`
 - `VM_NET_MODE=network`
-- `VM_NAME=gentoo-test` as the base name; VM targets derive `gentoo-test[-VM_TEST_IMAGE_NAME]-amd64-<profile>-<filesystem>`.
+- `VM_NAME=gentoo-test` as the base name; VM targets derive `gentoo-test[-VM_TEST_IMAGE_NAME]-amd64-<profile>-<filesystem>[-<stage3-flavor>]`.
 - `VM_TEST_IMAGE_NAME` empty by default; optional conservative label for the manual test image or test line.
 - `VM_ISO=gentoo.iso`
 - `VM_DIR=var/libvirt`
@@ -181,6 +183,7 @@ Rules:
 - `PROFILE=systemd` should map to Ansible `init_system=systemd`.
 - `FILESYSTEM=ext4` should map to the ext4 root layout.
 - `FILESYSTEM=btrfs` should map to the Btrfs root layout with planned subvolumes; it must not create a filesystem or subvolumes in read-only planning targets.
+- `STAGE3_FLAVOR=standard|hardened|musl` should select the official stage3 metadata and matching Portage profile family without changing disk safety gates.
 - `STAGE3_MIRROR` must be an HTTPS Gentoo stage3 metadata base URL; mirror overrides must not bypass verification.
 - `STAGE3_CACHE_DIR` must be a live-ISO-local absolute path outside `TARGET_MOUNT`.
 - `PORTAGE_GENTOO_MIRRORS` must be an HTTPS Gentoo distfiles mirror URL written to target `make.conf`; v1 treats it as a single URL value.
@@ -197,8 +200,8 @@ Rules:
 - Variables containing secrets must not be printed or committed.
 - `VM_DISK` must be a project-relative qcow2 path under `VM_DIR`.
 - `VM_TEST_IMAGE_NAME`, when set, must be a conservative label, not a path or secret; it may be inserted into generated VM domain, qcow2, log, and state names for manual validation images.
-- `PROFILE` and `FILESYSTEM` are the source of truth for local libvirt case selection; Makefile VM targets must not require operators to construct full case VM names manually.
-- `make vm-list-cases` must remain read-only and show generated domain, disk, state, log, and status for the four amd64 cases.
+- `PROFILE`, `FILESYSTEM`, and `STAGE3_FLAVOR` are the source of truth for local libvirt case selection; Makefile VM targets must not require operators to construct full case VM names manually.
+- `make vm-list-cases` must remain read-only and show generated domain, disk, state, log, and status for every supported amd64 profile/filesystem/stage3 flavor case.
 - `VM_DIR` must not be the project root, `/dev`, absolute, symlinked, or contain parent traversal.
 - `VM_BOOT_MODE=bios` must be rejected in v1.
 - `ANSIBLE_LIVE_HOST` must not default to a VM IP or a physical host.
@@ -271,18 +274,18 @@ Expected behavior:
 - `make openspec-list`: list OpenSpec changes.
 - `make openspec-validate`: validate OpenSpec changes.
 - `make ansible-check`: validate Ansible availability, syntax-check implemented playbooks, and run ansible-lint when available.
-- `make config-check`: validate `PROFILE`, `FILESYSTEM`, `BOOT_MODE`, `HOSTNAME`, mount paths, optional `INSTALL_DISK`, and destructive confirmation variables without touching live targets or disks.
+- `make config-check`: validate `PROFILE`, `FILESYSTEM`, `STAGE3_FLAVOR`, `BOOT_MODE`, `HOSTNAME`, mount paths, optional `INSTALL_DISK`, and destructive confirmation variables without touching live targets or disks.
 - `make handbook-trace`: regenerate the read-only Gentoo AMD64 Handbook traceability report from project metadata.
 - `make real-hardware-check`: run config validation with explicit `INSTALL_DISK`, record a local read-only physical-machine readiness report, and require backup/UEFI/network/power/recovery-media/preview/libvirt-validation acknowledgements without granting destructive permission.
 - `make release-check`: run local non-destructive release readiness checks for docs, OpenSpec validation, Ansible syntax/lint, secrets, tracked artifacts, and guardrail status.
 - `make ansible-live-ping`: validate SSH-based Ansible connectivity to the booted official live ISO target. It should use `ANSIBLE_LIVE_HOST` for network targets and libvirt discovery only for local tests.
 - `make ansible-live-preflight`: run read-only live ISO checks without selecting an install disk or mutating target disks.
-- `make host-check`: validate controller-side host requirements for local libvirt workflows, including tools, resources, OVMF firmware, ISO availability, libvirt access, and safe VM paths.
+- `make host-check`: validate controller-side host requirements for local libvirt workflows, including tools, resources, OVMF firmware, ISO availability, libvirt access, safe VM paths, and project-owned domain metadata. It must remain read-only and must not fail merely because the selected project-owned domain is currently in installed-disk boot mode.
 - `make local-live-preflight`: optional fallback target run inside the official live ISO with `ansible_connection=local`.
 - `make local-detect-disks`: optional fallback read-only disk detection target run inside the official live ISO.
 - `make local-install-plan`: optional fallback read-only install plan target run inside the official live ISO.
 - `make local-partition-plan`: optional fallback read-only partition plan target run inside the official live ISO; it still requires explicit `INSTALL_DISK`.
-- `make install-plan`: summarize intended install flow without making changes; default `PROFILE=openrc` and `FILESYSTEM=ext4`, but never default `INSTALL_DISK`.
+- `make install-plan`: summarize intended install flow without making changes; default `PROFILE=openrc`, `FILESYSTEM=ext4`, and `STAGE3_FLAVOR=standard`, but never default `INSTALL_DISK`.
 - `make partition-plan`: require explicit `INSTALL_DISK` and summarize the exact GPT partition layout without writing.
 - `make mount-plan`: require explicit `INSTALL_DISK` and summarize the future root and EFI mount layout without running `mount`, `umount`, or `mkdir`.
 - `make filesystem-plan`: require explicit `INSTALL_DISK` and summarize the future EFI/root filesystem creation plan without running `mkfs.*`, `wipefs`, `mount`, `umount`, or `mkdir`.
@@ -295,7 +298,7 @@ Expected behavior:
 - `make destructive-safety-check`: require explicit `INSTALL_DISK` and `I_UNDERSTAND_THIS_WIPES_DISK=yes`, then run the shared read-only disk safety role without mutating disks.
 - `make final-checks`: require explicit `ADMIN_USER`, run read-only reboot readiness checks, write a secret-safe local report, and never reboot automatically.
 - `make install-state`: print the current non-secret install state summary from `var/state/current-install.json`.
-- `make install-resume-plan`: read saved install state, reject secret-like state content, and validate current live ISO disk/profile/filesystem facts without resuming or satisfying destructive confirmations.
+- `make install-resume-plan`: read saved install state, reject secret-like state content, and validate current live ISO disk/profile/filesystem/stage3 flavor facts without resuming or satisfying destructive confirmations.
 - `make record-manual-step`: record a non-secret manual intervention note under `logs/install-runs/<run-id>/manual-steps/`, mark current state as requiring revalidation, and require `MANUAL_STEP_SUMMARY` plus `MANUAL_STEP_REASON`.
 - `make install-audit`: generate a secret-scanned local audit bundle under `logs/install-runs/<run-id>/audit-bundle/` from the current install state.
 - `make install-report`: generate a human-readable, secret-safe Markdown summary under `logs/install-runs/<run-id>/install-report.md` from current state and evidence.
@@ -308,13 +311,13 @@ Expected behavior:
 - `make install-run-clean`: delete only the current state pointer after `I_UNDERSTAND_DELETE_INSTALL_STATE=DELETE`; it must not delete run logs or target filesystems.
 - `make format`: require explicit `INSTALL_DISK` and `I_UNDERSTAND_THIS_WIPES_DISK=yes`, then create only the approved ESP/root filesystems for `FILESYSTEM=ext4` or `FILESYSTEM=btrfs` after printing a destructive preview.
 - `make mount-target`: require explicit `INSTALL_DISK`, reuse the approved mount/filesystem plans, mount only `/mnt/gentoo` and `/mnt/gentoo/boot/efi`, and validate existing mounts for idempotency.
-- `make stage3-install`: download, verify, and extract official Gentoo stage3 into verified `/mnt/gentoo` without chrooting or configuring Portage.
+- `make stage3-install`: download, verify, and extract official Gentoo stage3 for `PROFILE` and `STAGE3_FLAVOR` into verified `/mnt/gentoo` without chrooting or configuring Portage.
 - `make install-plan PROFILE=openrc`: summarize the planned OpenRC flow through the shared Ansible install path.
 - `make install-plan PROFILE=systemd`: summarize the planned systemd flow through the shared Ansible install path.
-- `make vm-list-cases`: read-only listing of amd64 OpenRC/systemd and ext4/Btrfs local libvirt case domains, disks, state paths, logs, ports, and current domain status.
+- `make vm-list-cases`: read-only listing of amd64 OpenRC/systemd, ext4/Btrfs, and standard/hardened/musl local libvirt case domains, disks, state paths, logs, ports, and current domain status.
 - `make vm-check`: read-only validation of libvirt tools, ISO resolution, UEFI firmware, network mode, and safe project-local paths.
 - `make vm-e2e-plan`: plan a full disposable libvirt install validation, require explicit `/dev/vda`, `ADMIN_USER`, and `ENABLE_SSH=yes`, integrate matrix planning, and avoid VM mutation.
-- `make vm-test-matrix-plan`: enumerate OpenRC/systemd and ext4/Btrfs libvirt validation entries, validate each entry's configuration, write local matrix evidence, and avoid creating disks or domains.
+- `make vm-test-matrix-plan`: enumerate OpenRC/systemd, ext4/Btrfs, and standard/hardened/musl libvirt validation entries, validate each entry's configuration, write local matrix evidence, and avoid creating disks or domains.
 
 ## 7. Semi-dangerous Targets
 Semi-dangerous and high-risk target-root targets may modify the live ISO environment or the mounted target root, but they must not partition, format, wipe, overwrite disks, install bootloaders, or reboot unless they are listed as destructive targets. User and password workflows are high-risk persistent target-root changes and require secret-safe input handling instead of disk-wipe confirmation.
@@ -355,7 +358,7 @@ Expected behavior:
 
 - `make bootstrap-codex`: install Codex temporarily in the live ISO using `CODEX_INSTALL_METHOD`.
 - `make prepare-live-env`: install or verify temporary live-session dependencies only.
-- `make download-stage3`: download the official amd64 stage3 and verification metadata for the selected `PROFILE` without extracting over existing data.
+- `make download-stage3`: download the official amd64 stage3 and verification metadata for the selected `PROFILE` and `STAGE3_FLAVOR` without extracting over existing data.
 - `make verify-stage3`: verify checksum and signature policy from `docs/stage3-signature-policy.md` before any extraction target can run.
 - `make stage3-install`: use `STAGE3_MIRROR` and `STAGE3_CACHE_DIR`, verify official metadata and SHA512/signatures, then extract only into mounted `/mnt/gentoo`.
 - `make mount-target`: mount explicitly provided partitions to explicitly provided target paths after mount-state checks; for Btrfs it must mount root with `subvol=@` and the approved subvolumes from `docs/btrfs-layout-policy.md`.

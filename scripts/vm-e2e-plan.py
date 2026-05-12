@@ -15,10 +15,18 @@ from typing import Any
 
 REPORT_DIR = Path("logs/libvirt-e2e")
 MATRIX_ENTRIES = [
-    {"profile": "openrc", "filesystem": "ext4"},
-    {"profile": "openrc", "filesystem": "btrfs"},
-    {"profile": "systemd", "filesystem": "ext4"},
-    {"profile": "systemd", "filesystem": "btrfs"},
+    {"profile": "openrc", "filesystem": "ext4", "stage3_flavor": "standard"},
+    {"profile": "openrc", "filesystem": "btrfs", "stage3_flavor": "standard"},
+    {"profile": "systemd", "filesystem": "ext4", "stage3_flavor": "standard"},
+    {"profile": "systemd", "filesystem": "btrfs", "stage3_flavor": "standard"},
+    {"profile": "openrc", "filesystem": "ext4", "stage3_flavor": "hardened"},
+    {"profile": "openrc", "filesystem": "btrfs", "stage3_flavor": "hardened"},
+    {"profile": "systemd", "filesystem": "ext4", "stage3_flavor": "hardened"},
+    {"profile": "systemd", "filesystem": "btrfs", "stage3_flavor": "hardened"},
+    {"profile": "openrc", "filesystem": "ext4", "stage3_flavor": "musl"},
+    {"profile": "openrc", "filesystem": "btrfs", "stage3_flavor": "musl"},
+    {"profile": "systemd", "filesystem": "ext4", "stage3_flavor": "musl"},
+    {"profile": "systemd", "filesystem": "btrfs", "stage3_flavor": "musl"},
 ]
 
 
@@ -34,6 +42,7 @@ def env(name: str, default: str = "") -> str:
 def validate() -> dict[str, str]:
     profile = env("PROFILE", "openrc")
     filesystem = env("FILESYSTEM", "ext4")
+    stage3_flavor = env("STAGE3_FLAVOR", "standard")
     install_disk = env("INSTALL_DISK")
     admin_user = env("ADMIN_USER")
     enable_ssh = env("ENABLE_SSH", "no")
@@ -45,6 +54,8 @@ def validate() -> dict[str, str]:
         errors.append(f"PROFILE must be openrc or systemd, got {profile}")
     if filesystem not in {"ext4", "btrfs"}:
         errors.append(f"FILESYSTEM must be ext4 or btrfs, got {filesystem}")
+    if stage3_flavor not in {"standard", "hardened", "musl"}:
+        errors.append(f"STAGE3_FLAVOR must be standard, hardened, or musl, got {stage3_flavor}")
     if install_disk != "/dev/vda":
         errors.append("INSTALL_DISK=/dev/vda must be passed explicitly for the disposable libvirt VM")
     if not re.fullmatch(r"[a-z_][a-z0-9_-]{0,31}\$?", admin_user):
@@ -64,6 +75,7 @@ def validate() -> dict[str, str]:
     return {
         "profile": profile,
         "filesystem": filesystem,
+        "stage3_flavor": stage3_flavor,
         "install_disk": install_disk,
         "admin_user": admin_user,
         "enable_ssh": enable_ssh,
@@ -101,7 +113,10 @@ def main() -> None:
         die("VM_E2E_INVALID", f"report directory is unsafe: {REPORT_DIR}")
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
-    run_dir = REPORT_DIR / f"{timestamp}-{selected['profile']}-{selected['filesystem']}"
+    suffix = f"{selected['profile']}-{selected['filesystem']}"
+    if selected["stage3_flavor"] != "standard":
+        suffix = f"{suffix}-{selected['stage3_flavor']}"
+    run_dir = REPORT_DIR / f"{timestamp}-{suffix}"
     run_dir.mkdir(mode=0o750)
 
     matrix_result = run_matrix_plan(run_dir / "matrix-plan.log")
@@ -136,12 +151,12 @@ def main() -> None:
         },
     }
     write_json(run_dir / "e2e-plan.json", report)
-    write_json(REPORT_DIR / f"latest-plan-{selected['profile']}-{selected['filesystem']}.json", report)
+    write_json(REPORT_DIR / f"latest-plan-{suffix}.json", report)
     write_json(REPORT_DIR / "latest-plan.json", report)
 
     print("Libvirt end-to-end install validation plan")
     print(f"  report: {run_dir / 'e2e-plan.json'}")
-    print(f"  selected: {selected['profile']}/{selected['filesystem']} on {selected['install_disk']}")
+    print(f"  selected: {selected['profile']}/{selected['filesystem']}/{selected['stage3_flavor']} on {selected['install_disk']}")
     print("  phases:")
     for phase in phases:
         print(f"    - {phase}")

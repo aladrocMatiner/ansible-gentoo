@@ -27,7 +27,7 @@ logs/install-runs/<run-id>/state.json
 logs/install-runs/<run-id>/events.jsonl
 ```
 
-Run ids include high-resolution UTC time plus the selected profile/filesystem when the caller does not provide `install_run_id`, so parallel VM validation runs do not share one log directory.
+Run ids include high-resolution UTC time plus the selected profile/filesystem/stage3 flavor when the caller does not provide `install_run_id`, so parallel VM validation runs do not share one log directory.
 
 Both `var/state/` and `logs/` are ignored by git. State files must not contain passwords, API keys, tokens, private keys, password hashes, or local credentials.
 

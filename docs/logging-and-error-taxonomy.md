@@ -40,7 +40,7 @@ Errors should include:
 
 - the code,
 - the failing target, script, role, or task,
-- safe context such as variable names, selected profile, filesystem, or target path,
+- safe context such as variable names, selected profile, filesystem, stage3 flavor, or target path,
 - the next recovery action.
 
 Errors must not include:

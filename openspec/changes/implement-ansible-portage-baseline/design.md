@@ -14,4 +14,6 @@ OpenRC and systemd profile names are variant data. Shared tasks select the profi
 ## Repos
 Sync official Gentoo repository. Do not enable GURU in the installed system by default.
 
+Repository sync should use bounded retries because rsync mirrors can be temporarily inconsistent during metadata updates. Retries must not bypass Portage Manifest verification; if verification still fails, the role fails closed and preserves logs.
+
 Codex may be installed temporarily in the live ISO through npm, GURU, or binary release workflows, but Codex does not need to be installed into the final Gentoo system in v1.

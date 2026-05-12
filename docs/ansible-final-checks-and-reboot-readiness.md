@@ -11,7 +11,7 @@ The role evaluates the v1 target baseline defined in `docs/target-system-baselin
 For the disposable libvirt VM:
 
 ```sh
-make final-checks PROFILE=openrc FILESYSTEM=btrfs ADMIN_USER=gentoo ENABLE_SSH=no
+make final-checks PROFILE=openrc FILESYSTEM=btrfs STAGE3_FLAVOR=standard ADMIN_USER=gentoo ENABLE_SSH=no
 ```
 
 For a network target, pass the live ISO address:
@@ -21,6 +21,7 @@ make final-checks \
   ANSIBLE_LIVE_HOST=<live-iso-ip> \
   PROFILE=openrc \
   FILESYSTEM=ext4 \
+  STAGE3_FLAVOR=hardened \
   ADMIN_USER=<admin-user>
 ```
 
@@ -61,7 +62,7 @@ The role validates:
 - NetworkManager, time-sync, syslog, cron, and optional SSH service enablement
 - admin user, group membership, shell, sudoers syntax, and requested passwordless sudo mode
 - hostname, timezone, locale, and keymap baseline
-- Portage profile, `make.conf`, GURU-disabled policy, and pending config-update files
+- Portage profile matching `PROFILE` and `STAGE3_FLAVOR`, `make.conf`, GURU-disabled policy, and pending config-update files
 - controller `make secret-check` status and high-risk secret-like target text
 
 ## Output
@@ -88,7 +89,8 @@ The bundle contains secret-scanned local evidence and includes the final reboot 
 - Missing fstab or wrong UUID policy: rerun `make generate-fstab`.
 - Missing kernel or initramfs: rerun `make install-kernel`.
 - Missing GRUB or EFI files: rerun `make install-bootloader`.
-- Missing packages or services: rerun `make install-system-packages` with the same `PROFILE`, `FILESYSTEM`, and `ENABLE_SSH` values.
+- Missing packages or services: rerun `make install-system-packages` with the same `PROFILE`, `FILESYSTEM`, `STAGE3_FLAVOR`, and `ENABLE_SSH` values.
+- Wrong Portage profile: rerun `make configure-portage` with the same `PROFILE` and `STAGE3_FLAVOR` used for `make stage3-install`.
 - Missing admin user or sudoers policy: rerun `make configure-users` with the same `ADMIN_SUDO_NOPASSWD` value intended for the target.
 - Pending Portage config updates: inspect the listed `._cfg` files before reboot.
 

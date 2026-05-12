@@ -8,7 +8,7 @@
   pre_tasks:
     - name: Define shared install run id
       ansible.builtin.set_fact:
-        install_run_id: "{{ lookup('ansible.builtin.pipe', 'date -u +%Y%m%dT%H%M%S%NZ') }}-{{ profile | default('openrc') }}-{{ filesystem | default('ext4') }}"
+        install_run_id: "{{ lookup('ansible.builtin.pipe', 'date -u +%Y%m%dT%H%M%S%NZ') }}-{{ profile | default('openrc') }}-{{ filesystem | default('ext4') }}{{ '' if (stage3_flavor | default('standard')) == 'standard' else '-' ~ (stage3_flavor | default('standard')) }}"
 
     - name: Report shared orchestration sequence
       ansible.builtin.debug:
@@ -16,6 +16,7 @@
           install_run_id: "{{ install_run_id }}"
           profile: "{{ profile | default('openrc') }}"
           filesystem: "{{ filesystem | default('ext4') }}"
+          stage3_flavor: "{{ stage3_flavor | default('standard') }}"
           handbook_baseline: "Gentoo AMD64 Handbook"
           shared_sequence:
             - live preflight

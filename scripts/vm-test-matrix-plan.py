@@ -14,10 +14,18 @@ from typing import Any
 
 
 MATRIX_ENTRIES = [
-    ("openrc", "ext4"),
-    ("openrc", "btrfs"),
-    ("systemd", "ext4"),
-    ("systemd", "btrfs"),
+    ("openrc", "ext4", "standard"),
+    ("openrc", "btrfs", "standard"),
+    ("systemd", "ext4", "standard"),
+    ("systemd", "btrfs", "standard"),
+    ("openrc", "ext4", "hardened"),
+    ("openrc", "btrfs", "hardened"),
+    ("systemd", "ext4", "hardened"),
+    ("systemd", "btrfs", "hardened"),
+    ("openrc", "ext4", "musl"),
+    ("openrc", "btrfs", "musl"),
+    ("systemd", "ext4", "musl"),
+    ("systemd", "btrfs", "musl"),
 ]
 MATRIX_PLATFORM = "amd64"
 PLAN_PHASES = [
@@ -105,8 +113,10 @@ def validate_no_manual_vm_disk(vm_dir: Path, vm_name: str) -> None:
         )
 
 
-def entry_name(profile: str, filesystem: str) -> str:
-    return f"{MATRIX_PLATFORM}-{profile}-{filesystem}"
+def entry_name(profile: str, filesystem: str, stage3_flavor: str) -> str:
+    if stage3_flavor == "standard":
+        return f"{MATRIX_PLATFORM}-{profile}-{filesystem}"
+    return f"{MATRIX_PLATFORM}-{profile}-{filesystem}-{stage3_flavor}"
 
 
 def run_command(command: list[str], env_vars: dict[str, str], log_path: Path) -> dict[str, Any]:
@@ -147,7 +157,7 @@ def main() -> None:
     validate_name("VM_NAME", vm_name)
     validate_optional_name("VM_TEST_IMAGE_NAME", vm_test_image_name)
     if "-amd64-" in vm_name:
-        die("VM_MATRIX_INVALID", "VM_NAME must be the base name; use PROFILE/FILESYSTEM for case selection")
+        die("VM_MATRIX_INVALID", "VM_NAME must be the base name; use PROFILE/FILESYSTEM/STAGE3_FLAVOR for case selection")
     validate_install_disk(install_disk)
     validate_no_manual_vm_disk(vm_dir, vm_name)
     if run_target_plans not in {"yes", "no"}:
@@ -162,8 +172,8 @@ def main() -> None:
     entries: list[dict[str, Any]] = []
     failures = 0
 
-    for profile, filesystem in MATRIX_ENTRIES:
-        name = entry_name(profile, filesystem)
+    for profile, filesystem, stage3_flavor in MATRIX_ENTRIES:
+        name = entry_name(profile, filesystem, stage3_flavor)
         matrix_vm_name = f"{vm_name_prefix(vm_name, vm_test_image_name)}-{name}"
         validate_name("matrix VM name", matrix_vm_name)
         matrix_disk = vm_dir / f"{matrix_vm_name}.qcow2"
@@ -176,6 +186,7 @@ def main() -> None:
         env_vars = {
             "PROFILE": profile,
             "FILESYSTEM": filesystem,
+            "STAGE3_FLAVOR": stage3_flavor,
             "INSTALL_DISK": install_disk,
             "VM_NAME": vm_name,
             "VM_TEST_IMAGE_NAME": vm_test_image_name,
@@ -210,6 +221,7 @@ def main() -> None:
             "test_image_name": vm_test_image_name,
             "profile": profile,
             "filesystem": filesystem,
+            "stage3_flavor": stage3_flavor,
             "vm_name": matrix_vm_name,
             "vm_disk": str(matrix_disk),
             "install_state_file": str(matrix_state),

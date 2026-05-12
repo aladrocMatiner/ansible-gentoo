@@ -256,6 +256,7 @@ Shared variables have one meaning across both flows:
 - `filesystem`
 - `boot_mode`
 - `stage3_variant`
+- `stage3_flavor`
 - `init_system`
 - `enable_ssh`
 - `confirm_wipe_disk`
@@ -272,6 +273,7 @@ Rules:
 - `confirm_wipe_disk` must be explicitly set for destructive disk operations.
 - `init_system` must be `openrc` or `systemd`.
 - `stage3_variant` must match `init_system`.
+- `stage3_flavor` must be `standard`, `hardened`, or `musl`, and must select the matching official stage3/profile family without changing shared disk safety.
 - Stage3 verification must follow `docs/stage3-signature-policy.md`: checksum verification is mandatory, signature verification must fail closed unless a later OpenSpec change approves an explicit override, and cached artifacts must be reverified before extraction.
 - Variant values should live in `group_vars/openrc.yml`, `group_vars/systemd.yml`, or an equivalent documented mechanism.
 - VM guest `/dev/vda` is allowed only when explicitly passed as `install_disk=/dev/vda` inside the libvirt-managed guest VM.
@@ -353,7 +355,7 @@ Required shared gates:
 - VM guest mode does not disable confirmations or disk identity checks.
 - Destructive apply targets print or call a read-only preview before accepting confirmation.
 - Resume checkpoints never replace destructive confirmations.
-- Resumed destructive workflows must route checkpoint comparison through `common/disk_safety`; the role compares current disk identity, descendant partition state, filesystem UUIDs, mountpoints, and recorded profile/filesystem values before allowing later mutation.
+- Resumed destructive workflows must route checkpoint comparison through `common/disk_safety`; the role compares current disk identity, descendant partition state, filesystem UUIDs, mountpoints, and recorded profile/filesystem/stage3 flavor values before allowing later mutation.
 - Logs, state files, and audit bundles must reject or redact secrets.
 - Audit bundle generation must stay local to `var/state/` and `logs/install-runs/`, copy only known evidence files, and fail closed on secret-like content.
 - Handbook traceability must be regenerated with `make handbook-trace` when installer phases, Makefile targets, Ansible roles, safety gates, or project-specific deviations change.
@@ -395,13 +397,13 @@ libvirt/virsh is the first safe test environment for OpenRC and systemd install 
 
 - Boot the official Gentoo live ISO from `./gentoo.iso`.
 - Use qcow2 disks under `./var/libvirt/`.
-- Select local VM cases with `PROFILE=openrc|systemd` and `FILESYSTEM=ext4|btrfs`; VM targets derive `gentoo-test[-VM_TEST_IMAGE_NAME]-amd64-<profile>-<filesystem>` domains and case-specific disks.
+- Select local VM cases with `PROFILE=openrc|systemd`, `FILESYSTEM=ext4|btrfs`, and `STAGE3_FLAVOR=standard|hardened|musl`; VM targets derive `gentoo-test[-VM_TEST_IMAGE_NAME]-amd64-<profile>-<filesystem>[-<stage3-flavor>]` domains and case-specific disks.
 - Use the libvirt managed `default` network for IP discovery when validating Ansible connectivity.
 - Do not touch host block devices.
 - Use `/dev/vda` only inside the guest VM and only when explicitly passed as `install_disk=/dev/vda`.
 - Validate OpenRC and systemd install plans in the libvirt-managed VM before real hardware testing.
 - Use `make vm-bootstrap-ssh` and `make vm-ansible-ping` only to validate access to the local live ISO test target; installer playbooks remain network/inventory-driven and separate approved work.
-- `make vm-test-matrix-plan` covers amd64 OpenRC/ext4, amd64 OpenRC/Btrfs, amd64 systemd/ext4, and amd64 systemd/Btrfs at the read-only planning layer.
+- `make vm-test-matrix-plan` covers amd64 OpenRC/systemd, ext4/Btrfs, and standard/hardened/musl stage3 flavors at the read-only planning layer.
 - `VM_TEST_IMAGE_NAME=<label>` may be used by local VM planning to label a manually tested image or test line in generated domain, disk, state, and log names. It is not an ISO path and must not affect reusable Ansible role behavior.
 - Reusable Ansible roles must not derive behavior from `VM_NAME`, libvirt XML, qcow2 paths, or the case domain; those are local harness details only.
 - `make vm-e2e-plan` and `make vm-e2e-install` validate a selected full disposable VM install path, including first boot and audit evidence, while keeping host block devices forbidden.
@@ -410,7 +412,7 @@ libvirt/virsh is the first safe test environment for OpenRC and systemd install 
 ## Acceptable Reuse
 Acceptable patterns:
 
-- One shared `stage3` role with `stage3_variant` selecting OpenRC or systemd assets.
+- One shared `stage3` role with `stage3_variant` selecting OpenRC or systemd assets and `stage3_flavor` selecting standard, hardened, or musl assets.
 - One shared `package_install` role using variant package lists.
 - One shared `ssh` role dispatching service enablement to init-specific tasks.
 - One shared `disk_safety` role used before partitioning, formatting, mounting, and bootloader work.

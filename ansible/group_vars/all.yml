@@ -25,3 +25,5 @@ base_console_package_use:
     flags: -anacron
   - atom: sys-fs/btrfs-progs
     flags: -convert -man zstd
+
+stage3_flavor: standard

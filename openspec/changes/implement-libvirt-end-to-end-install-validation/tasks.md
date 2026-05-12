@@ -7,7 +7,7 @@
 ## Implementation
 - [x] Add end-to-end VM test targets.
 - [x] Add logging.
-- [x] Integrate OpenRC/systemd and ext4/Btrfs test matrix.
+- [x] Integrate OpenRC/systemd, ext4/Btrfs, and supported stage3 flavor test matrix.
 - [x] Integrate first-boot validation once bootloader flow exists.
 - [x] Write audit bundle references per test run.
 - [x] Define OpenRC validation path.

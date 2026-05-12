@@ -127,6 +127,7 @@ Expected variables:
 - `kernel_package: gentoo-kernel-bin`
 - `bootloader: grub`
 - `stage3_variant`: must match `init_system`.
+- `stage3_flavor`: must be `standard`, `hardened`, or `musl` and must select the matching official Gentoo stage3/profile family.
 - `portage_profile_path`: variant profile path selected by shared `common/portage`.
 - `portage_gentoo_mirrors`: HTTPS distfiles mirror written to target `make.conf`.
 - `timezone`: target timezone under `/usr/share/zoneinfo`.
@@ -161,6 +162,7 @@ Rules:
 - `filesystem` must be `ext4` or `btrfs`.
 - Btrfs subvolume names, mountpoints, and root `subvol=@` behavior must come from the shared Btrfs policy, not from OpenRC/systemd-specific roles.
 - `stage3_variant` must match `init_system`.
+- `stage3_flavor` must remain independent from `init_system`; do not encode hardened or musl as `PROFILE`.
 - Stage3 verification must follow `docs/stage3-signature-policy.md`: checksum verification is mandatory, signature verification must fail closed unless an approved OpenSpec change defines an explicit override, and cached artifacts must be reverified before extraction.
 - OpenRC variables belong in `group_vars/openrc.yml` or an equivalent variant file.
 - systemd variables belong in `group_vars/systemd.yml` or an equivalent variant file.
@@ -278,6 +280,7 @@ Required gates:
 - Confirm UEFI.
 - Confirm `init_system` is `openrc` or `systemd`.
 - Confirm `stage3_variant` matches `init_system`.
+- Confirm `stage3_flavor` selects the matching official stage3 metadata and Portage profile path.
 - Confirm `target_mount` is not `/`.
 - Confirm target root and EFI mount paths before writing.
 - Confirm `/mnt/gentoo/boot/efi` in the live ISO maps to `/boot/efi` in the target system.
@@ -289,7 +292,7 @@ Required gates:
 - Confirm systemd flows do not call `rc-update` or `rc-service`.
 - Confirm destructive workflows print or call the shared preview before accepting confirmation.
 - Confirm preview targets are read-only, use `make partition-preview`, `make format-preview`, `make mount-preview`, `make users-preview`, `make bootloader-preview`, or an equivalent documented preview, and never set confirmation variables.
-- Confirm resume checkpoints do not replace destructive confirmations, and resumed destructive workflows compare current disk identity, descendant partition state, filesystem UUIDs, mountpoints, and recorded profile/filesystem values through `common/disk_safety`.
+- Confirm resume checkpoints do not replace destructive confirmations, and resumed destructive workflows compare current disk identity, descendant partition state, filesystem UUIDs, mountpoints, and recorded profile/filesystem/stage3 flavor values through `common/disk_safety`.
 - Confirm state output is curated and secret-safe; do not write passwords, password hashes, tokens, API keys, private keys, or local credentials into `var/state/` or `logs/install-runs/`.
 - Confirm wrapper failures and Ansible `fail_msg` values use the shared error taxonomy from `docs/logging-and-error-taxonomy.md`; new scripts should use `die_code` when they source `scripts/vm-libvirt-common.sh`.
 - Confirm audit bundle generation uses `make install-audit` or the final-check/full-install wrappers, reads only project-local `var/state/` and `logs/install-runs/` inputs, and rejects secret-like evidence before copying.
@@ -301,7 +304,7 @@ Required gates:
 - Confirm operator variables pass the shared config validation before apply workflows.
 - Confirm manual intervention is recorded through `make record-manual-step`, preserved as non-secret run evidence, and revalidated with `make install-resume-plan` or the relevant read-only checks before resume.
 - Confirm physical-machine destructive workflows are preceded by `make real-hardware-check`, stable disk identity is preferred, and readiness output is not treated as destructive confirmation.
-- Confirm libvirt matrix planning covers amd64 OpenRC/ext4, amd64 OpenRC/Btrfs, amd64 systemd/ext4, and amd64 systemd/Btrfs without creating disks or running destructive install steps.
+- Confirm libvirt matrix planning covers amd64 OpenRC/systemd, ext4/Btrfs, and standard/hardened/musl stage3 flavors without creating disks or running destructive install steps.
 - Confirm `VM_TEST_IMAGE_NAME`, when used, is treated only as local libvirt test-harness metadata for naming generated artifacts and never as an ISO path, package selector, disk selector, or reusable Ansible variable.
 - Confirm libvirt end-to-end validation runs only through `make vm-e2e-plan` and `make vm-e2e-install`, uses explicit `/dev/vda` inside the disposable VM, requires installed SSH, and preserves wipe plus bootloader confirmations.
 - Confirm bootloader/kernel tasks follow the shared boot command line policy.
@@ -456,7 +459,7 @@ Local `local-*` targets are fallback/diagnostic paths for running Ansible inside
 - Manual intervention occurred but was not recorded before automation resumed.
 - Manual revalidation was skipped after state was marked as requiring revalidation.
 - Physical-machine destructive work is attempted without the real hardware readiness check.
-- Libvirt matrix planning omits a supported amd64 platform/profile/filesystem case or treats `/dev/vda` as valid outside the disposable VM context.
+- Libvirt matrix planning omits a supported amd64 platform/profile/filesystem/stage3 flavor case or treats `/dev/vda` as valid outside the disposable VM context.
 - End-to-end VM validation bypasses the plan target, first-boot validation, audit bundle generation, or normal destructive confirmations.
 - Ansible task hides dangerous commands in `shell` or `command`.
 - Final checks are skipped before reboot.
@@ -472,7 +475,7 @@ Local `local-*` targets are fallback/diagnostic paths for running Ansible inside
 - Preserve logs after failure and inspect state before retrying.
 - If manual recovery is needed, record the non-secret reason and next action with `make record-manual-step`, then rerun `make install-resume-plan` before continuing.
 - If moving from libvirt to physical hardware, run `make real-hardware-check` with `ANSIBLE_LIVE_HOST` and an explicit stable `INSTALL_DISK` before destructive targets.
-- If validating variants locally, run `make vm-list-cases` and `make vm-test-matrix-plan` first; VM targets derive local harness domains from `PROFILE`, `FILESYSTEM`, fixed platform `amd64`, and optional `VM_TEST_IMAGE_NAME`.
+- If validating variants locally, run `make vm-list-cases` and `make vm-test-matrix-plan` first; VM targets derive local harness domains from `PROFILE`, `FILESYSTEM`, `STAGE3_FLAVOR`, fixed platform `amd64`, and optional `VM_TEST_IMAGE_NAME`.
 - Enable `VM_TEST_MATRIX_RUN_TARGET_PLANS=yes` only after the selected case live ISO VM has SSH connectivity.
 - If validating a complete disposable VM install, run `make vm-e2e-plan` first, then `make vm-e2e-install` only with explicit `/dev/vda`, `ADMIN_USER`, `ENABLE_SSH=yes`, wipe confirmation, and bootloader confirmation.
 - Before release-oriented handoff, run `make release-check` to verify Ansible syntax, OpenSpec validation, secrets, tracked artifacts, and release documentation.

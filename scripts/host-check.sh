@@ -25,6 +25,14 @@ require_command awk
 require_command df
 require_command grep
 require_command make
+require_command virsh
+require_command qemu-img
+require_command qemu-system-x86_64
+require_command isoinfo
+require_command ssh
+require_command rsync
+require_command ansible
+validate_vm_config
 
 available_mem_mib=$(awk '/^MemTotal:/ { print int($2 / 1024); exit }' /proc/meminfo 2>/dev/null || printf '0\n')
 required_mem_mib=$(( VM_RAM + 512 ))
@@ -50,11 +58,39 @@ else
   kvm_status="CPU virtualization flag present; /dev/kvm not visible"
 fi
 
-scripts/vm-check-libvirt.sh
+resolved_iso=$(resolve_iso_path "$VM_ISO")
+resolved_kernel_args=$(resolve_kernel_args "$resolved_iso")
+require_uefi_firmware
+
+if [[ -e "$VM_DISK" ]]; then
+  [[ -f "$VM_DISK" ]] || die "VM_DISK exists but is not a regular file: $VM_DISK"
+  assert_qcow2_image "$VM_DISK"
+fi
+
+require_libvirt_connection
+
+if [[ "$VM_NET_MODE" == network ]]; then
+  virsh --connect "$LIBVIRT_URI" net-info "$VM_NETWORK" >/dev/null 2>&1 || die "libvirt network not found on $LIBVIRT_URI: $VM_NETWORK"
+fi
+
+domain_status="not defined"
+if domain_exists; then
+  require_project_marker_and_no_host_block_devices
+  require_project_domain_metadata_matches_case
+  domain_status=$(virsh --connect "$LIBVIRT_URI" domstate "$VM_NAME" 2>/dev/null || printf 'unknown')
+fi
 
 printf 'host-check: OK\n'
+printf '  selected case: %s\n' "$VM_CASE_KEY"
+printf '  ISO: %s\n' "$resolved_iso"
+printf '  VM_NAME: %s\n' "$VM_NAME"
+printf '  domain status: %s\n' "$domain_status"
+printf '  VM_NET_MODE: %s\n' "$VM_NET_MODE"
+printf '  VM_KERNEL_ARGS: %s\n' "$resolved_kernel_args"
 printf '  memory available: %s MiB\n' "$available_mem_mib"
 printf '  memory required: %s MiB\n' "$required_mem_mib"
 printf '  disk space available: %s MiB\n' "$available_disk_mib"
 printf '  disk space required: %s MiB\n' "$required_disk_mib"
 printf '  KVM status: %s\n' "$kvm_status"
+printf '  OVMF_CODE: %s\n' "$OVMF_CODE"
+printf '  OVMF_VARS_TEMPLATE: %s\n' "$OVMF_VARS_TEMPLATE"

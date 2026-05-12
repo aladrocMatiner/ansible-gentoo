@@ -83,7 +83,7 @@ Rules:
 - No target may silently switch between session and system libvirt.
 
 ## 6. VM Defaults
-- Domain name: `gentoo-ai-installer`
+- Default domain name: `gentoo-test-amd64-openrc-ext4` from base `VM_NAME=gentoo-test`, platform `amd64`, `PROFILE=openrc`, `FILESYSTEM=ext4`, and `STAGE3_FLAVOR=standard`
 - Architecture: x86_64
 - RAM: 4096 MB
 - CPUs: 2

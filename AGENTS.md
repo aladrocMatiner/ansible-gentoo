@@ -92,7 +92,7 @@ Future Ansible implementation must reuse shared roles, tasks, variables, handler
 - New Ansible tasks must first be evaluated for reuse in the common flow before adding init-specific logic.
 - Shared Ansible roles should map back to the relevant official Gentoo AMD64 Handbook phase where practical, with deviations documented in the OpenSpec change or implementation summary.
 - If duplication is introduced, the agent must justify it in the OpenSpec change notes or implementation summary.
-- Makefile targets should call shared Ansible flows where practical and pass `PROFILE=openrc` or `PROFILE=systemd` into the shared flow.
+- Makefile targets should call shared Ansible flows where practical and pass `PROFILE=openrc|systemd`, `FILESYSTEM=ext4|btrfs`, and `STAGE3_FLAVOR=standard|hardened|musl` into the shared flow.
 - Makefile targets should support explicit network live ISO targets through documented variables such as `ANSIBLE_LIVE_HOST`, while keeping libvirt discovery as a local testing convenience.
 - Documentation must describe shared behavior once and call out init-specific behavior clearly.
 
@@ -116,7 +116,7 @@ VM docs must explain:
 
 - `./gentoo.iso`.
 - `./var/libvirt/`.
-- Case-specific VM naming from fixed platform `amd64`, `PROFILE`, `FILESYSTEM`, and optional `VM_TEST_IMAGE_NAME`.
+- Case-specific VM naming from fixed platform `amd64`, `PROFILE`, `FILESYSTEM`, `STAGE3_FLAVOR`, and optional `VM_TEST_IMAGE_NAME`.
 - qcow2 disk safety.
 - Optional `VM_TEST_IMAGE_NAME` labels when manual test image or test-line names affect generated VM artifacts.
 - libvirt URI and network mode.

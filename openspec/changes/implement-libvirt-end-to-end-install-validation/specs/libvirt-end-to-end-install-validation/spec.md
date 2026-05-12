@@ -14,7 +14,7 @@ The project SHALL validate full installer flows in libvirt before real hardware 
 
 #### Scenario: Matrix integration
 - **WHEN** end-to-end validation is planned
-- **THEN** it SHALL report OpenRC/systemd and ext4/Btrfs validation status
+- **THEN** it SHALL report OpenRC/systemd, ext4/Btrfs, and supported stage3 flavor validation status
 
 #### Scenario: Audit evidence
 - **WHEN** end-to-end validation completes

@@ -41,12 +41,13 @@ The Ansible architecture SHALL use a shared variable model with init-specific ov
 
 #### Scenario: Shared variables are defined consistently
 - **WHEN** an Ansible install flow runs
-- **THEN** variables such as `install_disk`, `hostname`, `admin_user`, `filesystem`, `boot_mode`, `stage3_variant`, `init_system`, `enable_ssh`, `confirm_wipe_disk`, `target_mount`, `efi_mount`, and `vm_guest_mode` SHALL have one documented meaning across OpenRC and systemd flows
+- **THEN** variables such as `install_disk`, `hostname`, `admin_user`, `filesystem`, `boot_mode`, `stage3_variant`, `stage3_flavor`, `init_system`, `enable_ssh`, `confirm_wipe_disk`, `target_mount`, `efi_mount`, and `vm_guest_mode` SHALL have one documented meaning across OpenRC and systemd flows
 - **AND** init-specific values SHALL live in `group_vars/openrc.yml`, `group_vars/systemd.yml`, or an equivalent documented variant mechanism
 
 #### Scenario: Init system and stage3 variant match
 - **WHEN** `init_system` is set to `openrc` or `systemd`
 - **THEN** `stage3_variant` SHALL match the selected init system
+- **AND** `stage3_flavor` SHALL select the official standard, hardened, or musl stage3/profile family
 - **AND** validation SHALL fail closed when the variant does not match
 
 ### Requirement: Shared Safety Gates

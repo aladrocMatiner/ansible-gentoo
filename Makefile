@@ -43,6 +43,7 @@ I_UNDERSTAND_THIS_WIPES_DISK ?=
 I_UNDERSTAND_BOOTLOADER_CHANGES ?=
 PROFILE ?= openrc
 FILESYSTEM ?= ext4
+STAGE3_FLAVOR ?= standard
 STAGE3_MIRROR ?= https://distfiles.gentoo.org/releases/amd64/autobuilds
 STAGE3_CACHE_DIR ?= /tmp/gentoo-ai-installer/stage3
 PORTAGE_GENTOO_MIRRORS ?= https://distfiles.gentoo.org
@@ -113,6 +114,7 @@ export I_UNDERSTAND_THIS_WIPES_DISK
 export I_UNDERSTAND_BOOTLOADER_CHANGES
 export PROFILE
 export FILESYSTEM
+export STAGE3_FLAVOR
 export STAGE3_MIRROR
 export STAGE3_CACHE_DIR
 export PORTAGE_GENTOO_MIRRORS
@@ -149,7 +151,7 @@ export VM_E2E_MATRIX_PARALLEL
 help:
 	@printf '%s\n' \
 		'gentoo-ai-installer targets:' \
-		'  make vm-list-cases   List supported amd64 PROFILE/FILESYSTEM VM cases and generated artifacts' \
+		'  make vm-list-cases   List supported amd64 PROFILE/FILESYSTEM/STAGE3_FLAVOR VM cases and generated artifacts' \
 		'  make vm-check        Verify libvirt tools, ISO, UEFI, network mode, and safe paths' \
 		'  make vm-disk         Create the project-local qcow2 VM disk if missing' \
 		'  make vm-define       Generate and define the libvirt domain' \
@@ -158,8 +160,8 @@ help:
 		'  make vm-validate-first-boot Boot installed VM and run read-only first-boot validation' \
 		'  make vm-e2e-plan     Plan libvirt end-to-end install validation without VM mutation' \
 		'  make vm-e2e-install  DESTRUCTIVE-IN-VM: run full disposable VM install validation' \
-		'  make vm-e2e-matrix   DESTRUCTIVE-IN-VM: run full disposable install validation for all four cases' \
-		'  make vm-test-matrix-plan Plan OpenRC/systemd x ext4/Btrfs libvirt validation matrix' \
+		'  make vm-e2e-matrix   DESTRUCTIVE-IN-VM: run full disposable install validation for all supported cases' \
+		'  make vm-test-matrix-plan Plan OpenRC/systemd x ext4/Btrfs x standard/hardened/musl libvirt matrix' \
 		'  make vm-test-matrix Alias for vm-test-matrix-plan' \
 		'  make vm-console      Attach to virsh console for the VM' \
 		'  make vm-viewer       Open graphical access with virt-viewer' \
@@ -182,7 +184,7 @@ help:
 		'  make local-install-plan Generate read-only local live ISO install plan' \
 		'  make local-partition-plan Generate read-only local live ISO partition plan (requires INSTALL_DISK)' \
 		'  make detect-disks    Run read-only Ansible disk detection against the live ISO target' \
-		'  make install-plan    Generate read-only Ansible install plan (PROFILE=openrc|systemd FILESYSTEM=ext4|btrfs)' \
+		'  make install-plan    Generate read-only Ansible install plan (PROFILE=openrc|systemd FILESYSTEM=ext4|btrfs STAGE3_FLAVOR=standard|hardened|musl)' \
 		'  make partition-plan  Generate read-only partition plan (requires INSTALL_DISK)' \
 		'  make mount-plan      Generate read-only mount plan (requires INSTALL_DISK)' \
 		'  make filesystem-plan Generate read-only filesystem format plan (requires INSTALL_DISK)' \
@@ -232,10 +234,10 @@ help:
 		'  make qemu-clean      Alias for vm-clean' \
 		'' \
 		'VM variables:' \
-		'  VM case defaults to amd64-$(PROFILE)-$(FILESYSTEM) using PROFILE=$(PROFILE) and FILESYSTEM=$(FILESYSTEM)' \
+		'  VM case defaults to amd64-$(PROFILE)-$(FILESYSTEM) using PROFILE=$(PROFILE), FILESYSTEM=$(FILESYSTEM), STAGE3_FLAVOR=$(STAGE3_FLAVOR)' \
 		'  LIBVIRT_URI=$(LIBVIRT_URI)' \
 		'  VM_NET_MODE=$(VM_NET_MODE)' \
-		'  VM_NAME=$(VM_NAME) (base name; VM targets derive <base>[-VM_TEST_IMAGE_NAME]-amd64-PROFILE-FILESYSTEM)' \
+		'  VM_NAME=$(VM_NAME) (base name; VM targets derive <base>[-VM_TEST_IMAGE_NAME]-amd64-PROFILE-FILESYSTEM[-STAGE3_FLAVOR])' \
 		'  VM_TEST_IMAGE_NAME=$(VM_TEST_IMAGE_NAME) (optional manual test image label)' \
 		'  VM_ISO=$(VM_ISO)' \
 		'  VM_DIR=$(VM_DIR)' \
@@ -276,6 +278,7 @@ help:
 		'  CODEX_INSTALL_METHOD=$(CODEX_INSTALL_METHOD)' \
 		'  PROFILE=$(PROFILE)' \
 		'  FILESYSTEM=$(FILESYSTEM)' \
+		'  STAGE3_FLAVOR=$(STAGE3_FLAVOR)' \
 		'  STAGE3_MIRROR=$(STAGE3_MIRROR)' \
 		'  STAGE3_CACHE_DIR=$(STAGE3_CACHE_DIR)' \
 		'  PORTAGE_GENTOO_MIRRORS=$(PORTAGE_GENTOO_MIRRORS)' \

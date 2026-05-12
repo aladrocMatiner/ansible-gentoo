@@ -27,7 +27,7 @@ Before any future `format` implementation is used, the operator should review `m
 - Target root path: `/mnt/gentoo`.
 - Confirmation that `/mnt/gentoo` is mounted.
 - Confirmation that `/mnt/gentoo` is the intended target root.
-- Selected stage3: official Gentoo amd64 stage3 tarball matching `PROFILE` and `stage3_variant`.
+- Selected stage3: official Gentoo amd64 stage3 tarball matching `PROFILE`, `stage3_variant`, and `STAGE3_FLAVOR`.
 - Network, DNS, and time status.
 - Download directory.
 - Download cache and mirror policy in `docs/download-cache-and-mirror-policy.md`.
@@ -40,11 +40,13 @@ Stage3 assumptions:
 - Architecture: amd64.
 - Init system: OpenRC for the manual phase-1 path, OpenRC or systemd for the reusable Ansible path.
 - Source: official Gentoo stage3 tarball and official Gentoo release metadata.
-- `PROFILE=openrc` maps to the official `current-stage3-amd64-openrc/` metadata path.
-- `PROFILE=systemd` maps to the official `current-stage3-amd64-systemd/` metadata path.
+- `PROFILE=openrc STAGE3_FLAVOR=standard` maps to `current-stage3-amd64-openrc/`.
+- `PROFILE=systemd STAGE3_FLAVOR=standard` maps to `current-stage3-amd64-systemd/`.
+- `STAGE3_FLAVOR=hardened` maps to `current-stage3-amd64-hardened-<profile>/`.
+- `STAGE3_FLAVOR=musl` maps to `current-stage3-amd64-musl-<profile>/`.
 - Non-amd64 stage3 tarballs are out of scope for v1.
 
-The selected filename and metadata path should clearly indicate amd64 and the selected init variant. The skill must fail if architecture does not match amd64 or if the selected tarball does not match `PROFILE` and `stage3_variant`.
+The selected filename and metadata path should clearly indicate amd64, selected init variant, and selected stage3 flavor. The skill must fail if architecture does not match amd64 or if the selected tarball does not match `PROFILE`, `stage3_variant`, and `STAGE3_FLAVOR`.
 
 Manual validation examples may include checking filenames, release metadata, and tarball contents. Future automation must parse official metadata where practical instead of relying only on filename string matching.
 
@@ -84,7 +86,7 @@ Verification should:
 - Verify signatures where official metadata and tooling are available.
 - Confirm the tarball is official Gentoo stage3.
 - Confirm architecture is amd64.
-- Confirm init system matches `PROFILE` and `stage3_variant`.
+- Confirm init system matches `PROFILE` and `stage3_variant`, and that `STAGE3_FLAVOR` is `standard`, `hardened`, or `musl`.
 - Fail if checksum verification fails.
 - Fail if signature verification fails when signature verification is required.
 - Fail closed if signature tooling or trusted keys are missing and no later OpenSpec change defines an explicit approved override.
@@ -116,7 +118,7 @@ Safety requirements:
 
 Extraction should:
 
-- Use the verified amd64 stage3 tarball matching `PROFILE` and `stage3_variant`.
+- Use the verified amd64 stage3 tarball matching `PROFILE`, `stage3_variant`, and `STAGE3_FLAVOR`.
 - Preserve permissions, ownership, extended attributes, and numeric IDs as required by Gentoo installation practice.
 - Extract into `/mnt/gentoo`.
 - Record tarball path, target root, timestamp, and result.
@@ -185,7 +187,7 @@ These targets define the expected control-plane contract for stage3 and chroot w
 
 Target expectations:
 
-- `make download-stage3`: fetch official amd64 stage3 and verification files matching `PROFILE`.
+- `make download-stage3`: fetch official amd64 stage3 and verification files matching `PROFILE` and `STAGE3_FLAVOR`.
 - `make verify-stage3`: verify checksums, signatures, architecture, and selected init variant according to `docs/stage3-signature-policy.md`.
 - `make extract-stage3`: extract only verified stage3 into confirmed `/mnt/gentoo`.
 - `make stage3-install`: implemented combined workflow that downloads, verifies, and extracts the selected official stage3 into verified `/mnt/gentoo`.
@@ -203,7 +205,7 @@ The operator should not be asked to run raw download, tar extraction, mount, DNS
 - `/mnt/gentoo` points to the live root or an unexpected filesystem.
 - Wrong stage3 variant selected.
 - Stage3 architecture is not amd64.
-- Stage3 init system does not match `PROFILE` and `stage3_variant`.
+- Stage3 metadata does not match `PROFILE`, `stage3_variant`, and `STAGE3_FLAVOR`.
 - Download is incomplete.
 - Checksum verification fails.
 - Signature verification fails.
@@ -216,7 +218,7 @@ The operator should not be asked to run raw download, tar extraction, mount, DNS
 ## 13. Recovery Advice
 - If `/mnt/gentoo` is not mounted, stop and return to disk/mount planning.
 - If target-root identity is unclear, stop and inspect mounts before writing.
-- If the wrong stage3 was selected, delete only the known bad downloaded file through documented cleanup and select the amd64 tarball matching `PROFILE`.
+- If the wrong stage3 was selected, delete only the known bad downloaded file through documented cleanup and select the amd64 tarball matching `PROFILE` and `STAGE3_FLAVOR`.
 - If checksum or signature verification fails, discard the downloaded file and redownload from an official source.
 - If extraction was attempted in the wrong path, stop immediately and collect evidence before making further changes.
 - If `/mnt/gentoo` already contains a Gentoo root, require explicit operator confirmation before overwriting or reusing it.

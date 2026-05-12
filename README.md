@@ -58,11 +58,11 @@ Use `make record-manual-step MANUAL_STEP_SUMMARY=... MANUAL_STEP_REASON=...` to 
 
 Use `make vm-validate-first-boot ADMIN_USER=<admin-user>` after a completed VM install to boot the installed qcow2 disk and run read-only first-boot checks over SSH; see `docs/first-boot-validation.md`.
 
-Use `make vm-test-matrix-plan` to plan OpenRC/systemd and ext4/Btrfs libvirt validation entries without creating disks or running destructive installs; see `docs/libvirt-install-test-matrix.md`.
+Use `make vm-test-matrix-plan` to plan OpenRC/systemd, ext4/Btrfs, and standard/hardened/musl libvirt validation entries without creating disks or running destructive installs; see `docs/libvirt-install-test-matrix.md`.
 
-Use `make vm-e2e-plan PROFILE=openrc FILESYSTEM=ext4 INSTALL_DISK=/dev/vda ADMIN_USER=<admin-user> ENABLE_SSH=yes ADMIN_AUTHORIZED_KEYS_FILE=<public-key-file>` before running disposable full-VM validation with `make vm-e2e-install`; see `docs/libvirt-end-to-end-install-validation.md`.
+Use `make vm-e2e-plan PROFILE=openrc FILESYSTEM=ext4 STAGE3_FLAVOR=standard INSTALL_DISK=/dev/vda ADMIN_USER=<admin-user> ENABLE_SSH=yes ADMIN_AUTHORIZED_KEYS_FILE=<public-key-file>` before running disposable full-VM validation with `make vm-e2e-install`; see `docs/libvirt-end-to-end-install-validation.md`.
 
-Use `make vm-e2e-matrix` only when you intend to reset and reinstall all four disposable libvirt cases. It runs the same single-case workflow for OpenRC/ext4, OpenRC/Btrfs, systemd/ext4, and systemd/Btrfs, and requires the normal VM destructive confirmations.
+Use `make vm-e2e-matrix` only when you intend to reset and reinstall all 12 disposable libvirt cases. It runs the same single-case workflow for OpenRC/systemd, ext4/Btrfs, and standard/hardened/musl stage3 flavors, and requires the normal VM destructive confirmations.
 
 Disposable VM E2E installs default `VM_E2E_ADMIN_SUDO_NOPASSWD=yes`, so the installed admin user can SSH in with the configured key and run `sudo su -` without a password. Real installs keep password-requiring sudo unless `ADMIN_SUDO_NOPASSWD=yes` is set explicitly.
 
@@ -72,8 +72,16 @@ Per-case libvirt quickstarts are indexed in [docs/quickstarts/README.md](docs/qu
 - [amd64 OpenRC + Btrfs](docs/quickstarts/openrc-btrfs.md)
 - [amd64 systemd + ext4](docs/quickstarts/systemd-ext4.md)
 - [amd64 systemd + Btrfs](docs/quickstarts/systemd-btrfs.md)
+- [amd64 OpenRC + ext4 + hardened](docs/quickstarts/openrc-ext4-hardened.md)
+- [amd64 OpenRC + Btrfs + hardened](docs/quickstarts/openrc-btrfs-hardened.md)
+- [amd64 systemd + ext4 + hardened](docs/quickstarts/systemd-ext4-hardened.md)
+- [amd64 systemd + Btrfs + hardened](docs/quickstarts/systemd-btrfs-hardened.md)
+- [amd64 OpenRC + ext4 + musl](docs/quickstarts/openrc-ext4-musl.md)
+- [amd64 OpenRC + Btrfs + musl](docs/quickstarts/openrc-btrfs-musl.md)
+- [amd64 systemd + ext4 + musl](docs/quickstarts/systemd-ext4-musl.md)
+- [amd64 systemd + Btrfs + musl](docs/quickstarts/systemd-btrfs-musl.md)
 
-VM targets derive case-specific domains and artifacts from platform `amd64`, `PROFILE`, and `FILESYSTEM`; use `make vm-list-cases` to inspect them before creating anything.
+VM targets derive case-specific domains and artifacts from platform `amd64`, `PROFILE`, `FILESYSTEM`, and `STAGE3_FLAVOR`; use `make vm-list-cases` to inspect them before creating anything. `STAGE3_FLAVOR=standard` preserves the original case names without a `standard` suffix.
 
 For manual image/test-line labels, `VM_TEST_IMAGE_NAME=<name>` inserts `<name>` into the generated VM and disk names. `VM_TEST_IMAGE_NAME` is a label, not an ISO path; use `VM_ISO` for the official Gentoo live ISO location.
 

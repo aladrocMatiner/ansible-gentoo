@@ -2,4 +2,4 @@ all:
   hosts:
     gentoo_live:
       ansible_connection: local
-      ansible_python_interpreter: auto_silent
+      ansible_python_interpreter: /usr/bin/python3

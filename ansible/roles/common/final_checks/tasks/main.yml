@@ -8,6 +8,13 @@
     final_checks_admin_shell: "{{ admin_shell | default('/bin/bash') }}"
     final_checks_admin_sudo_nopasswd: "{{ (admin_sudo_nopasswd | default('no') | string | lower) == 'yes' }}"
     final_checks_controller_secret_check: "{{ controller_secret_check | default('unknown') }}"
+    final_checks_stage3_flavor: "{{ stage3_flavor | default('standard') }}"
+    final_checks_portage_profile_flavor_suffix: "{{ '' if (stage3_flavor | default('standard')) == 'standard' else '/' ~ (stage3_flavor | default('standard')) }}"
+    final_checks_portage_profile_init_suffix: "{{ '/systemd' if profile == 'systemd' else '' }}"
+
+- name: Derive expected Portage profile for final checks
+  ansible.builtin.set_fact:
+    final_checks_portage_profile_path: "default/linux/amd64/23.0{{ final_checks_portage_profile_flavor_suffix }}{{ final_checks_portage_profile_init_suffix }}"
     final_checks_kernel_packages:
       - sys-kernel/installkernel
       - sys-kernel/dracut
@@ -44,6 +51,7 @@
       - init_system == profile
       - filesystem is defined
       - filesystem in ['ext4', 'btrfs']
+      - final_checks_stage3_flavor in ['standard', 'hardened', 'musl']
       - boot_mode | default('uefi') == 'uefi'
       - final_checks_target_root == '/mnt/gentoo'
       - final_checks_target_root != '/'
@@ -508,7 +516,7 @@
 - name: Validate Portage baseline
   ansible.builtin.assert:
     that:
-      - final_checks_portage_profile.stdout is regex('/profiles/' ~ (portage_profile_path | regex_escape) ~ '$')
+      - final_checks_portage_profile.stdout is regex('/profiles/' ~ (final_checks_portage_profile_path | regex_escape) ~ '$')
       - final_checks_make_conf_text is search('COMMON_FLAGS="-O2 -pipe"')
       - final_checks_make_conf_text is search('MAKEOPTS="-j[0-9]+"')
       - final_checks_make_conf_text is search('ACCEPT_LICENSE="' ~ (portage_accept_license | regex_escape) ~ '"')
@@ -606,6 +614,8 @@
         "packages": {{ final_checks_expected_packages | to_nice_json }},
         "services": {{ final_checks_expected_services | to_nice_json }},
         "time_sync": {{ ('chrony' if profile == 'openrc' else 'systemd-timesyncd') | to_json }},
+        "stage3_flavor": {{ final_checks_stage3_flavor | to_json }},
+        "portage_profile_path": {{ final_checks_portage_profile_path | to_json }},
         "ssh_policy_checked": {{ final_checks_enable_ssh | to_json }},
         "portage_profile": {{ final_checks_portage_profile.stdout | to_json }},
         "pending_portage_config_updates": {{ final_checks_pending_config_files.stdout_lines | default([]) | to_nice_json }},
@@ -626,6 +636,8 @@
       changed: false
       profile: "{{ profile }}"
       filesystem: "{{ filesystem }}"
+      stage3_flavor: "{{ final_checks_stage3_flavor }}"
+      portage_profile: "{{ final_checks_portage_profile_path }}"
       hostname: "{{ hostname }}"
       admin_user: "{{ admin_user }}"
       enable_ssh: "{{ final_checks_enable_ssh }}"

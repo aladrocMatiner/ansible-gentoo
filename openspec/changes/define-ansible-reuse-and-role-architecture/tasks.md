@@ -20,7 +20,7 @@
 - [x] Require `install_disk` to have no default.
 - [x] Require `confirm_wipe_disk` for destructive operations.
 - [x] Require `init_system` to be either `openrc` or `systemd`.
-- [x] Require `stage3_variant` to match `init_system`.
+- [x] Require `stage3_variant` to match `init_system` and `stage3_flavor` to select the official stage3/profile family.
 - [x] Define libvirt VM `/dev/vda` handling as explicit guest-only input.
 - [x] Define explicit network live ISO target variables and forbid default target hosts.
 

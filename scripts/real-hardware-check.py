@@ -78,6 +78,7 @@ def main() -> None:
 
     profile = env("PROFILE", "openrc")
     filesystem = env("FILESYSTEM", "ext4")
+    stage3_flavor = env("STAGE3_FLAVOR", "standard")
     boot_mode = env("BOOT_MODE", "uefi")
     ansible_live_host = env("ANSIBLE_LIVE_HOST")
     install_disk = env("INSTALL_DISK")
@@ -87,6 +88,8 @@ def main() -> None:
         errors.append(f"PROFILE: expected openrc or systemd, got {profile}")
     if filesystem not in {"ext4", "btrfs"}:
         errors.append(f"FILESYSTEM: expected ext4 or btrfs, got {filesystem}")
+    if stage3_flavor not in {"standard", "hardened", "musl"}:
+        errors.append(f"STAGE3_FLAVOR: expected standard, hardened, or musl, got {stage3_flavor}")
     if boot_mode != "uefi":
         errors.append(f"BOOT_MODE: real hardware readiness requires uefi, got {boot_mode}")
     if not ansible_live_host:
@@ -126,6 +129,7 @@ def main() -> None:
         "result": "FAIL" if errors else ("WARN" if warnings else "PASS"),
         "profile": profile,
         "filesystem": filesystem,
+        "stage3_flavor": stage3_flavor,
         "boot_mode": boot_mode,
         "ansible_live_host_set": bool(ansible_live_host),
         "install_disk": install_disk,
@@ -141,7 +145,7 @@ def main() -> None:
     print("Real hardware readiness report")
     print(f"  report: {report_path}")
     print(f"  result: {report['result']}")
-    print(f"  PROFILE/FILESYSTEM: {profile}/{filesystem}")
+    print(f"  PROFILE/FILESYSTEM/STAGE3_FLAVOR: {profile}/{filesystem}/{stage3_flavor}")
     print(f"  BOOT_MODE: {boot_mode}")
     print(f"  ANSIBLE_LIVE_HOST: {'<set>' if ansible_live_host else '<unset>'}")
     print(f"  INSTALL_DISK: {install_disk or '<unset>'}")

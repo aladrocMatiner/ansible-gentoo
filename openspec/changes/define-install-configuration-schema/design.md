@@ -27,7 +27,7 @@ Implementation may use YAML, JSON, or Ansible vars, but the schema must be machi
 
 The schema must reject:
 
-- unsupported profile/filesystem/boot mode values,
+- unsupported profile/filesystem/stage3 flavor/boot mode values,
 - `INSTALL_DISK` omitted for destructive apply workflows,
 - `INSTALL_DISK` defaulting from Makefile, role defaults, inventory, or group vars,
 - BIOS boot mode in v1,

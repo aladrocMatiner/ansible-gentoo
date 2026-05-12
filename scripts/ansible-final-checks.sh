@@ -23,6 +23,12 @@ case "$filesystem" in
   *) die "FILESYSTEM must be 'ext4' or 'btrfs', got: $filesystem" ;;
 esac
 
+stage3_flavor=${STAGE3_FLAVOR:-standard}
+case "$stage3_flavor" in
+  standard|hardened|musl) ;;
+  *) die "STAGE3_FLAVOR must be 'standard', 'hardened', or 'musl', got: $stage3_flavor" ;;
+esac
+
 enable_ssh=${ENABLE_SSH:-no}
 case "$enable_ssh" in
   yes|no) ;;
@@ -57,6 +63,7 @@ EOF
 cat >"$extra_vars_file" <<EOF
 profile: "${profile}"
 filesystem: "${filesystem}"
+stage3_flavor: "${stage3_flavor}"
 hostname: "${HOSTNAME:-gentoo}"
 timezone: "${TIMEZONE:-UTC}"
 locale: "${LOCALE:-en_US.UTF-8}"
@@ -72,7 +79,7 @@ project_root: "${project_root}"
 controller_secret_check: "passed"
 EOF
 
-printf 'Running read-only final checks for %s %s target on %s@%s port %s\n' "$profile" "$filesystem" "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$ANSIBLE_LIVE_PORT"
+printf 'Running read-only final checks for %s %s %s target on %s@%s port %s\n' "$profile" "$filesystem" "$stage3_flavor" "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$ANSIBLE_LIVE_PORT"
 printf 'ADMIN_USER=%s\n' "$admin_user"
 printf 'ADMIN_SUDO_NOPASSWD=%s\n' "$admin_sudo_nopasswd"
 printf 'ENABLE_SSH=%s\n' "$enable_ssh"

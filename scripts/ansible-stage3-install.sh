@@ -21,6 +21,12 @@ case "$filesystem" in
   *) die "FILESYSTEM must be 'ext4' or 'btrfs', got: $filesystem" ;;
 esac
 
+stage3_flavor=${STAGE3_FLAVOR:-standard}
+case "$stage3_flavor" in
+  standard|hardened|musl) ;;
+  *) die "STAGE3_FLAVOR must be 'standard', 'hardened', or 'musl', got: $stage3_flavor" ;;
+esac
+
 stage3_mirror=${STAGE3_MIRROR:-https://distfiles.gentoo.org/releases/amd64/autobuilds}
 stage3_cache_dir=${STAGE3_CACHE_DIR:-/tmp/gentoo-ai-installer/stage3}
 project_root=$(pwd -P)
@@ -38,7 +44,7 @@ all:
       ansible_python_interpreter: auto_silent
 EOF
 
-printf 'Installing official Gentoo %s stage3 on %s@%s port %s\n' "$profile" "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$ANSIBLE_LIVE_PORT"
+printf 'Installing official Gentoo %s/%s stage3 on %s@%s port %s\n' "$profile" "$stage3_flavor" "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$ANSIBLE_LIVE_PORT"
 printf 'Stage3 mirror: %s\n' "$stage3_mirror"
 printf 'Stage3 live-ISO cache: %s\n' "$stage3_cache_dir"
 printf '%s\n' 'This target downloads, verifies, and extracts stage3 into /mnt/gentoo. It does not chroot, configure Portage, install packages, create users, or install a bootloader.'
@@ -48,6 +54,7 @@ ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10" \
   -e "profile=${profile}" \
   -e "filesystem=${filesystem}" \
+  -e "stage3_flavor=${stage3_flavor}" \
   -e "stage3_mirror=${stage3_mirror}" \
   -e "stage3_cache_dir=${stage3_cache_dir}" \
   -e "project_root=${project_root}" \

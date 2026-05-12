@@ -15,10 +15,19 @@
     fail_msg: "FILESYSTEM/filesystem must be ext4 or btrfs."
     success_msg: "Filesystem plan is supported."
 
+- name: Validate supported stage3 flavor
+  ansible.builtin.assert:
+    that:
+      - stage3_flavor | default('standard') in ['standard', 'hardened', 'musl']
+    fail_msg: "STAGE3_FLAVOR/stage3_flavor must be standard, hardened, or musl."
+    success_msg: "Stage3 flavor is supported."
+
 - name: Derive read-only plan variables
   ansible.builtin.set_fact:
     install_plan_init_system: "{{ profile }}"
     install_plan_stage3_variant: "{{ profile }}"
+    install_plan_stage3_flavor: "{{ stage3_flavor | default('standard') }}"
+    install_plan_stage3_base_name: "{{ 'stage3-amd64-' ~ profile if (stage3_flavor | default('standard')) == 'standard' else 'stage3-amd64-' ~ (stage3_flavor | default('standard')) ~ '-' ~ profile }}"
     install_plan_filesystem: "{{ filesystem }}"
     install_plan_uses_btrfs: "{{ filesystem == 'btrfs' }}"
     install_plan_disk_selected: "{{ install_disk is defined and (install_disk | string | length > 0) }}"
@@ -49,6 +58,8 @@
       profile: "{{ profile }}"
       init_system: "{{ install_plan_init_system }}"
       stage3_variant: "{{ install_plan_stage3_variant }}"
+      stage3_flavor: "{{ install_plan_stage3_flavor }}"
+      stage3_latest_file: "latest-{{ install_plan_stage3_base_name }}.txt"
       v1_assumptions:
         architecture: amd64
         boot_mode: uefi

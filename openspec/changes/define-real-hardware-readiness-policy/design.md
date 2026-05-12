@@ -4,7 +4,7 @@
 
 Before real hardware destructive operations:
 
-- libvirt validation passed for the selected profile/filesystem when practical,
+- libvirt validation passed for the selected profile/filesystem/stage3 flavor when practical,
 - operator has backups,
 - UEFI boot confirmed,
 - network readiness confirmed,

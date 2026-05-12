@@ -13,5 +13,5 @@ The project SHALL require a documented readiness check before destructive workfl
 - **AND** no default disk SHALL be inferred
 
 #### Scenario: Libvirt validation
-- **WHEN** libvirt validation has not been completed for the selected profile/filesystem
+- **WHEN** libvirt validation has not been completed for the selected profile/filesystem/stage3 flavor
 - **THEN** real hardware docs/checks SHALL warn clearly and require explicit acknowledgement before destructive work

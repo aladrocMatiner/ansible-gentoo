@@ -1,7 +1,7 @@
 # Design: implement-libvirt-end-to-end-install-validation
 
 ## Test Flow
-1. Run `make vm-e2e-plan` to validate selected profile/filesystem, explicit `/dev/vda`, `ADMIN_USER`, and matrix coverage without VM mutation.
+1. Run `make vm-e2e-plan` to validate selected profile/filesystem/stage3 flavor, explicit `/dev/vda`, `ADMIN_USER`, and matrix coverage without VM mutation.
 2. Ensure ISO exists through the existing `vm-check` path.
 3. Create or reset qcow2 with confirmation when requested.
 4. Boot live ISO.

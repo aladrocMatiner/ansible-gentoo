@@ -44,6 +44,12 @@ case "$filesystem" in
   *) die_code CONFIG_INVALID "FILESYSTEM must be ext4 or btrfs, got: $filesystem" ;;
 esac
 
+stage3_flavor=${STAGE3_FLAVOR:-standard}
+case "$stage3_flavor" in
+  standard|hardened|musl) ;;
+  *) die_code CONFIG_INVALID "STAGE3_FLAVOR must be standard, hardened, or musl, got: $stage3_flavor" ;;
+esac
+
 install_disk=${INSTALL_DISK:-}
 assert_install_disk_input "$install_disk"
 [[ "$install_disk" == /dev/vda ]] || die_code DISK_UNSAFE "VM end-to-end validation must use INSTALL_DISK=/dev/vda inside the disposable libvirt guest"
@@ -78,12 +84,16 @@ esac
 export ADMIN_SUDO_NOPASSWD="$vm_e2e_admin_sudo_nopasswd"
 
 timestamp=$(date -u +%Y%m%dT%H%M%S%NZ)
-e2e_log_dir="logs/libvirt-e2e/${timestamp}-${profile}-${filesystem}"
+e2e_suffix="${profile}-${filesystem}"
+if [[ "$stage3_flavor" != standard ]]; then
+  e2e_suffix="${e2e_suffix}-${stage3_flavor}"
+fi
+e2e_log_dir="logs/libvirt-e2e/${timestamp}-${e2e_suffix}"
 mkdir -p "$e2e_log_dir"
 [[ -d "$e2e_log_dir" && ! -L "$e2e_log_dir" ]] || die_code VM_UNSAFE "E2E log directory is unsafe: $e2e_log_dir"
 
 printf 'Libvirt end-to-end install validation\n' | tee "$e2e_log_dir/summary.txt"
-printf 'profile=%s filesystem=%s install_disk=%s admin_user=%s\n' "$profile" "$filesystem" "$install_disk" "$admin_user" | tee -a "$e2e_log_dir/summary.txt"
+printf 'profile=%s filesystem=%s stage3_flavor=%s install_disk=%s admin_user=%s\n' "$profile" "$filesystem" "$stage3_flavor" "$install_disk" "$admin_user" | tee -a "$e2e_log_dir/summary.txt"
 printf 'admin_sudo_nopasswd=%s\n' "$vm_e2e_admin_sudo_nopasswd" | tee -a "$e2e_log_dir/summary.txt"
 printf '%s\n' 'This workflow is destructive inside the disposable VM qcow2 disk and does not touch host block devices.' | tee -a "$e2e_log_dir/summary.txt"
 

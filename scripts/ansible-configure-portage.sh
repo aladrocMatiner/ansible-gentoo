@@ -21,6 +21,12 @@ case "$filesystem" in
   *) die "FILESYSTEM must be 'ext4' or 'btrfs', got: $filesystem" ;;
 esac
 
+stage3_flavor=${STAGE3_FLAVOR:-standard}
+case "$stage3_flavor" in
+  standard|hardened|musl) ;;
+  *) die "STAGE3_FLAVOR must be 'standard', 'hardened', or 'musl', got: $stage3_flavor" ;;
+esac
+
 portage_gentoo_mirrors=${PORTAGE_GENTOO_MIRRORS:-https://distfiles.gentoo.org}
 project_root=$(pwd -P)
 inventory_file=$(mktemp --suffix=.yml)
@@ -37,7 +43,7 @@ all:
       ansible_python_interpreter: auto_silent
 EOF
 
-printf 'Configuring Portage baseline for %s target on %s@%s port %s\n' "$profile" "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$ANSIBLE_LIVE_PORT"
+printf 'Configuring Portage baseline for %s/%s target on %s@%s port %s\n' "$profile" "$stage3_flavor" "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$ANSIBLE_LIVE_PORT"
 printf 'Portage Gentoo mirrors: %s\n' "$portage_gentoo_mirrors"
 printf '%s\n' 'This target writes conservative Portage configuration, syncs the official Gentoo repo, and selects the matching profile. It does not install packages or run @world.'
 
@@ -46,6 +52,7 @@ ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10" \
   -e "profile=${profile}" \
   -e "filesystem=${filesystem}" \
+  -e "stage3_flavor=${stage3_flavor}" \
   -e "portage_gentoo_mirrors=${portage_gentoo_mirrors}" \
   -e "project_root=${project_root}" \
   ansible/playbooks/configure-portage.yml

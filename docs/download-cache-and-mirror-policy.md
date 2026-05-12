@@ -31,6 +31,8 @@ The cache may reduce repeated downloads, but it does not prove trust. A cached s
 
 Partial files must not be promoted to verified artifact names. Interrupted downloads must be retried or cleaned through documented cleanup targets.
 
+Stage3 download tasks should use bounded retries and explicit request timeouts for metadata, tarballs, signatures, and checksum files. A retry only handles transient transport failure; every downloaded or cached artifact must still pass the normal signature and checksum checks before extraction.
+
 ## Cleanup
 
 Stage3 cache cleanup is exposed through:

@@ -21,6 +21,12 @@ case "$filesystem" in
   *) die "FILESYSTEM must be 'ext4' or 'btrfs', got: $filesystem" ;;
 esac
 
+stage3_flavor=${STAGE3_FLAVOR:-standard}
+case "$stage3_flavor" in
+  standard|hardened|musl) ;;
+  *) die "STAGE3_FLAVOR must be 'standard', 'hardened', or 'musl', got: $stage3_flavor" ;;
+esac
+
 enable_ssh=${ENABLE_SSH:-no}
 case "$enable_ssh" in
   yes|no) ;;
@@ -42,7 +48,7 @@ all:
       ansible_python_interpreter: auto_silent
 EOF
 
-printf 'Installing minimal console packages for %s %s target on %s@%s port %s\n' "$profile" "$filesystem" "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$ANSIBLE_LIVE_PORT"
+printf 'Installing minimal console packages for %s %s %s target on %s@%s port %s\n' "$profile" "$filesystem" "$stage3_flavor" "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$ANSIBLE_LIVE_PORT"
 printf 'ENABLE_SSH=%s\n' "$enable_ssh"
 printf '%s\n' 'This target installs packages and enables target-system services under /mnt/gentoo.'
 printf '%s\n' 'It does not create users, install GRUB, change EFI boot entries, partition, format, or reboot.'
@@ -52,6 +58,7 @@ ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10" \
   -e "profile=${profile}" \
   -e "filesystem=${filesystem}" \
+  -e "stage3_flavor=${stage3_flavor}" \
   -e "enable_ssh=${enable_ssh}" \
   -e "project_root=${project_root}" \
   ansible/playbooks/install-system-packages.yml

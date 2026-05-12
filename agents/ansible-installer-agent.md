@@ -150,6 +150,7 @@ The variable model must make risk explicit. Required or expected variables inclu
 - `efi_partition`: operator-approved EFI partition after planning.
 - `root_partition`: operator-approved root partition after planning.
 - `stage3_variant`: must match `init_system`.
+- `stage3_flavor`: must be `standard`, `hardened`, or `musl` and must select the matching official stage3 and Portage profile family.
 - `stage3_source`: selected official stage3 source or local path.
 - `hostname`: target hostname.
 - `timezone`: target timezone.
@@ -174,6 +175,7 @@ Rules:
 - Defaults must not choose a disk.
 - The Makefile variable `INSTALL_DISK` must never have a default value, and Ansible must not introduce one in inventory or `group_vars`.
 - `stage3_variant` must match `init_system`.
+- `stage3_flavor` must remain independent from `init_system`; do not overload `PROFILE` with hardened or musl.
 - VM guest `/dev/vda` is allowed only when explicitly passed as `install_disk=/dev/vda` inside the libvirt-managed guest VM.
 - Real network targets must use disk paths discovered from the target itself. `/dev/vda` must never be suggested for non-VM targets unless detection proves that is the intended target.
 - Passwords and tokens must not be stored in `group_vars/all.yml`.

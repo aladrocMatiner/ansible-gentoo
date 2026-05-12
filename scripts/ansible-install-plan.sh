@@ -20,11 +20,18 @@ case "$filesystem" in
   *) die "FILESYSTEM must be 'ext4' or 'btrfs', got: $filesystem" ;;
 esac
 
+stage3_flavor=${STAGE3_FLAVOR:-standard}
+case "$stage3_flavor" in
+  standard|hardened|musl) ;;
+  *) die "STAGE3_FLAVOR must be 'standard', 'hardened', or 'musl', got: $stage3_flavor" ;;
+esac
+
 extra_vars=(
   -e "ansible_host=${ANSIBLE_LIVE_HOST}"
   -e "ansible_port=${ANSIBLE_LIVE_PORT}"
   -e "profile=${profile}"
   -e "filesystem=${filesystem}"
+  -e "stage3_flavor=${stage3_flavor}"
 )
 
 if [[ -n "${INSTALL_DISK:-}" ]]; then
@@ -32,7 +39,7 @@ if [[ -n "${INSTALL_DISK:-}" ]]; then
   extra_vars+=(-e "install_disk=${INSTALL_DISK}")
 fi
 
-printf 'Generating read-only %s/%s install plan against %s@%s port %s\n' "$profile" "$filesystem" "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$ANSIBLE_LIVE_PORT"
+printf 'Generating read-only %s/%s/%s install plan against %s@%s port %s\n' "$profile" "$filesystem" "$stage3_flavor" "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$ANSIBLE_LIVE_PORT"
 if [[ -n "${INSTALL_DISK:-}" ]]; then
   printf 'Using explicit read-only INSTALL_DISK planning input: %s\n' "$INSTALL_DISK"
 else

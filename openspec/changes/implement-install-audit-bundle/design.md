@@ -15,7 +15,7 @@ The implementation may archive the directory, but raw logs must remain inspectab
 Include:
 
 - run id and timestamps,
-- selected `PROFILE`, `FILESYSTEM`, `BOOT_MODE`, and non-secret variables,
+- selected `PROFILE`, `FILESYSTEM`, `STAGE3_FLAVOR`, `BOOT_MODE`, and non-secret variables,
 - `lsblk` or equivalent disk inventory,
 - partition table summary,
 - filesystem UUID summary,

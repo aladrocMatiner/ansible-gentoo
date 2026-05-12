@@ -1,6 +1,6 @@
 # Ansible Stage3 Install
 
-`make stage3-install` downloads, verifies, and extracts an official Gentoo amd64 stage3 into the mounted target root.
+`make stage3-install` downloads, verifies, and extracts an official Gentoo amd64 stage3 into the mounted target root. `PROFILE` selects OpenRC or systemd, and `STAGE3_FLAVOR` selects `standard`, `hardened`, or `musl`.
 
 It does not partition, format, mount target filesystems, chroot, configure Portage, install packages, create users, enable services, install a kernel, or install a bootloader.
 
@@ -23,19 +23,25 @@ Inside the local libvirt VM, `/dev/vda` is the disposable guest disk. For a real
 For the local libvirt VM:
 
 ```sh
-make stage3-install PROFILE=openrc FILESYSTEM=btrfs
+make stage3-install PROFILE=openrc FILESYSTEM=btrfs STAGE3_FLAVOR=standard
 ```
 
 For a network live ISO target:
 
 ```sh
-make stage3-install ANSIBLE_LIVE_HOST=192.0.2.10 PROFILE=systemd FILESYSTEM=ext4
+make stage3-install ANSIBLE_LIVE_HOST=192.0.2.10 PROFILE=systemd FILESYSTEM=ext4 STAGE3_FLAVOR=hardened
 ```
 
-Supported profiles:
+Supported stage3 selectors:
 
-- `PROFILE=openrc`: official amd64 OpenRC stage3
-- `PROFILE=systemd`: official amd64 systemd stage3
+| `PROFILE` | `STAGE3_FLAVOR` | Official latest metadata |
+| --- | --- | --- |
+| `openrc` | `standard` | `latest-stage3-amd64-openrc.txt` |
+| `systemd` | `standard` | `latest-stage3-amd64-systemd.txt` |
+| `openrc` | `hardened` | `latest-stage3-amd64-hardened-openrc.txt` |
+| `systemd` | `hardened` | `latest-stage3-amd64-hardened-systemd.txt` |
+| `openrc` | `musl` | `latest-stage3-amd64-musl-openrc.txt` |
+| `systemd` | `musl` | `latest-stage3-amd64-musl-systemd.txt` |
 
 ## Variables
 
@@ -43,6 +49,7 @@ Supported profiles:
 | --- | --- | --- |
 | `PROFILE` | `openrc` | Selects OpenRC or systemd stage3 metadata. |
 | `FILESYSTEM` | `ext4` | Passed for configuration consistency; stage3 extraction does not format or mount. |
+| `STAGE3_FLAVOR` | `standard` | Selects standard, hardened, or musl official stage3 metadata. |
 | `STAGE3_MIRROR` | `https://distfiles.gentoo.org/releases/amd64/autobuilds` | Base URL for official Gentoo stage3 metadata. |
 | `STAGE3_CACHE_DIR` | `/tmp/gentoo-ai-installer/stage3` | Live-ISO-local cache for stage3 downloads and verification files. Must not be under `/mnt/gentoo`. |
 
@@ -53,7 +60,7 @@ Mirror overrides must still use HTTPS and must still pass checksum and signature
 The workflow follows `docs/stage3-signature-policy.md`:
 
 - downloads the official latest metadata for the selected variant,
-- selects `stage3-amd64-openrc-*.tar.xz` or `stage3-amd64-systemd-*.tar.xz`,
+- selects the tarball matching `PROFILE` and `STAGE3_FLAVOR`,
 - downloads the selected tarball, `.DIGESTS`, `.asc`, and optional `.sha256` metadata when present,
 - imports `/usr/share/openpgp-keys/gentoo-release.asc` into an isolated GnuPG home under the live ISO cache,
 - verifies the signed latest metadata,
@@ -64,6 +71,8 @@ The workflow follows `docs/stage3-signature-policy.md`:
 - fails before extraction if any verification step fails.
 
 Cached tarballs are reverified before extraction. Cache presence is never treated as proof of trust.
+
+Stage3 network fetches use bounded retries and a longer per-request timeout so transient live ISO NAT or mirror stalls do not fail the install immediately. Retry success does not relax checksum or signature verification.
 
 ## Extraction
 
@@ -85,7 +94,7 @@ logs/install-runs/<run-id>/stage3/
 
 Evidence includes:
 
-- selected profile and stage3 variant,
+- selected profile, stage3 variant, and stage3 flavor,
 - mirror and metadata URLs,
 - selected tarball filename,
 - target mount evidence,
@@ -100,7 +109,7 @@ Evidence includes:
 - target root already contains stage3-like paths,
 - `wget`, `gpg`, `sha512sum`, or `tar` is missing,
 - Gentoo release key bundle is missing,
-- selected metadata does not match `PROFILE`,
+- selected metadata does not match `PROFILE` and `STAGE3_FLAVOR`,
 - download fails,
 - signature verification fails,
 - checksum verification fails,

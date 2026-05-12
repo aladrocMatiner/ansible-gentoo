@@ -40,7 +40,7 @@ make vm-define
 make vm-start
 ```
 
-`make vm-check` remains the narrower VM workflow check. `make host-check` adds controller resource checks and then reuses the same libvirt/ISO/OVMF safety checks.
+`make vm-check` remains the narrower live-ISO VM workflow check. `make host-check` adds controller resource checks and validates tools, libvirt access, ISO resolution, OVMF firmware, network configuration, and safe VM paths without requiring an existing project-owned domain to be configured for live-ISO boot. A project-owned domain currently defined for installed-disk first-boot validation is acceptable for `host-check`; rerun `make vm-define` before `make vm-check` or `make vm-start` when the selected domain must boot the live ISO again.
 
 ## Boundary
 
@@ -59,7 +59,7 @@ Local live ISO fallback mode also does not require host libvirt tools, because i
 - OVMF firmware missing: install host OVMF/edk2 firmware packages.
 - `VM_ISO` missing: place the official Gentoo live ISO at the configured path or set `VM_ISO=...`.
 - Not enough memory or disk: reduce `VM_RAM`/`VM_DISK_SIZE` for testing or free host resources.
-- Existing domain safety failure: inspect the configured `VM_NAME`; project targets refuse unrelated or unsafe domains.
+- Existing domain safety failure: inspect the configured `VM_NAME`; project targets refuse unrelated domains, host block-device-backed domains, or project-owned domains whose metadata does not match the selected case.
 
 ## Recovery
 

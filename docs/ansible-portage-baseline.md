@@ -12,7 +12,7 @@ Run the earlier apply targets first:
 
 ```sh
 make mount-target PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda
-make stage3-install PROFILE=openrc FILESYSTEM=btrfs
+make stage3-install PROFILE=openrc FILESYSTEM=btrfs STAGE3_FLAVOR=standard
 make prepare-chroot PROFILE=openrc FILESYSTEM=btrfs
 ```
 
@@ -21,13 +21,13 @@ For a real network target, pass `ANSIBLE_LIVE_HOST=...` and use the disk selecte
 ## Command
 
 ```sh
-make configure-portage PROFILE=openrc FILESYSTEM=btrfs
+make configure-portage PROFILE=openrc FILESYSTEM=btrfs STAGE3_FLAVOR=standard
 ```
 
 For systemd:
 
 ```sh
-make configure-portage PROFILE=systemd FILESYSTEM=ext4
+make configure-portage PROFILE=systemd FILESYSTEM=ext4 STAGE3_FLAVOR=hardened
 ```
 
 ## Variables
@@ -35,13 +35,20 @@ make configure-portage PROFILE=systemd FILESYSTEM=ext4
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `PROFILE` | `openrc` | Selects `openrc` or `systemd` variant data. |
+| `STAGE3_FLAVOR` | `standard` | Selects matching standard, hardened, or musl Portage profile family. |
 | `PORTAGE_GENTOO_MIRRORS` | `https://distfiles.gentoo.org` | Single HTTPS distfiles mirror written to `GENTOO_MIRRORS`. |
 | `TARGET_MOUNT` | `/mnt/gentoo` | Must remain `/mnt/gentoo` for the current implementation. |
 
-Variant profile paths are stored under `ansible/group_vars/`:
+The shared Portage role derives profile paths from `PROFILE` and `STAGE3_FLAVOR`:
 
-- `PROFILE=openrc`: `default/linux/amd64/23.0`
-- `PROFILE=systemd`: `default/linux/amd64/23.0/systemd`
+| `PROFILE` | `STAGE3_FLAVOR` | Portage profile |
+| --- | --- | --- |
+| `openrc` | `standard` | `default/linux/amd64/23.0` |
+| `systemd` | `standard` | `default/linux/amd64/23.0/systemd` |
+| `openrc` | `hardened` | `default/linux/amd64/23.0/hardened` |
+| `systemd` | `hardened` | `default/linux/amd64/23.0/hardened/systemd` |
+| `openrc` | `musl` | `default/linux/amd64/23.0/musl` |
+| `systemd` | `musl` | `default/linux/amd64/23.0/musl/systemd` |
 
 ## Behavior
 
@@ -52,8 +59,8 @@ The workflow:
 - verifies stage3 marker directories exist under `/mnt/gentoo`,
 - writes a conservative target `/etc/portage/make.conf`,
 - installs the official Gentoo repository configuration from the stage3,
-- runs `emerge --sync --quiet` for the official Gentoo repository,
-- selects the Portage profile matching `PROFILE`,
+- runs `emerge --sync --quiet` for the official Gentoo repository with bounded retries for transient mirror or rsync manifest failures,
+- selects the Portage profile matching `PROFILE` and `STAGE3_FLAVOR`,
 - refuses installed-system GURU repository configuration,
 - reports pending protected config updates without applying them,
 - writes evidence under `logs/install-runs/<run-id>/portage/`.
@@ -90,7 +97,7 @@ GURU may be used for temporary live ISO Codex bootstrap, but this target must ke
 
 ## Recovery
 
-If repo sync fails, verify live ISO network, DNS, time, and mirror reachability, then rerun `make configure-portage`.
+If repo sync fails after retries, verify live ISO network, DNS, time, and mirror reachability, then rerun `make configure-portage`. A manifest mismatch usually means the selected rsync mirror was temporarily inconsistent; retrying should use the same guarded role path rather than manual repository edits.
 
 If profile selection fails, inspect `eselect profile list` inside the target chroot and update only the variant variables through an approved OpenSpec change.
 

@@ -324,6 +324,17 @@
     - disk_safety_resume_checkpoint_enabled | bool
     - disk_safety_resume_checkpoint_effective.filesystem is defined
 
+- name: Compare resume checkpoint stage3 flavor when recorded
+  ansible.builtin.assert:
+    that:
+      - stage3_flavor is defined
+      - disk_safety_resume_checkpoint_effective.stage3_flavor == stage3_flavor
+    fail_msg: "RESUME_CHECKPOINT_MISMATCH: current STAGE3_FLAVOR/stage3_flavor differs from the recorded checkpoint."
+    success_msg: "Resume checkpoint stage3 flavor matches current stage3 flavor."
+  when:
+    - disk_safety_resume_checkpoint_enabled | bool
+    - disk_safety_resume_checkpoint_effective.stage3_flavor is defined
+
 - name: Build disk safety report
   ansible.builtin.set_fact:
     disk_safety_report:

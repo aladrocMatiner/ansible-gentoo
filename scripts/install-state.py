@@ -108,6 +108,7 @@ def command_show(args: argparse.Namespace) -> None:
     print(f"Updated at: {state.get('updated_at', '<unknown>')}")
     print(f"Profile: {state.get('profile') or '<unset>'}")
     print(f"Filesystem: {state.get('filesystem') or '<unset>'}")
+    print(f"Stage3 flavor: {state.get('stage3_flavor') or 'standard'}")
     print(f"Boot mode: {state.get('boot_mode') or '<unset>'}")
     print(f"Install disk: {state.get('install_disk') or '<unset>'}")
     print(f"Last completed phase: {state.get('last_completed_phase') or '<none>'}")
@@ -132,6 +133,7 @@ def command_resume_vars(args: argparse.Namespace) -> None:
     install_disk = state.get("install_disk") or checkpoint.get("install_disk") or selected_disk.get("path")
     profile = state.get("profile") or checkpoint.get("profile")
     filesystem = state.get("filesystem") or checkpoint.get("filesystem")
+    stage3_flavor = state.get("stage3_flavor") or checkpoint.get("stage3_flavor") or "standard"
     run_id = state.get("run_id")
 
     if not install_disk:
@@ -149,6 +151,7 @@ def command_resume_vars(args: argparse.Namespace) -> None:
         "INSTALL_STATE_INSTALL_DISK": str(install_disk),
         "INSTALL_STATE_PROFILE": str(profile),
         "INSTALL_STATE_FILESYSTEM": str(filesystem),
+        "INSTALL_STATE_STAGE3_FLAVOR": str(stage3_flavor),
         "INSTALL_STATE_LAST_PHASE": str(state.get("last_completed_phase") or ""),
         "INSTALL_STATE_MANUAL_REVALIDATION_REQUIRED": "yes" if state.get("manual_intervention_requires_revalidation") else "no",
     }

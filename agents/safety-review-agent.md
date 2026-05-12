@@ -78,7 +78,7 @@ Before partitioning, wiping, or changing any disk:
 - The destructive confirmation variable `I_UNDERSTAND_THIS_WIPES_DISK=yes` must be required.
 - A safety confirmation script must run before destructive Makefile targets.
 - The operation must stop if disk identity differs between plan and apply.
-- Resumed destructive operations must compare current disk identity, descendant partition state, filesystem UUIDs, mountpoints, and recorded profile/filesystem values against the recorded checkpoint.
+- Resumed destructive operations must compare current disk identity, descendant partition state, filesystem UUIDs, mountpoints, and recorded profile/filesystem/stage3 flavor values against the recorded checkpoint.
 - Resume checkpoint success must not replace `I_UNDERSTAND_THIS_WIPES_DISK=yes`.
 - The operation must stop if disk identity is ambiguous or unavailable.
 
@@ -175,7 +175,7 @@ The Makefile is the public control plane. Safety review must verify:
 - Cleanup targets must validate paths before deletion.
 - VM/libvirt targets must reject `/dev/*`, absolute VM disk paths, parent traversal, wildcard paths, symlinked artifact paths, project-root artifact directories, project root paths that would make generated libvirt XML unsafe, non-qcow2 existing disk files, stale project-marked domains in start/SSH/rsync/Ansible/shutdown/destroy/cleanup paths, ISO mismatches, case metadata mismatches, and any libvirt domain disk source that points to a host block device.
 - VM/libvirt targets that accept `VM_TEST_IMAGE_NAME` must reject path separators, parent traversal, shell metacharacters, libvirt/QEMU option separators, XML-special characters, whitespace, and secret-like values; the value may only label generated local test artifacts.
-- VM/libvirt case selection must derive domains and artifacts from `PROFILE=openrc|systemd`, `FILESYSTEM=ext4|btrfs`, fixed platform `amd64`, and optional `VM_TEST_IMAGE_NAME`; reviewers must reject docs or scripts that require operators to hand-build full case VM names for normal workflows.
+- VM/libvirt case selection must derive domains and artifacts from `PROFILE=openrc|systemd`, `FILESYSTEM=ext4|btrfs`, `STAGE3_FLAVOR=standard|hardened|musl`, fixed platform `amd64`, and optional `VM_TEST_IMAGE_NAME`; reviewers must reject docs or scripts that require operators to hand-build full case VM names for normal workflows.
 - VM/libvirt targets must not invoke `sudo` by default.
 - VM cleanup targets must delete only generated artifacts for the configured project-owned domain and must not delete ISO files, libvirt networks, pools, volumes, unrelated domains, or secrets.
 - `make real-hardware-check` must be read-only, require explicit `INSTALL_DISK`, prefer stable disk identity paths, require backup/UEFI/network/power/recovery-media/destructive-preview acknowledgements, and state that it does not satisfy destructive confirmations.

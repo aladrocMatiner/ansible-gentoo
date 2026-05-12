@@ -18,7 +18,7 @@ Verification must happen after the stage3 variant is selected and before extract
 
 - amd64,
 - `PROFILE=openrc` or `PROFILE=systemd`,
-- expected `stage3_variant`.
+- expected `stage3_variant` and `stage3_flavor`.
 
 ## Evidence
 

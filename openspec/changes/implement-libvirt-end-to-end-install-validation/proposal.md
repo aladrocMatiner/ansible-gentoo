@@ -12,7 +12,7 @@ Before real hardware testing, the full installer must be proven in a safe VM tha
 - Run install flow in VM.
 - Reboot VM.
 - Verify installed system boots and has network access.
-- Integrate the libvirt install test matrix for OpenRC/systemd and ext4/Btrfs.
+- Integrate the libvirt install test matrix for OpenRC/systemd, ext4/Btrfs, and supported stage3 flavors.
 - Integrate first-boot validation and audit bundle output.
 
 ## Non-goals

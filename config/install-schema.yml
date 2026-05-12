@@ -29,6 +29,20 @@ variables:
       - apply
     notes: Selects the approved root filesystem layout.
 
+  STAGE3_FLAVOR:
+    ansible_names:
+      - stage3_flavor
+    default: standard
+    allowed:
+      - standard
+      - hardened
+      - musl
+    required_for:
+      - plan
+      - stage3
+      - apply
+    notes: Selects the official Gentoo stage3/profile family independently of init system. Standard preserves existing VM case names; hardened and musl append the flavor in matrix names.
+
   STAGE3_MIRROR:
     ansible_names:
       - stage3_mirror
