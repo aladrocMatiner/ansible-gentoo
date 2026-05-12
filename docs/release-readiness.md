@@ -44,7 +44,7 @@ The report records whether the following guardrails are documented and implement
 - audit bundle,
 - secret input policy,
 - Handbook traceability,
-- libvirt matrix planning,
+- libvirt matrix planning and disposable E2E matrix validation,
 - first-boot validation,
 - install report,
 - real hardware readiness,

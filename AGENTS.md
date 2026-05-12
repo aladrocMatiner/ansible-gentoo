@@ -76,7 +76,7 @@ Manual intervention is a recovery path, not a safety bypass. If an operator chan
 
 Real hardware workflows are higher risk than libvirt validation. Before agents suggest destructive physical-machine targets, they must direct the operator through `make real-hardware-check`, prefer stable disk paths such as `/dev/disk/by-id/...`, and state that readiness output never replaces destructive or bootloader confirmations.
 
-Libvirt matrix workflows are local validation harnesses. Agents must keep matrix planning read-only unless a later OpenSpec change explicitly implements destructive matrix runs with disposable qcow2 disks and the normal destructive confirmations.
+Libvirt matrix workflows are local validation harnesses. Agents must keep `vm-test-matrix-plan` read-only. Full matrix execution is implemented only through `make vm-e2e-matrix`, which may run destructive install steps inside project-owned disposable qcow2 disks and must keep the normal destructive confirmations.
 
 Libvirt end-to-end install validation may run the full installer only inside the project-owned disposable VM workflow. Agents must require explicit `INSTALL_DISK=/dev/vda`, `ADMIN_USER`, `ENABLE_SSH=yes`, `I_UNDERSTAND_THIS_WIPES_DISK=yes`, and `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`, and must keep host block devices forbidden.
 
