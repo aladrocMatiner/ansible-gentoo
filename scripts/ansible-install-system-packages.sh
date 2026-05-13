@@ -53,9 +53,11 @@ printf 'ENABLE_SSH=%s\n' "$enable_ssh"
 printf '%s\n' 'This target installs packages and enables target-system services under /mnt/gentoo.'
 printf '%s\n' 'It does not create users, install GRUB, change EFI boot entries, partition, format, or reboot.'
 
+ssh_common_args=$(ansible_ssh_common_args)
+
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   -i "$inventory_file" \
-  --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10" \
+  --ssh-common-args="$ssh_common_args" \
   -e "profile=${profile}" \
   -e "filesystem=${filesystem}" \
   -e "stage3_flavor=${stage3_flavor}" \

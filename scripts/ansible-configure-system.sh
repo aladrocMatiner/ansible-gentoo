@@ -47,9 +47,11 @@ printf 'Locale: %s\n' "$locale"
 printf 'Keymap: %s\n' "$keymap"
 printf '%s\n' 'This target writes hostname, timezone, locale, and console keymap under /mnt/gentoo. It does not install packages, users, services, kernel, or bootloader.'
 
+ssh_common_args=$(ansible_ssh_common_args)
+
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   -i "$inventory_file" \
-  --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10" \
+  --ssh-common-args="$ssh_common_args" \
   -e "profile=${profile}" \
   -e "filesystem=${filesystem}" \
   -e "hostname=${target_hostname}" \

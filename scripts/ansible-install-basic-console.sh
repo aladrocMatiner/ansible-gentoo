@@ -113,9 +113,11 @@ printf 'I_UNDERSTAND_BOOTLOADER_CHANGES=%s\n' "$bootloader_confirmation"
 printf '%s\n' 'This is a destructive full install flow: it partitions, formats, mounts, extracts stage3, configures the target, installs GRUB, and runs final checks.'
 printf '%s\n' 'It does not reboot automatically.'
 
+ssh_common_args=$(ansible_ssh_common_args)
+
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   -i "$inventory_file" \
-  --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10" \
+  --ssh-common-args="$ssh_common_args" \
   -e "@${extra_vars_file}" \
   "ansible/playbooks/install-${profile}.yml"
 

@@ -46,9 +46,11 @@ else
   printf '%s\n' 'No INSTALL_DISK provided; the plan will not select a disk.'
 fi
 
+ssh_common_args=$(ansible_ssh_common_args)
+
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   -i ansible/inventory/live.yml \
   -u "$ANSIBLE_LIVE_USER" \
-  --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10" \
+  --ssh-common-args="$ssh_common_args" \
   "${extra_vars[@]}" \
   ansible/playbooks/install-plan.yml

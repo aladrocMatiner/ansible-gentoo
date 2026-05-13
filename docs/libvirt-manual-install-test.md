@@ -107,6 +107,8 @@ The default network mode is the libvirt managed `default` network. `make vm-ip` 
 
 `make vm-ssh`, `make vm-rsync`, and the Ansible live ISO wrappers treat SSH host keys as temporary live-session keys. They disable strict host-key persistence for these VM-only connections and keep the global `ansible.cfg` host-key policy unchanged.
 
+The same wrappers use the shared Ansible SSH transport defaults: `ANSIBLE_SSH_CONNECT_TIMEOUT=10`, `ANSIBLE_SSH_SERVER_ALIVE_INTERVAL=30`, `ANSIBLE_SSH_SERVER_ALIVE_COUNT_MAX=6`, `ANSIBLE_SSH_CONTROL_MASTER=auto`, `ANSIBLE_SSH_CONTROL_PERSIST=10m`, and `ANSIBLE_SSH_CONTROL_PATH_DIR=var/ssh-control`. These values also apply when a Makefile Ansible target discovers the local libvirt live ISO instead of using `ANSIBLE_LIVE_HOST`.
+
 `make vm-rsync` copies the repository to `/root/gentoo-ai-installer/` by default. If `VM_RSYNC_DEST` is overridden, it must remain under `/root/gentoo-ai-installer/`; this prevents `rsync --delete` from targeting unrelated guest paths. The rsync filter excludes `.env`, `.ssh`, private key patterns, token/credential files, ISO artifacts, runtime artifacts, logs, and temporary files.
 
 `make ansible-live-ping` and `make ansible-live-preflight` are the first project Ansible handoff targets. In this VM workflow, they use the local libvirt target discovered by the wrappers. In the reusable network workflow, pass `ANSIBLE_LIVE_HOST=...` to target a non-libvirt live ISO. They validate SSH connectivity, root access, global IP addressing, default route, DNS, clock sanity, UEFI evidence, and read-only live ISO facts. They do not install Gentoo, select an install disk, partition, format, mount target filesystems, or modify `/dev/vda`.

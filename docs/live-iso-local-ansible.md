@@ -21,6 +21,30 @@ make detect-disks ANSIBLE_LIVE_HOST=<live-iso-address>
 make install-plan ANSIBLE_LIVE_HOST=<live-iso-address>
 ```
 
+## SSH Transport Policy
+
+Controller-driven Ansible wrappers use one shared SSH transport policy for remote live ISO targets and local libvirt-discovered live ISO targets. Defaults are:
+
+```text
+ANSIBLE_SSH_CONNECT_TIMEOUT=10
+ANSIBLE_SSH_SERVER_ALIVE_INTERVAL=30
+ANSIBLE_SSH_SERVER_ALIVE_COUNT_MAX=6
+ANSIBLE_SSH_CONTROL_MASTER=auto
+ANSIBLE_SSH_CONTROL_PERSIST=10m
+ANSIBLE_SSH_CONTROL_PATH_DIR=var/ssh-control
+```
+
+Override these through the Makefile when a network target is slow or unreliable. `ANSIBLE_SSH_CONTROL_PATH_DIR` is project-relative and is ignored by git.
+
+For long-running install targets, run the controller-side command inside `tmux` or `screen`:
+
+```sh
+tmux new -s gentoo-install
+make install-openrc ANSIBLE_LIVE_HOST=<live-iso-address> INSTALL_DISK=<disk> ADMIN_USER=<name> I_UNDERSTAND_THIS_WIPES_DISK=yes I_UNDERSTAND_BOOTLOADER_CHANGES=yes
+```
+
+This protects the operator's login session to the controller. It does not replace controller-to-target SSH keepalives, and it does not make a failed installation automatically resumable.
+
 ## Local Targets
 
 Run these from inside the official Gentoo live ISO:

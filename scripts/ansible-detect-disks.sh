@@ -9,10 +9,12 @@ require_command ansible-playbook
 require_ansible_live_target detect-disks
 
 printf 'Running read-only disk detection against %s@%s port %s\n' "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$ANSIBLE_LIVE_PORT"
+ssh_common_args=$(ansible_ssh_common_args)
+
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   -i ansible/inventory/live.yml \
   -u "$ANSIBLE_LIVE_USER" \
-  --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10" \
+  --ssh-common-args="$ssh_common_args" \
   -e "ansible_host=${ANSIBLE_LIVE_HOST}" \
   -e "ansible_port=${ANSIBLE_LIVE_PORT}" \
   ansible/playbooks/detect-disks.yml

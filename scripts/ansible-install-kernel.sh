@@ -40,9 +40,11 @@ printf 'Installing gentoo-kernel-bin for %s %s target on %s@%s port %s\n' "$prof
 printf '%s\n' 'This target runs Portage inside /mnt/gentoo to install sys-kernel/gentoo-kernel-bin, sys-kernel/installkernel, and sys-kernel/dracut.'
 printf '%s\n' 'It does not install GRUB, change EFI boot entries, create users, enable services, partition, format, or reboot.'
 
+ssh_common_args=$(ansible_ssh_common_args)
+
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   -i "$inventory_file" \
-  --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10" \
+  --ssh-common-args="$ssh_common_args" \
   -e "profile=${profile}" \
   -e "filesystem=${filesystem}" \
   -e "project_root=${project_root}" \

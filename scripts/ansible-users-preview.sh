@@ -57,8 +57,10 @@ printf 'ENABLE_SSH=%s\n' "$enable_ssh"
 printf '%s\n' 'Password hash file paths, password hash contents, and authorized_keys contents are not printed.'
 printf '%s\n' 'This target is read-only. It does not create users, change passwords, write sudoers, install SSH keys, or enable services.'
 
+ssh_common_args=$(ansible_ssh_common_args)
+
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   -i "$inventory_file" \
-  --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10" \
+  --ssh-common-args="$ssh_common_args" \
   -e "@${extra_vars_file}" \
   ansible/playbooks/users-preview.yml

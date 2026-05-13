@@ -31,10 +31,12 @@ if [[ "$state" == running || "$state" == paused ]]; then
     set -e
     if [[ "$target_status" -eq 0 && -n "$target_env" ]]; then
       eval "$target_env"
-      if ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -p "$ANSIBLE_LIVE_PORT" "$ANSIBLE_LIVE_USER@$ANSIBLE_LIVE_HOST" true >/dev/null 2>&1; then
+      ssh_common_args=$(ansible_ssh_common_args)
+      read -r -a ssh_args <<< "$ssh_common_args"
+      if ssh -o BatchMode=yes "${ssh_args[@]}" -p "$ANSIBLE_LIVE_PORT" "$ANSIBLE_LIVE_USER@$ANSIBLE_LIVE_HOST" true >/dev/null 2>&1; then
         printf 'vm-shutdown: requesting guest sync and poweroff over SSH: %s@%s:%s\n' "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$ANSIBLE_LIVE_PORT"
         ssh_shutdown_requested=yes
-        ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -p "$ANSIBLE_LIVE_PORT" "$ANSIBLE_LIVE_USER@$ANSIBLE_LIVE_HOST" 'sync; poweroff' >/dev/null 2>&1 || true
+        ssh -o BatchMode=yes "${ssh_args[@]}" -p "$ANSIBLE_LIVE_PORT" "$ANSIBLE_LIVE_USER@$ANSIBLE_LIVE_HOST" 'sync; poweroff' >/dev/null 2>&1 || true
       elif [[ "$shutdown_ssh" == yes ]]; then
         die "VM_SHUTDOWN_SSH=yes but SSH did not accept a batch connection for $VM_NAME"
       fi

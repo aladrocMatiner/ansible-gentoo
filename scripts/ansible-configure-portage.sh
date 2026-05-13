@@ -47,9 +47,11 @@ printf 'Configuring Portage baseline for %s/%s target on %s@%s port %s\n' "$prof
 printf 'Portage Gentoo mirrors: %s\n' "$portage_gentoo_mirrors"
 printf '%s\n' 'This target writes conservative Portage configuration, syncs the official Gentoo repo, and selects the matching profile. It does not install packages or run @world.'
 
+ssh_common_args=$(ansible_ssh_common_args)
+
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   -i "$inventory_file" \
-  --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10" \
+  --ssh-common-args="$ssh_common_args" \
   -e "profile=${profile}" \
   -e "filesystem=${filesystem}" \
   -e "stage3_flavor=${stage3_flavor}" \

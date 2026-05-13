@@ -39,9 +39,11 @@ EOF
 printf 'Preparing chroot mounts for %s target on %s@%s port %s\n' "$profile" "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$ANSIBLE_LIVE_PORT"
 printf '%s\n' 'This target mounts pseudo-filesystems under /mnt/gentoo and prepares DNS. It does not run package, Portage, kernel, user, or bootloader tasks.'
 
+ssh_common_args=$(ansible_ssh_common_args)
+
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   -i "$inventory_file" \
-  --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10" \
+  --ssh-common-args="$ssh_common_args" \
   -e "profile=${profile}" \
   -e "filesystem=${filesystem}" \
   -e "project_root=${project_root}" \

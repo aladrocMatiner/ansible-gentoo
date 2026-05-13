@@ -192,6 +192,70 @@ assert_positive_int() {
   (( value >= 1 )) || die "$label must be greater than zero: $value"
 }
 
+assert_ansible_ssh_control_master() {
+  local value=$1
+  case "$value" in
+    yes|no|ask|auto|autoask) ;;
+    *) die "ANSIBLE_SSH_CONTROL_MASTER must be one of yes, no, ask, auto, or autoask: $value" ;;
+  esac
+}
+
+assert_ansible_ssh_control_persist() {
+  local value=$1
+  case "$value" in
+    yes|no) return 0 ;;
+  esac
+  [[ "$value" =~ ^[0-9]+[smhdw]?$ ]] || die "ANSIBLE_SSH_CONTROL_PERSIST must be yes, no, or a simple duration such as 10m: $value"
+}
+
+validate_ansible_ssh_transport_config() {
+  ANSIBLE_SSH_CONNECT_TIMEOUT=${ANSIBLE_SSH_CONNECT_TIMEOUT:-10}
+  ANSIBLE_SSH_SERVER_ALIVE_INTERVAL=${ANSIBLE_SSH_SERVER_ALIVE_INTERVAL:-30}
+  ANSIBLE_SSH_SERVER_ALIVE_COUNT_MAX=${ANSIBLE_SSH_SERVER_ALIVE_COUNT_MAX:-6}
+  ANSIBLE_SSH_CONTROL_MASTER=${ANSIBLE_SSH_CONTROL_MASTER:-auto}
+  ANSIBLE_SSH_CONTROL_PERSIST=${ANSIBLE_SSH_CONTROL_PERSIST:-10m}
+  ANSIBLE_SSH_CONTROL_PATH_DIR=${ANSIBLE_SSH_CONTROL_PATH_DIR:-var/ssh-control}
+
+  assert_positive_int ANSIBLE_SSH_CONNECT_TIMEOUT "$ANSIBLE_SSH_CONNECT_TIMEOUT"
+  assert_positive_int ANSIBLE_SSH_SERVER_ALIVE_INTERVAL "$ANSIBLE_SSH_SERVER_ALIVE_INTERVAL"
+  assert_positive_int ANSIBLE_SSH_SERVER_ALIVE_COUNT_MAX "$ANSIBLE_SSH_SERVER_ALIVE_COUNT_MAX"
+  assert_ansible_ssh_control_master "$ANSIBLE_SSH_CONTROL_MASTER"
+  assert_ansible_ssh_control_persist "$ANSIBLE_SSH_CONTROL_PERSIST"
+  assert_safe_rel_dir ANSIBLE_SSH_CONTROL_PATH_DIR "$ANSIBLE_SSH_CONTROL_PATH_DIR"
+}
+
+ensure_ansible_ssh_control_dir() {
+  validate_ansible_ssh_transport_config
+
+  if [[ "$ANSIBLE_SSH_CONTROL_MASTER" == no || "$ANSIBLE_SSH_CONTROL_PERSIST" == no ]]; then
+    return 0
+  fi
+
+  if [[ -e "$ANSIBLE_SSH_CONTROL_PATH_DIR" && ! -d "$ANSIBLE_SSH_CONTROL_PATH_DIR" ]]; then
+    die "ANSIBLE_SSH_CONTROL_PATH_DIR exists but is not a directory: $ANSIBLE_SSH_CONTROL_PATH_DIR"
+  fi
+
+  mkdir -p -- "$ANSIBLE_SSH_CONTROL_PATH_DIR"
+  chmod 700 "$ANSIBLE_SSH_CONTROL_PATH_DIR"
+  assert_safe_rel_dir ANSIBLE_SSH_CONTROL_PATH_DIR "$ANSIBLE_SSH_CONTROL_PATH_DIR"
+}
+
+ansible_ssh_common_args() {
+  ensure_ansible_ssh_control_dir
+
+  printf '%s' "-o StrictHostKeyChecking=no"
+  printf ' %s' "-o UserKnownHostsFile=/dev/null"
+  printf ' %s' "-o ConnectTimeout=${ANSIBLE_SSH_CONNECT_TIMEOUT}"
+  printf ' %s' "-o ServerAliveInterval=${ANSIBLE_SSH_SERVER_ALIVE_INTERVAL}"
+  printf ' %s' "-o ServerAliveCountMax=${ANSIBLE_SSH_SERVER_ALIVE_COUNT_MAX}"
+
+  if [[ "$ANSIBLE_SSH_CONTROL_MASTER" != no && "$ANSIBLE_SSH_CONTROL_PERSIST" != no ]]; then
+    printf ' %s' "-o ControlMaster=${ANSIBLE_SSH_CONTROL_MASTER}"
+    printf ' %s' "-o ControlPersist=${ANSIBLE_SSH_CONTROL_PERSIST}"
+    printf ' %s' "-o ControlPath=${ANSIBLE_SSH_CONTROL_PATH_DIR}/%C"
+  fi
+}
+
 assert_disk_size() {
   local size=$1
   [[ "$size" =~ ^[0-9]+([KMGTP]?)$ ]] || die "VM_DISK_SIZE must be a simple qemu-img size such as 40G: $size"

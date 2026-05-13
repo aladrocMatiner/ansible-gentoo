@@ -16,6 +16,8 @@ VM_RSYNC_DEST=${VM_RSYNC_DEST:-/root/gentoo-ai-installer/}
 
 require_ansible_live_target vm-rsync
 
+ssh_common_args=$(ansible_ssh_common_args)
+
 printf 'Rsync to %s@%s:%s over SSH port %s. SSH must be enabled inside the live ISO first.\n' "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$VM_RSYNC_DEST" "$ANSIBLE_LIVE_PORT"
 
 rsync -az --delete \
@@ -69,5 +71,5 @@ rsync -az --delete \
   --exclude 'var/' \
   --exclude 'logs/' \
   --exclude 'tmp/' \
-  -e "ssh -o ConnectTimeout=10 -o ServerAliveInterval=10 -o ServerAliveCountMax=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p ${ANSIBLE_LIVE_PORT}" \
+  -e "ssh ${ssh_common_args} -p ${ANSIBLE_LIVE_PORT}" \
   ./ "${ANSIBLE_LIVE_USER}@${ANSIBLE_LIVE_HOST}:${VM_RSYNC_DEST}"

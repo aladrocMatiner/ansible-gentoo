@@ -121,6 +121,12 @@ Ansible live target variables:
 - `ANSIBLE_LIVE_HOST`
 - `ANSIBLE_LIVE_PORT`
 - `ANSIBLE_LIVE_USER`
+- `ANSIBLE_SSH_CONNECT_TIMEOUT`
+- `ANSIBLE_SSH_SERVER_ALIVE_INTERVAL`
+- `ANSIBLE_SSH_SERVER_ALIVE_COUNT_MAX`
+- `ANSIBLE_SSH_CONTROL_MASTER`
+- `ANSIBLE_SSH_CONTROL_PERSIST`
+- `ANSIBLE_SSH_CONTROL_PATH_DIR`
 
 Recommended defaults:
 
@@ -169,6 +175,12 @@ Recommended Ansible live target defaults:
 - `ANSIBLE_LIVE_HOST` has no default; if omitted, current wrapper targets may discover the configured local libvirt VM for testing.
 - `ANSIBLE_LIVE_PORT=22`
 - `ANSIBLE_LIVE_USER=root`
+- `ANSIBLE_SSH_CONNECT_TIMEOUT=10`
+- `ANSIBLE_SSH_SERVER_ALIVE_INTERVAL=30`
+- `ANSIBLE_SSH_SERVER_ALIVE_COUNT_MAX=6`
+- `ANSIBLE_SSH_CONTROL_MASTER=auto`
+- `ANSIBLE_SSH_CONTROL_PERSIST=10m`
+- `ANSIBLE_SSH_CONTROL_PATH_DIR=var/ssh-control`
 
 Rules:
 
@@ -207,6 +219,9 @@ Rules:
 - `ANSIBLE_LIVE_HOST` must not default to a VM IP or a physical host.
 - When `ANSIBLE_LIVE_HOST` is set, Ansible targets must use it as the network-reachable official live ISO target instead of requiring libvirt discovery.
 - When `ANSIBLE_LIVE_HOST` is empty, VM/libvirt discovery is allowed only for local testing.
+- Ansible SSH wrapper targets must build SSH transport options through the shared wrapper helper rather than duplicating raw `--ssh-common-args`.
+- `ANSIBLE_SSH_CONTROL_PATH_DIR` must be project-relative, ignored by git, and must not be a symlink, the project root, `/dev`, or contain parent traversal.
+- Documentation for long-running Ansible install targets should recommend running the controller-side Makefile command inside `tmux` or `screen`.
 - `local-*` Ansible targets run inside the official Gentoo live ISO with `ansible_connection=local`; they are fallback/diagnostic targets and must not replace the primary SSH/network workflow.
 - Local Ansible targets must not disable host-key checking globally, because they do not use SSH to the live ISO.
 - `VM_NETWORK` is required only when `VM_NET_MODE=network`.

@@ -43,9 +43,11 @@ EOF
 printf 'Creating %s filesystems for %s on %s@%s port %s\n' "$filesystem" "$INSTALL_DISK" "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$ANSIBLE_LIVE_PORT"
 printf '%s\n' 'This target formats only approved ESP/root partitions. It does not partition, mount the final target, chroot, install packages, or install a bootloader.'
 
+ssh_common_args=$(ansible_ssh_common_args)
+
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   -i "$inventory_file" \
-  --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10" \
+  --ssh-common-args="$ssh_common_args" \
   -e "profile=${profile}" \
   -e "filesystem=${filesystem}" \
   -e "install_disk=${INSTALL_DISK}" \

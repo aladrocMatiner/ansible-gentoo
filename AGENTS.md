@@ -70,6 +70,8 @@ Playbooks and roles must document required variables. Dangerous playbooks must d
 
 The reusable network Ansible installer is the product. VM/libvirt scripts, SSH bootstrap helpers, and local artifact directories are test harness pieces used to validate the installer. Shared Ansible roles and Makefile targets must not depend on a libvirt domain name, VM-only IP discovery, `./var/libvirt/`, or `/dev/vda` except in VM-specific tests and examples.
 
+Controller-to-live-ISO Ansible wrappers must use the shared SSH transport policy exposed through Makefile variables such as `ANSIBLE_SSH_CONNECT_TIMEOUT`, `ANSIBLE_SSH_SERVER_ALIVE_INTERVAL`, `ANSIBLE_SSH_SERVER_ALIVE_COUNT_MAX`, `ANSIBLE_SSH_CONTROL_MASTER`, `ANSIBLE_SSH_CONTROL_PERSIST`, and `ANSIBLE_SSH_CONTROL_PATH_DIR`. Do not duplicate raw `--ssh-common-args` strings in wrapper scripts. Keep temporary live ISO host-key relaxation scoped to wrapper invocations; do not disable host-key checking globally.
+
 Future Ansible installer behavior must use the official Gentoo AMD64 Handbook as the baseline installation procedure: <https://wiki.gentoo.org/wiki/Handbook:AMD64>. Agents may adapt Handbook steps into reusable Ansible roles, but must preserve the project safety model, Makefile control-plane rule, OpenSpec review flow, and v1 assumptions.
 
 Manual intervention is a recovery path, not a safety bypass. If an operator changes installation state outside automation, agents must route the record through `make record-manual-step`, keep the note non-secret, require `make install-resume-plan` or the relevant read-only checks before resuming, and preserve destructive confirmations for later targets.

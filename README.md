@@ -97,6 +97,8 @@ Use `make partition-preview`, `make format-preview`, `make mount-preview`, `make
 
 Current Ansible planning targets run from the operator machine over SSH into a booted official Gentoo live ISO. For a real network target, pass `ANSIBLE_LIVE_HOST=<address>` and optionally `ANSIBLE_LIVE_USER=root ANSIBLE_LIVE_PORT=22`. When `ANSIBLE_LIVE_HOST` is empty, the wrapper targets discover the local libvirt VM as the test target.
 
+Ansible SSH wrappers use configurable keepalives and connection reuse. Defaults are `ANSIBLE_SSH_CONNECT_TIMEOUT=10`, `ANSIBLE_SSH_SERVER_ALIVE_INTERVAL=30`, `ANSIBLE_SSH_SERVER_ALIVE_COUNT_MAX=6`, `ANSIBLE_SSH_CONTROL_MASTER=auto`, `ANSIBLE_SSH_CONTROL_PERSIST=10m`, and `ANSIBLE_SSH_CONTROL_PATH_DIR=var/ssh-control`. For long install runs, start the controller-side `make ...` command inside `tmux` or `screen`; that protects the operator session while the wrapper keepalives protect the controller-to-live-ISO SSH connection.
+
 Optional local live ISO fallback targets run inside the booted official Gentoo live ISO with `ansible_connection=local`: `make local-live-preflight`, `make local-detect-disks`, `make local-install-plan`, and `make local-partition-plan`. The SSH/network workflow remains the primary reusable installer path; see `docs/live-iso-local-ansible.md`.
 
 Current libvirt manual test targets:

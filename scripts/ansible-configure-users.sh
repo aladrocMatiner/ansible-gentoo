@@ -54,8 +54,10 @@ printf 'ENABLE_SSH=%s\n' "$enable_ssh"
 printf '%s\n' 'Password hash file paths and authorized_keys contents are not printed.'
 printf '%s\n' 'This target creates or updates users under /mnt/gentoo and does not partition, format, install GRUB, or reboot.'
 
+ssh_common_args=$(ansible_ssh_common_args)
+
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   -i "$inventory_file" \
-  --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10" \
+  --ssh-common-args="$ssh_common_args" \
   -e "@${extra_vars_file}" \
   ansible/playbooks/configure-users.yml

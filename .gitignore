@@ -12,6 +12,7 @@ var/secrets/
 logs/
 tmp/
 var/state/
+var/ssh-control/
 
 # Legacy local QEMU test VM artifacts.
 var/qemu/*.qcow2

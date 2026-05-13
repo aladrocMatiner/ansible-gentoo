@@ -40,6 +40,28 @@ Optional variables include `HOSTNAME`, `TIMEZONE`, `LOCALE`, `KEYMAP`, `ENABLE_S
 
 Secret-bearing files must be local, gitignored, and passed by file path only.
 
+## Long-running SSH Sessions
+
+The install flow runs from the operator/controller over SSH into the official live ISO. Run destructive full-install commands inside `tmux` or `screen` on the controller so the install is not killed by an operator terminal disconnect:
+
+```sh
+tmux new -s gentoo-install
+make install-openrc FILESYSTEM=ext4 INSTALL_DISK=<disk> ADMIN_USER=<name> I_UNDERSTAND_THIS_WIPES_DISK=yes I_UNDERSTAND_BOOTLOADER_CHANGES=yes
+```
+
+The wrappers also set controller-to-live-ISO SSH keepalives and connection reuse by default:
+
+```text
+ANSIBLE_SSH_CONNECT_TIMEOUT=10
+ANSIBLE_SSH_SERVER_ALIVE_INTERVAL=30
+ANSIBLE_SSH_SERVER_ALIVE_COUNT_MAX=6
+ANSIBLE_SSH_CONTROL_MASTER=auto
+ANSIBLE_SSH_CONTROL_PERSIST=10m
+ANSIBLE_SSH_CONTROL_PATH_DIR=var/ssh-control
+```
+
+Override these through the Makefile for slow networks. This improves SSH transport robustness but does not replace resumable install phases.
+
 ## Shared Flow
 
 The shared playbook follows the Gentoo AMD64 Handbook order with project-specific guardrails:

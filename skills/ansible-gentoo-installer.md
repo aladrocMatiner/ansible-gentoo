@@ -30,6 +30,7 @@ Do not use this skill to bypass OpenSpec or safety review for destructive automa
 - Official Gentoo live ISO preflight behavior.
 - A network-reachable official Gentoo live ISO target over SSH, selected by inventory or Makefile variables such as `ANSIBLE_LIVE_HOST`.
 - Libvirt VM SSH access only when using the local validation harness.
+- Shared SSH transport wrapper policy for controller-to-live-ISO targets: `ANSIBLE_SSH_CONNECT_TIMEOUT=10`, `ANSIBLE_SSH_SERVER_ALIVE_INTERVAL=30`, `ANSIBLE_SSH_SERVER_ALIVE_COUNT_MAX=6`, `ANSIBLE_SSH_CONTROL_MASTER=auto`, `ANSIBLE_SSH_CONTROL_PERSIST=10m`, and `ANSIBLE_SSH_CONTROL_PATH_DIR=var/ssh-control` unless the operator overrides them through the Makefile.
 - Basic console targets: amd64, OpenRC or systemd, UEFI, ext4 or planned Btrfs subvolumes, `gentoo-kernel-bin`, GRUB, NetworkManager, no LUKS.
 - Target system baseline: `docs/target-system-baseline.md`.
 - Installed time synchronization policy: `docs/installed-time-sync-policy.md`.
@@ -107,6 +108,9 @@ all:
 Rules:
 
 - Ansible normally runs from the operator/controller machine and manages a booted official Gentoo live ISO target over SSH.
+- Controller-side Ansible wrappers must use the shared SSH transport helper instead of repeating raw `--ssh-common-args`.
+- Temporary live ISO wrappers may disable strict host-key persistence per invocation, but global `ansible.cfg` must keep host key checking enabled.
+- Long-running install commands should be launched from `tmux` or `screen` on the controller; this protects the operator session but does not replace SSH keepalives or resumable phase logic.
 - Do not treat the installed target as the control host.
 - Reusable roles must not depend on libvirt, VM names, qcow2 paths, or `/dev/vda`.
 - Do not store secrets in inventory.

@@ -31,10 +31,14 @@ wait_for_ssh() {
   local user=$3
   local timeout=$4
   local start now
+  local ssh_common_args
+  local -a ssh_args
 
+  ssh_common_args=$(ansible_ssh_common_args)
+  read -r -a ssh_args <<< "$ssh_common_args"
   start=$(date +%s)
   while true; do
-    if ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 -p "$port" "$user@$host" true >/dev/null 2>&1; then
+    if ssh -o BatchMode=yes "${ssh_args[@]}" -p "$port" "$user@$host" true >/dev/null 2>&1; then
       return 0
     fi
     now=$(date +%s)
@@ -131,9 +135,11 @@ all:
       ansible_python_interpreter: auto_silent
 EOF
 
+ssh_common_args=$(ansible_ssh_common_args)
+
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   -i "$inventory_file" \
-  --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10" \
+  --ssh-common-args="$ssh_common_args" \
   -e "profile=${profile}" \
   -e "filesystem=${filesystem}" \
   -e "expected_hostname=${expected_hostname}" \

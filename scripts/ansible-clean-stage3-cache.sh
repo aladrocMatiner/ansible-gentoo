@@ -33,10 +33,12 @@ printf 'Stage3 cache cleanup on %s@%s port %s\n' "$ANSIBLE_LIVE_USER" "$ANSIBLE_
 printf 'STAGE3_CACHE_DIR=%s\n' "$stage3_cache_dir"
 printf 'mode=%s\n' "$([[ "$plan_only" == yes ]] && printf plan || printf clean)"
 
+ssh_common_args=$(ansible_ssh_common_args)
+
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   -i ansible/inventory/live.yml \
   -u "$ANSIBLE_LIVE_USER" \
-  --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10" \
+  --ssh-common-args="$ssh_common_args" \
   -e "ansible_host=${ANSIBLE_LIVE_HOST}" \
   -e "ansible_port=${ANSIBLE_LIVE_PORT}" \
   -e "stage3_cache_dir=${stage3_cache_dir}" \

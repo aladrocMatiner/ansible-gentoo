@@ -16,10 +16,12 @@ confirm_wipe_disk=${I_UNDERSTAND_THIS_WIPES_DISK:-}
 
 printf 'Running read-only destructive safety gate check for %s against %s@%s port %s\n' "$INSTALL_DISK" "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$ANSIBLE_LIVE_PORT"
 
+ssh_common_args=$(ansible_ssh_common_args)
+
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   -i ansible/inventory/live.yml \
   -u "$ANSIBLE_LIVE_USER" \
-  --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10" \
+  --ssh-common-args="$ssh_common_args" \
   -e "ansible_host=${ANSIBLE_LIVE_HOST}" \
   -e "ansible_port=${ANSIBLE_LIVE_PORT}" \
   -e "install_disk=${INSTALL_DISK}" \

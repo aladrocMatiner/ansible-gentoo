@@ -43,9 +43,11 @@ printf 'Generating target fstab for %s %s target on %s@%s port %s\n' "$profile" 
 printf 'Install disk: %s\n' "$install_disk"
 printf '%s\n' 'This target validates filesystem UUIDs and writes only /mnt/gentoo/etc/fstab. It does not mount, format, install packages, or install a bootloader.'
 
+ssh_common_args=$(ansible_ssh_common_args)
+
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   -i "$inventory_file" \
-  --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10" \
+  --ssh-common-args="$ssh_common_args" \
   -e "profile=${profile}" \
   -e "filesystem=${filesystem}" \
   -e "install_disk=${install_disk}" \

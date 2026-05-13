@@ -49,9 +49,11 @@ printf 'Stage3 mirror: %s\n' "$stage3_mirror"
 printf 'Stage3 live-ISO cache: %s\n' "$stage3_cache_dir"
 printf '%s\n' 'This target downloads, verifies, and extracts stage3 into /mnt/gentoo. It does not chroot, configure Portage, install packages, create users, or install a bootloader.'
 
+ssh_common_args=$(ansible_ssh_common_args)
+
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   -i "$inventory_file" \
-  --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10" \
+  --ssh-common-args="$ssh_common_args" \
   -e "profile=${profile}" \
   -e "filesystem=${filesystem}" \
   -e "stage3_flavor=${stage3_flavor}" \
