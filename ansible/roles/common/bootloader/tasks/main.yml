@@ -194,6 +194,9 @@
   register: bootloader_emerge
   changed_when: (bootloader_missing_packages | length > 0) or (bootloader_grub_platform is defined and bootloader_grub_platform is changed)
   failed_when: bootloader_emerge.rc != 0
+  retries: 2
+  delay: 30
+  until: bootloader_emerge.rc == 0
   when:
     - not ansible_check_mode
     - (bootloader_missing_packages | length > 0) or (bootloader_grub_platform is defined and bootloader_grub_platform is changed)

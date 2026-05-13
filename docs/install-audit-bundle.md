@@ -41,6 +41,7 @@ Both `logs/` and `var/state/` are ignored by git.
 The generator copies known evidence files from the run directory:
 
 - install state and event log,
+- phase contract and resume decision metadata recorded in install state,
 - partition before/after evidence,
 - filesystem before/after evidence,
 - mount target before/after evidence,

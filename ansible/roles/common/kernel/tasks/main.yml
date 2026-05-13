@@ -238,6 +238,9 @@
   register: kernel_emerge
   changed_when: true
   failed_when: kernel_emerge.rc != 0
+  retries: 2
+  delay: 30
+  until: kernel_emerge.rc == 0
   when:
     - not ansible_check_mode
     - (kernel_package_use is defined and kernel_package_use is changed) or (kernel_missing_packages | length > 0)
@@ -268,6 +271,9 @@
   register: kernel_emerge_config
   changed_when: true
   failed_when: kernel_emerge_config.rc != 0
+  retries: 2
+  delay: 30
+  until: kernel_emerge_config.rc == 0
   when:
     - not ansible_check_mode
     - >-

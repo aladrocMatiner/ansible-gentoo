@@ -74,7 +74,7 @@ Controller-to-live-ISO Ansible wrappers must use the shared SSH transport policy
 
 Future Ansible installer behavior must use the official Gentoo AMD64 Handbook as the baseline installation procedure: <https://wiki.gentoo.org/wiki/Handbook:AMD64>. Agents may adapt Handbook steps into reusable Ansible roles, but must preserve the project safety model, Makefile control-plane rule, OpenSpec review flow, and v1 assumptions.
 
-Manual intervention is a recovery path, not a safety bypass. If an operator changes installation state outside automation, agents must route the record through `make record-manual-step`, keep the note non-secret, require `make install-resume-plan` or the relevant read-only checks before resuming, and preserve destructive confirmations for later targets.
+Manual intervention is a recovery path, not a safety bypass. If an operator changes installation state outside automation, agents must route the record through `make record-manual-step`, keep the note non-secret, require `make install-resume-plan` before resuming, and preserve destructive confirmations for later targets. `make install-resume` may execute only one planner-approved phase from `config/install-phases.json`, must preserve the recorded `INSTALL_RUN_ID`, and must stop before another phase until `make install-resume-plan` is rerun.
 
 Real hardware workflows are higher risk than libvirt validation. Before agents suggest destructive physical-machine targets, they must direct the operator through `make real-hardware-check`, prefer stable disk paths such as `/dev/disk/by-id/...`, and state that readiness output never replaces destructive or bootloader confirmations.
 

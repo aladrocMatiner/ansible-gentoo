@@ -187,7 +187,7 @@ Shared roles:
 - `common/live_target`: verify controller-to-target SSH, Python availability, official live ISO evidence, amd64, UEFI, network, DNS, and time without assuming libvirt.
 - `common/disk_detection`: read-only disk identity and partition reporting.
 - `common/disk_safety`: shared disk safety gates for explicit disk input, conservative disk syntax, disk identity, mount-state checks, mounted-descendant rejection, destructive confirmation validation, and opt-in resume checkpoint comparison.
-- `common/install_state`: write non-secret state under `var/state/current-install.json` and `logs/install-runs/<run-id>/`, track completed phases, and preserve the latest disk safety checkpoint for `make install-resume-plan`.
+- `common/install_state`: write non-secret state under `var/state/current-install.json` and `logs/install-runs/<run-id>/`, load the shared phase contract from `config/install-phases.json`, track completed ordered phases, preserve the latest disk safety checkpoint for `make install-resume-plan`, and record resume decisions without treating checkpoints as confirmations.
 - `common/install_plan`: profile-aware read-only plan output that follows the official Gentoo AMD64 Handbook baseline and does not select a disk by default.
 - `common/partition_plan`: read-only GPT partition plan that reuses `common/disk_safety`, requires explicit `install_disk`, and reports ext4 or Btrfs root layout without writing.
 - `common/mount_plan`: read-only mount layout plan that reuses partition-plan safety checks and reports root, EFI, and Btrfs subvolume mountpoints without running `mount`, `umount`, or `mkdir`.
@@ -306,7 +306,7 @@ Required gates:
 - Confirm installer roles and Makefile targets remain represented in `config/handbook-traceability.json`; regenerate `docs/handbook-traceability.md` with `make handbook-trace` when phases, roles, targets, safety gates, or project deviations change.
 - Confirm logs, state files, and audit bundles do not contain secrets.
 - Confirm operator variables pass the shared config validation before apply workflows.
-- Confirm manual intervention is recorded through `make record-manual-step`, preserved as non-secret run evidence, and revalidated with `make install-resume-plan` or the relevant read-only checks before resume.
+- Confirm manual intervention is recorded through `make record-manual-step`, preserved as non-secret run evidence, and revalidated with `make install-resume-plan` before `make install-resume` executes exactly one planner-approved phase.
 - Confirm physical-machine destructive workflows are preceded by `make real-hardware-check`, stable disk identity is preferred, and readiness output is not treated as destructive confirmation.
 - Confirm libvirt matrix planning covers amd64 OpenRC/systemd, ext4/Btrfs, and standard/hardened/musl stage3 flavors without creating disks or running destructive install steps.
 - Confirm `VM_TEST_IMAGE_NAME`, when used, is treated only as local libvirt test-harness metadata for naming generated artifacts and never as an ISO path, package selector, disk selector, or reusable Ansible variable.
@@ -477,7 +477,8 @@ Local `local-*` targets are fallback/diagnostic paths for running Ansible inside
 - Move duplicated OpenRC/systemd logic into common roles or variant variables before continuing.
 - Add asserts for target root, install disk, boot mode, and confirmation variables.
 - Preserve logs after failure and inspect state before retrying.
-- If manual recovery is needed, record the non-secret reason and next action with `make record-manual-step`, then rerun `make install-resume-plan` before continuing.
+- For long-running stage3 downloads, Portage sync, package installation, kernel installation, and bootloader package installation, use bounded retries or equivalent phase-scoped resilience rather than retrying the whole installer.
+- If manual recovery is needed, record the non-secret reason and next action with `make record-manual-step`, rerun `make install-resume-plan`, then use `make install-resume` for one planner-approved phase at a time.
 - If moving from libvirt to physical hardware, run `make real-hardware-check` with `ANSIBLE_LIVE_HOST` and an explicit stable `INSTALL_DISK` before destructive targets.
 - If validating variants locally, run `make vm-list-cases` and `make vm-test-matrix-plan` first; VM targets derive local harness domains from `PROFILE`, `FILESYSTEM`, `STAGE3_FLAVOR`, fixed platform `amd64`, and optional `VM_TEST_IMAGE_NAME`.
 - Enable `VM_TEST_MATRIX_RUN_TARGET_PLANS=yes` only after the selected case live ISO VM has SSH connectivity.

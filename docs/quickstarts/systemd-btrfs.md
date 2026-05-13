@@ -112,4 +112,4 @@ make vm-clean PROFILE=systemd FILESYSTEM=btrfs I_UNDERSTAND_CLEANUP_DELETE=DELET
 - Btrfs tools missing in the target: inspect package evidence from `install-system-packages`.
 - Root subvolume missing: inspect mount and fstab logs for `subvol=@`.
 - systemd service validation fails: inspect service evidence from `install-system-packages` and `final-checks`.
-- Install fails mid-run: inspect `make install-state INSTALL_STATE_FILE=var/state/libvirt/gentoo-test-amd64-systemd-btrfs/current-install.json` and logs under `logs/install-runs/`.
+- Install fails mid-run: inspect `make install-state INSTALL_STATE_FILE=var/state/libvirt/gentoo-test-amd64-systemd-btrfs/current-install.json`, run `make install-resume-plan INSTALL_STATE_FILE=var/state/libvirt/gentoo-test-amd64-systemd-btrfs/current-install.json`, then use `make install-resume INSTALL_STATE_FILE=var/state/libvirt/gentoo-test-amd64-systemd-btrfs/current-install.json` for one planner-approved phase at a time; logs remain under `logs/install-runs/`.

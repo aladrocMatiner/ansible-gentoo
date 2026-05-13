@@ -9,4 +9,4 @@
         disk_safety_require_confirmation: true
     - role: common/install_state
       vars:
-        install_state_phase: destructive-safety-check
+        install_state_phase: disk-safety

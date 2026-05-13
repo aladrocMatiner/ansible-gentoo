@@ -68,11 +68,12 @@ After a manual step:
 
 1. Run `make install-state`.
 2. Run `make install-resume-plan`.
-3. Run relevant read-only checks or plans for the next phase.
-4. Re-enter destructive confirmations if the next phase is destructive.
+3. Fix any reported mismatch or missing evidence.
+4. Run `make install-resume` to execute exactly one planner-approved phase.
+5. Re-enter destructive confirmations if the next phase is destructive.
 
 State records never satisfy destructive confirmations.
-Successful `make install-resume-plan` clears the manual revalidation flag after target facts match the saved checkpoint.
+Successful `make install-resume-plan` clears the manual revalidation flag after target facts match the saved checkpoint and no mismatches are reported. `make install-resume` then stops after one phase and requires a fresh `make install-resume-plan` before continuing.
 
 ## Audit
 

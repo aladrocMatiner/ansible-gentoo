@@ -54,6 +54,7 @@ STAGE3_MIRROR ?= https://distfiles.gentoo.org/releases/amd64/autobuilds
 STAGE3_CACHE_DIR ?= /tmp/gentoo-ai-installer/stage3
 PORTAGE_GENTOO_MIRRORS ?= https://distfiles.gentoo.org
 INSTALL_STATE_FILE ?= var/state/current-install.json
+INSTALL_RUN_ID ?=
 I_UNDERSTAND_DELETE_INSTALL_STATE ?=
 I_UNDERSTAND_CLEANUP_DELETE ?=
 CLEAN_SCOPE ?= state
@@ -132,6 +133,7 @@ export STAGE3_CACHE_DIR
 export PORTAGE_GENTOO_MIRRORS
 export INSTALL_DISK
 export INSTALL_STATE_FILE
+export INSTALL_RUN_ID
 export I_UNDERSTAND_DELETE_INSTALL_STATE
 export I_UNDERSTAND_CLEANUP_DELETE
 export CLEAN_SCOPE
@@ -157,7 +159,7 @@ export VM_E2E_MATRIX_PARALLEL
 
 .PHONY: help \
 	vm-list-cases vm-check vm-disk vm-define vm-start vm-start-installed vm-validate-first-boot vm-e2e-plan vm-e2e-install vm-e2e-matrix vm-test-matrix vm-test-matrix-plan vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
-	ansible-check config-check host-check real-hardware-check release-check secret-check handbook-trace ansible-live-ping ansible-live-preflight local-live-preflight local-detect-disks local-install-plan local-partition-plan detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-preview partition-preview format-preview mount-preview bootloader-preview users-preview destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan record-manual-step install-run-clean install-audit install-report cleanup-plan clean-state clean-logs clean-audit clean-stage3-cache reset-test-run \
+	ansible-check config-check host-check real-hardware-check release-check secret-check handbook-trace ansible-live-ping ansible-live-preflight local-live-preflight local-detect-disks local-install-plan local-partition-plan detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-preview partition-preview format-preview mount-preview bootloader-preview users-preview destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan install-resume record-manual-step install-run-clean install-audit install-report cleanup-plan clean-state clean-logs clean-audit clean-stage3-cache reset-test-run \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -225,6 +227,7 @@ help:
 		'  make install-systemd DESTRUCTIVE: run full systemd basic console install' \
 		'  make install-state   Show current non-secret install state checkpoint summary' \
 		'  make install-resume-plan Validate current target facts against saved install state' \
+		'  make install-resume Execute one planner-approved resume phase, then stop' \
 		'  make record-manual-step Record non-secret manual intervention note; requires MANUAL_STEP_SUMMARY and MANUAL_STEP_REASON' \
 		'  make install-run-clean Delete current install state pointer after confirmation' \
 		'  make install-audit   Generate a secret-safe audit bundle for the current run' \
@@ -301,6 +304,7 @@ help:
 		'  STAGE3_CACHE_DIR=$(STAGE3_CACHE_DIR)' \
 		'  PORTAGE_GENTOO_MIRRORS=$(PORTAGE_GENTOO_MIRRORS)' \
 		'  INSTALL_STATE_FILE=$(INSTALL_STATE_FILE)' \
+		'  INSTALL_RUN_ID=$(if $(INSTALL_RUN_ID),$(INSTALL_RUN_ID),<managed by install wrappers>)' \
 		'  INSTALL_DISK has no default; pass INSTALL_DISK=/dev/vda only deliberately inside the VM' \
 		'  I_UNDERSTAND_BOOTLOADER_CHANGES must be yes for make install-bootloader' \
 		'  I_UNDERSTAND_DELETE_INSTALL_STATE must be DELETE for make install-run-clean' \
@@ -505,6 +509,9 @@ install-state:
 
 install-resume-plan:
 	@scripts/ansible-install-resume-plan.sh
+
+install-resume:
+	@scripts/ansible-install-resume.sh
 
 record-manual-step:
 	@scripts/record-manual-step.py --state-file "$(INSTALL_STATE_FILE)" record

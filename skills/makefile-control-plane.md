@@ -91,6 +91,8 @@ Required project variables:
 - `REAL_HARDWARE_DESTRUCTIVE_PREVIEW_REVIEWED`
 - `REAL_HARDWARE_LIBVIRT_VALIDATED`
 - `REAL_HARDWARE_LIBVIRT_SKIP_REASON`
+- `INSTALL_STATE_FILE`
+- `INSTALL_RUN_ID`
 
 VM/libvirt variables:
 
@@ -139,6 +141,8 @@ Recommended defaults:
 - `STAGE3_MIRROR=https://distfiles.gentoo.org/releases/amd64/autobuilds`
 - `STAGE3_CACHE_DIR=/tmp/gentoo-ai-installer/stage3`
 - `PORTAGE_GENTOO_MIRRORS=https://distfiles.gentoo.org`
+- `INSTALL_STATE_FILE=var/state/current-install.json`
+- `INSTALL_RUN_ID=` managed by install wrappers; set directly only for advanced recovery where the run id is already known.
 - `TIMEZONE=UTC`
 - `LOCALE=en_US.UTF-8`
 - `KEYMAP=us`
@@ -265,6 +269,7 @@ Required safe targets:
 - `make final-checks`
 - `make install-state`
 - `make install-resume-plan`
+- `make install-resume`
 - `make record-manual-step`
 - `make install-audit`
 - `make install-report`
@@ -313,7 +318,8 @@ Expected behavior:
 - `make destructive-safety-check`: require explicit `INSTALL_DISK` and `I_UNDERSTAND_THIS_WIPES_DISK=yes`, then run the shared read-only disk safety role without mutating disks.
 - `make final-checks`: require explicit `ADMIN_USER`, run read-only reboot readiness checks, write a secret-safe local report, and never reboot automatically.
 - `make install-state`: print the current non-secret install state summary from `var/state/current-install.json`.
-- `make install-resume-plan`: read saved install state, reject secret-like state content, and validate current live ISO disk/profile/filesystem/stage3 flavor facts without resuming or satisfying destructive confirmations.
+- `make install-resume-plan`: read saved install state, reject secret-like state content, load `config/install-phases.json`, report completed phases, mismatches, next safe phase, required confirmations, and validate current live ISO facts without satisfying destructive confirmations.
+- `make install-resume`: run resume planning first, refuse blockers, execute exactly one Makefile target selected from the phase contract allowlist, preserve the recorded `INSTALL_RUN_ID`, then stop and require another resume plan.
 - `make record-manual-step`: record a non-secret manual intervention note under `logs/install-runs/<run-id>/manual-steps/`, mark current state as requiring revalidation, and require `MANUAL_STEP_SUMMARY` plus `MANUAL_STEP_REASON`.
 - `make install-audit`: generate a secret-scanned local audit bundle under `logs/install-runs/<run-id>/audit-bundle/` from the current install state.
 - `make install-report`: generate a human-readable, secret-safe Markdown summary under `logs/install-runs/<run-id>/install-report.md` from current state and evidence.
@@ -553,7 +559,7 @@ Rules:
 - Add disk summary output before destructive work.
 - Add a safety confirmation script before destructive targets.
 - Add `make install-plan` or `make partition-plan` before apply targets.
-- Record non-secret manual recovery notes with `make record-manual-step`, then rerun `make install-resume-plan` and the relevant read-only plan before continuing.
+- Record non-secret manual recovery notes with `make record-manual-step`, then rerun `make install-resume-plan` and continue with `make install-resume` only when one-phase execution is allowed.
 - Run `make real-hardware-check` before destructive physical-machine workflows and prefer `/dev/disk/by-id/...` for `INSTALL_DISK`.
 - Stop and rerun safe inventory targets if disk identity changes.
 - Review dangerous targets with `agents/safety-review-agent.md` before use.

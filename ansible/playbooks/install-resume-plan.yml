@@ -2,26 +2,51 @@
 - name: Validate install resume plan
   hosts: gentoo_live
   gather_facts: true
+  vars:
+    resume_plan_blockers_text: "{{ lookup('ansible.builtin.env', 'INSTALL_RESUME_BLOCKERS') | default('', true) }}"
+    resume_plan_mismatches_text: "{{ lookup('ansible.builtin.env', 'INSTALL_RESUME_MISMATCHES') | default('', true) }}"
   roles:
+    - role: common/live_preflight
     - role: common/disk_detection
     - role: common/disk_safety
       vars:
         disk_safety_allow_mounted_descendants: true
-        disk_safety_resume_checkpoint_required: true
-        disk_safety_resume_checkpoint_file: "{{ install_state_checkpoint_file }}"
+        disk_safety_resume_checkpoint_required: "{{ resume_plan_requires_disk_safety | default(false) | bool }}"
+        disk_safety_resume_checkpoint_file: "{{ install_state_checkpoint_file if (resume_plan_requires_disk_safety | default(false) | bool) else '' }}"
+      when: resume_plan_run_disk_safety | default(false) | bool
     - role: common/install_state
       vars:
         install_state_phase: resume-plan
-        install_state_next_action: "Resume validation passed. Run the next documented Makefile target with fresh confirmations if it is destructive."
+        install_state_resume_decision:
+          next_phase: "{{ resume_plan_next_phase | default('') }}"
+          next_make_target: "{{ resume_plan_next_target | default('') }}"
+          execution_allowed: "{{ resume_plan_execution_allowed | default('no') }}"
+          blockers: "{{ resume_plan_blockers_text }}"
+          mismatches: "{{ resume_plan_mismatches_text }}"
+          disk_safety_checkpoint_validated: "{{ resume_plan_requires_disk_safety | default(false) | bool }}"
+          disk_safety_validation_run: "{{ resume_plan_run_disk_safety | default(false) | bool }}"
+        install_state_clear_manual_revalidation: "{{ (resume_plan_mismatches_text | string | length == 0) }}"
+        install_state_next_action: "Resume validation passed. Run make install-resume to execute one planner-approved phase, then rerun make install-resume-plan."
   tasks:
     - name: Report resume plan result
       ansible.builtin.debug:
         msg:
           resume_plan: PASS
           state_file: "{{ install_state_checkpoint_file }}"
-          install_disk: "{{ install_disk }}"
+          current_target_facts:
+            architecture: "{{ ansible_architecture | default('') }}"
+            distribution: "{{ ansible_distribution | default('') }}"
+            kernel: "{{ ansible_kernel | default('') }}"
+          install_disk: "{{ install_disk | default('') }}"
           profile: "{{ profile | default('') }}"
           filesystem: "{{ filesystem | default('') }}"
           stage3_flavor: "{{ stage3_flavor | default('standard') }}"
+          completed_disk_safety_checkpoint_check: "{{ resume_plan_requires_disk_safety | default(false) | bool }}"
+          disk_safety_validation_run: "{{ resume_plan_run_disk_safety | default(false) | bool }}"
+          next_phase: "{{ resume_plan_next_phase | default('') }}"
+          next_make_target: "{{ resume_plan_next_target | default('') }}"
+          resume_execution_allowed: "{{ resume_plan_execution_allowed | default('no') }}"
+          blockers: "{{ resume_plan_blockers_text }}"
+          mismatches: "{{ resume_plan_mismatches_text }}"
           destructive_confirmation_required_later: true
           bootloader_confirmation_required_later: true

@@ -214,6 +214,8 @@ The Makefile is the only operator-facing control plane. The agent must expose An
 - `make install-openrc`: run the approved OpenRC install flow with required confirmations.
 - `make install-systemd`: run the approved systemd install flow with required confirmations.
 - `make install`: run the shared basic-console install flow for the selected `PROFILE`.
+- `make install-resume-plan`: read saved non-secret state, load `config/install-phases.json`, validate current live ISO facts, and report the next safe phase without mutation.
+- `make install-resume`: run one planner-approved phase through the shared Makefile target, preserve `INSTALL_RUN_ID`, then stop and require another resume plan.
 - `make partition-plan`: show disk model, size, serial, current partition table, and proposed changes.
 - `make partition`: perform partitioning only when Makefile `INSTALL_DISK` is provided and `I_UNDERSTAND_THIS_WIPES_DISK=yes`.
 - `make final-checks`: validate target system state before reboot.
@@ -345,6 +347,7 @@ Logs must support audit and recovery without leaking secrets:
 When this agent changes phase 2 Ansible behavior, it must update documentation in the same change.
 
 - If playbooks, roles, inventories, variables, role defaults, safety gates, dry-run behavior, or log locations change, update the Ansible documentation under `docs/` and the reusable procedure in `skills/ansible-gentoo-installer.md`.
+- If phase contracts, checkpoints, resume decisions, or one-phase resume behavior change, update `config/install-phases.json`, `docs/install-state-and-resume-checkpoints.md`, `docs/ansible-basic-console-install-orchestration.md`, `skills/ansible-gentoo-installer.md`, and active OpenSpec tasks together.
 - If execution assumptions change, document controller/target behavior: Ansible should remain network/inventory-driven for reusable installs, while local live ISO execution is optional fallback or diagnostics.
 - If Makefile targets such as `make ansible-check`, `make ansible-dry-run`, `make install-plan`, `make install`, or `make final-checks` change, update `README.md` or `docs/` and `skills/makefile-control-plane.md`.
 - If destructive or high-risk Ansible behavior changes, update `agents/safety-review-agent.md`, relevant `skills/` safety sections, and the active OpenSpec `tasks.md`.

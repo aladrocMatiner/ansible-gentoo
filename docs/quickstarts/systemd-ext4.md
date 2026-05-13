@@ -112,4 +112,4 @@ make vm-clean PROFILE=systemd FILESYSTEM=ext4 I_UNDERSTAND_CLEANUP_DELETE=DELETE
 - systemd service validation fails: inspect service evidence from `install-system-packages` and `final-checks`.
 - SSH bootstrap fails: open `make vm-console PROFILE=systemd FILESYSTEM=ext4`.
 - Plan targets cannot find the VM: verify `make vm-ip PROFILE=systemd FILESYSTEM=ext4`.
-- Install fails mid-run: inspect `make install-state INSTALL_STATE_FILE=var/state/libvirt/gentoo-test-amd64-systemd-ext4/current-install.json` and logs under `logs/install-runs/`.
+- Install fails mid-run: inspect `make install-state INSTALL_STATE_FILE=var/state/libvirt/gentoo-test-amd64-systemd-ext4/current-install.json`, run `make install-resume-plan INSTALL_STATE_FILE=var/state/libvirt/gentoo-test-amd64-systemd-ext4/current-install.json`, then use `make install-resume INSTALL_STATE_FILE=var/state/libvirt/gentoo-test-amd64-systemd-ext4/current-install.json` for one planner-approved phase at a time; logs remain under `logs/install-runs/`.

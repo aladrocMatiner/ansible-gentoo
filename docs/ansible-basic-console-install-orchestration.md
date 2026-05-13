@@ -120,6 +120,7 @@ Full VM validation should use a disposable libvirt VM disk with no mounted targe
 - Missing wipe confirmation: pass `I_UNDERSTAND_THIS_WIPES_DISK=yes` only when the selected disk is disposable or intentionally targeted.
 - Missing bootloader confirmation: pass `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`.
 - Missing `ADMIN_USER`: choose the target admin account.
+- Transient download, Portage sync, package, kernel, or bootloader package failure: the shared roles use bounded retries where practical; inspect the failed phase, preserve logs, and resume with `make install-resume-plan` followed by one `make install-resume` phase.
 - Mounted descendants on the selected disk: reboot the live ISO or unmount target filesystems before rerunning full install.
 - Existing stage3 markers under `/mnt/gentoo`: use a clean target root or restart from partition/format.
 - Systemd/OpenRC profile mismatch: use `make install-openrc` or `make install-systemd` instead of changing variant variables mid-run.
@@ -140,7 +141,7 @@ logs/install-runs/<run-id>/state.json
 logs/install-runs/<run-id>/events.jsonl
 ```
 
-Inspect state with `make install-state`. Validate a possible continuation with `make install-resume-plan`; this is read-only and does not satisfy destructive confirmations.
+Inspect state with `make install-state`. Validate a possible continuation with `make install-resume-plan`; this is read-only and does not satisfy destructive confirmations. Continue a partial run with `make install-resume`, which executes only one planner-approved phase from `config/install-phases.json`, preserves the recorded run id through `INSTALL_RUN_ID`, then stops and requires another `make install-resume-plan`.
 
 Final checks write:
 

@@ -15,6 +15,7 @@
     install_state_env_profile: "{{ lookup('ansible.builtin.env', 'PROFILE') | default('', true) }}"
     install_state_env_filesystem: "{{ lookup('ansible.builtin.env', 'FILESYSTEM') | default('', true) }}"
     install_state_env_stage3_flavor: "{{ lookup('ansible.builtin.env', 'STAGE3_FLAVOR') | default('', true) }}"
+    install_state_env_run_id: "{{ lookup('ansible.builtin.env', 'INSTALL_RUN_ID') | default('', true) }}"
 
 - name: Define install state default stage3 flavor suffix
   ansible.builtin.set_fact:
@@ -36,7 +37,15 @@
 
 - name: Define install state run id
   ansible.builtin.set_fact:
-    install_state_run_id: "{{ install_run_id | default(install_state_default_run_id, true) }}"
+    install_state_run_id: "{{ install_run_id | default(install_state_env_run_id, true) | default(install_state_default_run_id, true) }}"
+
+- name: Validate install state run id
+  ansible.builtin.assert:
+    that:
+      - install_state_run_id is match('^[A-Za-z0-9_.:-]{1,96}$')
+      - install_state_run_id is not search('\\.\\.')
+    fail_msg: "INSTALL_STATE_INVALID: install run id must be conservative and must not contain parent traversal."
+    success_msg: "Install run id is conservative."
 
 - name: Define install state files
   ansible.builtin.set_fact:
@@ -44,6 +53,30 @@
     install_state_current_file: "{{ install_state_project_root }}/{{ install_state_requested_current_file }}"
     install_state_run_file: "{{ install_state_project_root }}/logs/install-runs/{{ install_state_run_id }}/state.json"
     install_state_events_file: "{{ install_state_project_root }}/logs/install-runs/{{ install_state_run_id }}/events.jsonl"
+    install_state_phase_contracts_file: "{{ install_state_project_root }}/config/install-phases.json"
+
+- name: Load shared install phase contracts
+  ansible.builtin.set_fact:
+    install_state_phase_contracts_document: "{{ lookup('ansible.builtin.file', install_state_phase_contracts_file) | from_json }}"
+
+- name: Normalize shared install phase contract metadata
+  ansible.builtin.set_fact:
+    install_state_phase_order: "{{ install_state_phase_contracts_document.phase_order | default([]) }}"
+    install_state_phase_contracts: "{{ install_state_phase_contracts_document.phases | default({}) }}"
+
+- name: Require known install state phase contract
+  ansible.builtin.assert:
+    that:
+      - install_state_phase_contracts is mapping
+      - install_state_phase in install_state_phase_contracts
+      - install_state_phase_order | length > 0
+    fail_msg: "INSTALL_STATE_INVALID: install_state_phase must be defined in config/install-phases.json."
+    success_msg: "Install state phase contract is known."
+
+- name: Define current phase contract
+  ansible.builtin.set_fact:
+    install_state_phase_contract: "{{ install_state_phase_contracts[install_state_phase] }}"
+    install_state_is_ordered_phase: "{{ install_state_phase in install_state_phase_order }}"
 
 - name: Create project-local install state directories
   ansible.builtin.file:
@@ -129,6 +162,7 @@
       phase: "{{ install_state_phase }}"
       status: "{{ install_state_status | default('complete') }}"
       timestamp: "{{ ansible_date_time.iso8601 }}"
+      phase_contract: "{{ install_state_phase_contract }}"
       profile: "{{ install_state_profile }}"
       filesystem: "{{ install_state_filesystem }}"
       stage3_flavor: "{{ install_state_stage3_flavor }}"
@@ -151,6 +185,29 @@
         else (install_state_existing.resume_checkpoint | default({}))
       }}
 
+- name: Normalize completed phase and revalidation state
+  ansible.builtin.set_fact:
+    install_state_completed_phases: >-
+      {{
+        (
+          (install_state_existing.completed_phases | default([]) | reject('equalto', install_state_phase) | list) + [install_state_phase]
+        )
+        if (install_state_is_ordered_phase | bool)
+        else (install_state_existing.completed_phases | default([]))
+      }}
+    install_state_last_completed_phase: >-
+      {{
+        install_state_phase
+        if (install_state_is_ordered_phase | bool)
+        else (install_state_existing.last_completed_phase | default(''))
+      }}
+    install_state_manual_revalidation_required: >-
+      {{
+        false
+        if ((install_state_phase == 'resume-plan') and (install_state_clear_manual_revalidation | default(false) | bool))
+        else (install_state_existing.manual_intervention_requires_revalidation | default(false))
+      }}
+
 - name: Build complete install state
   ansible.builtin.set_fact:
     install_state_document:
@@ -165,16 +222,20 @@
       target_mount: "{{ install_state_target_mount }}"
       efi_mount: "{{ install_state_efi_mount }}"
       install_disk: "{{ install_state_install_disk }}"
-      completed_phases: "{{ (install_state_existing.completed_phases | default([]) | reject('equalto', install_state_phase) | list) + [install_state_phase] }}"
-      last_completed_phase: "{{ install_state_phase }}"
+      phase_contract_schema_version: "{{ install_state_phase_contracts_document.schema_version | default(1) }}"
+      phase_order: "{{ install_state_phase_order }}"
+      completed_phases: "{{ install_state_completed_phases }}"
+      last_completed_phase: "{{ install_state_last_completed_phase }}"
       checkpoints: "{{ install_state_existing.checkpoints | default({}) | combine({install_state_phase: install_state_checkpoint}, recursive=true) }}"
       resume_checkpoint: "{{ install_state_resume_checkpoint }}"
       manual_interventions: "{{ install_state_existing.manual_interventions | default([]) }}"
-      manual_intervention_requires_revalidation: "{{ false if install_state_phase == 'resume-plan' else (install_state_existing.manual_intervention_requires_revalidation | default(false)) }}"
+      manual_intervention_requires_revalidation: "{{ install_state_manual_revalidation_required }}"
+      resume_decision: "{{ install_state_resume_decision | default(install_state_existing.resume_decision | default({})) }}"
       resume_policy:
         requires_current_fact_match: true
         destructive_confirmation_still_required: true
         bootloader_confirmation_still_required: true
+        one_phase_resume: true
       next_safe_action: "{{ install_state_next_action | default('Review state with make install-state, then run the next documented Makefile target.') }}"
       run_state_file: "{{ install_state_run_file }}"
       current_state_file: "{{ install_state_current_file }}"

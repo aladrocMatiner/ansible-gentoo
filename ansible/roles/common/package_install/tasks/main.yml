@@ -132,6 +132,9 @@
   register: package_install_emerge
   changed_when: (package_install_missing_packages | length > 0) or (package_install_use_config is defined and package_install_use_config is changed)
   failed_when: package_install_emerge.rc != 0
+  retries: 2
+  delay: 30
+  until: package_install_emerge.rc == 0
   when:
     - not ansible_check_mode
     - (package_install_missing_packages | length > 0) or (package_install_use_config is defined and package_install_use_config is changed)

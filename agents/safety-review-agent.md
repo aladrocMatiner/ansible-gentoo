@@ -197,7 +197,8 @@ For Ansible playbooks, roles, and tasks:
 - Safety checks must be implemented once and reused rather than copied into init-specific roles.
 - Destructive disk apply targets must reuse `common/disk_safety` or an approved successor before mutation.
 - Resumed destructive apply targets must reuse the checkpoint comparison in `common/disk_safety` or an approved successor.
-- Manual intervention state must require `make install-resume-plan` or an equivalent read-only validation before resume, and it must not replace `confirm_wipe_disk`, `I_UNDERSTAND_THIS_WIPES_DISK`, or bootloader confirmations.
+- Manual intervention state must require `make install-resume-plan` before `make install-resume`; resume execution must run only one planner-approved phase, preserve `INSTALL_RUN_ID`, and must not replace `confirm_wipe_disk`, `I_UNDERSTAND_THIS_WIPES_DISK`, or bootloader confirmations.
+- Resume phase contracts in `config/install-phases.json` must match the Makefile target actually used for each phase, and destructive/high-risk phases must list the same variables and confirmations enforced by their scripts.
 - Disk model, size, serial, and current partition table must be gathered and displayed before partitioning.
 - Playbooks must support `--check` where practical.
 - Tasks that cannot honestly support check mode must provide plan output and skip mutation in dry-run.
