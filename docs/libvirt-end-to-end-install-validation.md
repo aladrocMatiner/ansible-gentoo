@@ -2,6 +2,8 @@
 
 Libvirt end-to-end validation runs the full installer against the disposable project VM before real hardware use. It uses the official Gentoo live ISO, a project-local qcow2 disk, SSH-driven Ansible, and first-boot validation from the installed disk.
 
+When validating resumable install behavior, start with the single `amd64/openrc/ext4/standard` phase-by-phase runbook in `docs/resumable-libvirt-openrc-ext4-validation.md` before broad matrix execution.
+
 ## Plan Only
 
 Always start with the read-only plan:

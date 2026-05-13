@@ -171,9 +171,19 @@
     disk_safety_resume_checkpoint_inline: "{{ disk_safety_resume_checkpoint | default({}) }}"
     disk_safety_resume_checkpoint_loaded: {}
 
+- name: Resolve disk safety resume checkpoint file path
+  ansible.builtin.set_fact:
+    disk_safety_resume_checkpoint_file_resolved: >-
+      {{
+        disk_safety_resume_checkpoint_file_path
+        if (disk_safety_resume_checkpoint_file_path is match('^/'))
+        else (lookup('ansible.builtin.env', 'PWD') ~ '/' ~ disk_safety_resume_checkpoint_file_path)
+      }}
+  when: disk_safety_resume_checkpoint_file_path | length > 0
+
 - name: Load disk safety resume checkpoint file
   ansible.builtin.include_vars:
-    file: "{{ disk_safety_resume_checkpoint_file_path }}"
+    file: "{{ disk_safety_resume_checkpoint_file_resolved }}"
     name: disk_safety_resume_checkpoint_from_file
   when: disk_safety_resume_checkpoint_file_path | length > 0
 

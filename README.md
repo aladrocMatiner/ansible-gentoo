@@ -48,6 +48,8 @@ The first destructive targets are `make partition` and `make format`; read `docs
 
 Installer phases write non-secret checkpoints under `var/state/` and `logs/install-runs/`. Use `make install-state` to inspect the current checkpoint, `make install-resume-plan` to validate current live ISO facts, and `make install-resume` to run exactly one planner-approved phase before planning again; see `docs/install-state-and-resume-checkpoints.md`.
 
+For the first disposable VM validation of resumable execution, use the OpenRC/ext4 runbook in [docs/resumable-libvirt-openrc-ext4-validation.md](docs/resumable-libvirt-openrc-ext4-validation.md).
+
 Use `make install-audit` to generate a secret-safe evidence bundle for the current run under `logs/install-runs/<run-id>/audit-bundle/`; see `docs/install-audit-bundle.md`.
 
 Use `make install-report` to generate a concise human-readable summary at `logs/install-runs/<run-id>/install-report.md`; see `docs/install-report-summary.md`.

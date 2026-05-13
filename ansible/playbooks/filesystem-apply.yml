@@ -12,6 +12,8 @@
     - role: common/mount_plan
     - role: common/filesystem_plan
     - role: common/filesystem
+    - role: common/disk_detection
+    - role: common/disk_safety
     - role: common/install_state
       vars:
         install_state_phase: filesystem-apply

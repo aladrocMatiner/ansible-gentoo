@@ -60,6 +60,8 @@
       vars:
         install_state_phase: partition-plan
     - role: common/partitioning
+    - role: common/disk_detection
+    - role: common/disk_safety
     - role: common/install_state
       vars:
         install_state_phase: partition-apply
@@ -81,6 +83,8 @@
       vars:
         install_state_phase: filesystem-plan
     - role: common/filesystem
+    - role: common/disk_detection
+    - role: common/disk_safety
     - role: common/install_state
       vars:
         install_state_phase: filesystem-apply
@@ -88,6 +92,10 @@
           - "logs/install-runs/{{ install_run_id }}/filesystem/before.json"
           - "logs/install-runs/{{ install_run_id }}/filesystem/after.json"
     - role: common/mount_target
+    - role: common/disk_detection
+    - role: common/disk_safety
+      vars:
+        disk_safety_allow_mounted_descendants: true
     - role: common/install_state
       vars:
         install_state_phase: mount-target

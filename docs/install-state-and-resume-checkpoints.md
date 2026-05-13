@@ -53,6 +53,8 @@ make install-resume
 
 `install-resume` always runs `install-resume-plan` first. It then runs only the next safe phase from `config/install-phases.json`, records that phase evidence, stops, and tells the operator to run `make install-resume-plan` again.
 
+The first disposable VM validation run for this behavior is documented in `docs/resumable-libvirt-openrc-ext4-validation.md`. That runbook requires an explicit `make install-resume-plan` before every `make install-resume` invocation so evidence shows planner review at each phase boundary.
+
 Record a non-secret manual recovery note before resuming after operator intervention:
 
 ```sh
