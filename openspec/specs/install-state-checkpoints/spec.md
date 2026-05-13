@@ -67,6 +67,12 @@ Resume execution SHALL run only one planner-approved phase by default before req
 - **THEN** resume execution SHALL require the same confirmation variables as a fresh run before starting that phase
 - **AND** it SHALL NOT continue into any later phase until the operator runs resume planning again
 
+#### Scenario: Resumable validation reruns planning
+- **WHEN** a disposable libvirt validation run uses `make install-resume`
+- **THEN** the operator workflow SHALL run `make install-resume-plan` before every one-phase resume execution
+- **AND** evidence SHALL show which planned phase was executed
+- **AND** the workflow SHALL fail closed if the current plan does not allow resume execution
+
 ### Requirement: Checkpoints Are Evidence Not Authority
 Recorded checkpoints SHALL be treated as evidence that must be revalidated, not as automatic permission to skip or repeat work.
 

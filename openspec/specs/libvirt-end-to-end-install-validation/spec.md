@@ -23,3 +23,8 @@ The project SHALL validate full installer flows in libvirt before real hardware 
 - **WHEN** end-to-end validation completes
 - **THEN** it SHALL write or reference logs and audit bundle evidence
 
+#### Scenario: Resumable single-case validation precedes broader runs
+- **WHEN** resumable install execution changes or needs validation
+- **THEN** the first libvirt validation SHOULD use the single `amd64/openrc/ext4/standard` case
+- **AND** it SHOULD validate phase-by-phase resume behavior before broader matrix or real hardware validation
+
