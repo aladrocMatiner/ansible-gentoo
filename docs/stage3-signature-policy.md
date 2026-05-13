@@ -67,15 +67,21 @@ The implementation should prefer SHA512 from official `.DIGESTS` metadata where 
 
 ## Signature Policy
 
-Signature verification is required where official signature metadata and tooling are available.
+Signature verification is required for the selected tarball and signed checksum metadata.
 
-The workflow must verify signatures for official metadata before extraction. Valid inputs may include:
+The workflow must verify signatures for official metadata before extraction. Mandatory inputs are:
 
 - tarball `.asc`
 - `.DIGESTS.asc`
+
+Optional signed inputs include:
+
+- clearsigned `latest-stage3-*` index files
 - signed `.sha256`
 
-Signature failure must stop the workflow.
+Some official Gentoo `latest-stage3-*` indexes are OpenPGP clearsigned and some are plain text. When the latest index is clearsigned, the workflow must verify it and signature failure must stop the workflow. When the latest index is plain text, the workflow must record that it was unsigned and treat it only as selection metadata. This does not relax mandatory `.DIGESTS`, tarball signature, or checksum verification.
+
+Mandatory signature failure must stop the workflow.
 
 The workflow must not treat an unsigned checksum file as fully trusted unless a later OpenSpec change defines and approves an explicit fail-closed exception. Any exception must be visible in the audit output and must not be enabled by default.
 
@@ -108,7 +114,9 @@ Evidence must include:
 - selected tarball file name,
 - download timestamps,
 - checksum algorithm and result,
-- signature verification result,
+- latest-index signed/unsigned status,
+- latest-index signature verification result when applicable,
+- mandatory DIGESTS and tarball signature verification results,
 - trusted key source or missing-key failure,
 - extraction allowed: true/false,
 - failure reason when verification blocks extraction.

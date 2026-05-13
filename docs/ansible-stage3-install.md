@@ -63,12 +63,15 @@ The workflow follows `docs/stage3-signature-policy.md`:
 - selects the tarball matching `PROFILE` and `STAGE3_FLAVOR`,
 - downloads the selected tarball, `.DIGESTS`, `.asc`, and optional `.sha256` metadata when present,
 - imports `/usr/share/openpgp-keys/gentoo-release.asc` into an isolated GnuPG home under the live ISO cache,
-- verifies the signed latest metadata,
+- verifies the latest metadata when that index is OpenPGP clearsigned,
+- records the latest metadata as unsigned when Gentoo publishes it as plain text,
 - verifies the signed `.DIGESTS` metadata,
 - verifies the tarball detached signature,
 - verifies optional signed `.sha256` metadata when present,
 - verifies the tarball SHA512 checksum from signed `.DIGESTS`,
-- fails before extraction if any verification step fails.
+- fails before extraction if any mandatory verification step fails.
+
+The latest metadata selects the tarball name. It is not the final extraction trust anchor when Gentoo publishes that index as plain text. Extraction still requires signed `.DIGESTS`, a verified tarball `.asc`, and a matching SHA512 checksum.
 
 Cached tarballs are reverified before extraction. Cache presence is never treated as proof of trust.
 
@@ -99,7 +102,8 @@ Evidence includes:
 - selected tarball filename,
 - target mount evidence,
 - checksum result,
-- signature results,
+- latest-index signed/unsigned status,
+- mandatory signature results,
 - extraction result.
 
 ## Failure Modes

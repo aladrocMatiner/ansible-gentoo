@@ -264,6 +264,23 @@
   changed_when: "'imported:' in stage3_gpg_import.stderr"
   when: not ansible_check_mode
 
+- name: Read latest stage3 metadata first line
+  ansible.builtin.command:
+    argv:
+      - sed
+      - -n
+      - 1p
+      - "{{ stage3_latest_path }}"
+  register: stage3_latest_first_line
+  changed_when: false
+  check_mode: false
+  when: not ansible_check_mode
+
+- name: Detect whether latest stage3 metadata is signed
+  ansible.builtin.set_fact:
+    stage3_latest_metadata_signed: "{{ stage3_latest_first_line.stdout == '-----BEGIN PGP SIGNED MESSAGE-----' }}"
+  when: not ansible_check_mode
+
 - name: Verify signed latest stage3 metadata
   ansible.builtin.command:
     argv:
@@ -276,7 +293,9 @@
   register: stage3_latest_signature
   changed_when: false
   failed_when: stage3_latest_signature.rc != 0
-  when: not ansible_check_mode
+  when:
+    - not ansible_check_mode
+    - stage3_latest_metadata_signed
 
 - name: Verify signed stage3 DIGESTS metadata
   ansible.builtin.command:
@@ -391,8 +410,11 @@
         "cache_dir": {{ stage3_cache_path | to_json }},
         "checksum_algorithm": "SHA512",
         "checksum_status": {{ (stage3_checksum_verify.rc == 0) | to_json }},
+        "latest_metadata_signed": {{ (stage3_latest_metadata_signed | default(false)) | to_json }},
+        "latest_metadata_signature_checked": {{ (stage3_latest_metadata_signed | default(false)) | to_json }},
+        "latest_metadata_signature_verified": {{ (((stage3_latest_metadata_signed | default(false)) and ((stage3_latest_signature.rc | default(1)) == 0))) | to_json }},
         "signature_status": {
-          "latest_metadata": {{ (stage3_latest_signature.rc == 0) | to_json }},
+          "latest_metadata": {{ ((not (stage3_latest_metadata_signed | default(false))) or ((stage3_latest_signature.rc | default(1)) == 0)) | to_json }},
           "digests": {{ (stage3_digest_signature.rc == 0) | to_json }},
           "tarball": {{ (stage3_tarball_signature.rc == 0) | to_json }},
           "sha256_metadata": {{ ((stage3_sha256_signature.rc | default(1)) == 0) | to_json }},
@@ -467,7 +489,9 @@
       target_root: "{{ stage3_target_root }}"
       checksum: SHA512
       checksum_verified: "{{ (not ansible_check_mode) and stage3_checksum_verify.rc == 0 }}"
-      signature_verified: "{{ (not ansible_check_mode) and stage3_latest_signature.rc == 0 and stage3_digest_signature.rc == 0 and stage3_tarball_signature.rc == 0 and (stage3_sha256_head.status != 200 or stage3_sha256_signature.rc == 0) }}"
+      latest_metadata_signed: "{{ stage3_latest_metadata_signed | default(false) }}"
+      latest_metadata_signature_checked: "{{ stage3_latest_metadata_signed | default(false) }}"
+      signature_verified: "{{ (not ansible_check_mode) and ((not (stage3_latest_metadata_signed | default(false))) or (stage3_latest_signature.rc | default(1)) == 0) and stage3_digest_signature.rc == 0 and stage3_tarball_signature.rc == 0 and (stage3_sha256_head.status != 200 or stage3_sha256_signature.rc == 0) }}"
       logs: "{{ stage3_log_dir }}/"
 
 - name: Print stage3 install report
