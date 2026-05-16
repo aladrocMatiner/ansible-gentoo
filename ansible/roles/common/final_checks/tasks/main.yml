@@ -4,6 +4,8 @@
     final_checks_target_root: "{{ target_mount | default('/mnt/gentoo') }}"
     final_checks_efi_mount: "{{ efi_mount | default('/mnt/gentoo/boot/efi') }}"
     final_checks_enable_ssh: "{{ (enable_ssh | default('no') | string | lower) == 'yes' }}"
+    final_checks_enable_wifi: "{{ (enable_wifi | default('no') | string | lower) == 'yes' }}"
+    final_checks_enable_qemu_guest_agent: "{{ (enable_qemu_guest_agent | default('no') | string | lower) == 'yes' }}"
     final_checks_admin_groups: "{{ (admin_groups_csv | default('wheel')).split(',') | reject('equalto', '') | list }}"
     final_checks_admin_shell: "{{ admin_shell | default('/bin/bash') }}"
     final_checks_admin_sudo_nopasswd: "{{ (admin_sudo_nopasswd | default('no') | string | lower) == 'yes' }}"
@@ -72,6 +74,10 @@
       - final_checks_admin_shell is match('^/[A-Za-z0-9_./+-]+$')
       - (admin_sudo_nopasswd | default('no') | string | lower) in ['yes', 'no']
       - (enable_ssh | string | lower) in ['yes', 'no']
+      - (enable_wifi | default('no') | string | lower) in ['yes', 'no']
+      - (enable_qemu_guest_agent | default('no') | string | lower) in ['yes', 'no']
+      - wifi_console_packages is defined
+      - wifi_package_use is defined
       - final_checks_controller_secret_check == 'passed'
     fail_msg: "FINAL_CHECKS_FAILED: final check inputs or controller secret check status are invalid."
     success_msg: "Final check inputs are approved."
@@ -85,11 +91,13 @@
           + base_console_variant_packages
           + (btrfs_console_packages if filesystem == 'btrfs' else [])
           + (installed_ssh_packages if final_checks_enable_ssh else [])
+          + (wifi_console_packages if final_checks_enable_wifi else [])
+          + (qemu_guest_agent_packages if final_checks_enable_qemu_guest_agent else [])
           + final_checks_kernel_packages
           + final_checks_bootloader_packages
         ) | unique | list
       }}
-    final_checks_expected_services: "{{ (base_console_services + (installed_ssh_services if final_checks_enable_ssh else [])) | unique | list }}"
+    final_checks_expected_services: "{{ (base_console_services + (installed_ssh_services if final_checks_enable_ssh else []) + (qemu_guest_agent_services if final_checks_enable_qemu_guest_agent else [])) | unique | list }}"
 
 - name: Verify target root and EFI mounts
   ansible.builtin.command:
@@ -344,6 +352,42 @@
     fail_msg: "FINAL_CHECKS_FAILED: required packages are missing: {{ final_checks_missing_packages | join(', ') }}"
     success_msg: "Required target packages are installed."
 
+- name: Read NetworkManager USE flags for requested WiFi support
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ final_checks_target_root }}"
+      - /bin/bash
+      - -lc
+      - "tr '\\n' ' ' < /var/db/pkg/net-misc/networkmanager-*/USE"
+  register: final_checks_networkmanager_use
+  changed_when: false
+  check_mode: false
+  when: final_checks_enable_wifi
+
+- name: Read wpa_supplicant USE flags for requested WiFi support
+  ansible.builtin.command:
+    argv:
+      - chroot
+      - "{{ final_checks_target_root }}"
+      - /bin/bash
+      - -lc
+      - "tr '\\n' ' ' < /var/db/pkg/net-wireless/wpa_supplicant-*/USE"
+  register: final_checks_wpa_supplicant_use
+  changed_when: false
+  check_mode: false
+  when: final_checks_enable_wifi
+
+- name: Require installed WiFi package USE policy
+  ansible.builtin.assert:
+    that:
+      - final_checks_networkmanager_use.stdout is search('(^|\\s)wifi(\\s|$)')
+      - final_checks_wpa_supplicant_use.stdout is search('(^|\\s)dbus(\\s|$)')
+      - final_checks_wpa_supplicant_use.stdout is not search('(^|\\s)(tkip|wep)(\\s|$)')
+    fail_msg: "FINAL_CHECKS_FAILED: ENABLE_WIFI=yes requires NetworkManager wifi support and wpa_supplicant dbus support without legacy TKIP/WEP flags."
+    success_msg: "Installed WiFi package USE policy matches requested state."
+  when: final_checks_enable_wifi
+
 - name: Read OpenRC service runlevels
   ansible.builtin.command:
     argv:
@@ -546,6 +590,15 @@
   register: final_checks_sshd_config
   when: final_checks_enable_ssh
 
+- name: Inspect installed SSH host keys
+  ansible.builtin.find:
+    paths: "{{ final_checks_target_root }}/etc/ssh"
+    patterns: "ssh_host_*_key"
+    file_type: file
+  register: final_checks_ssh_host_keys
+  changed_when: false
+  when: final_checks_enable_ssh
+
 - name: Verify admin authorized keys when configured
   ansible.builtin.stat:
     path: "{{ final_checks_target_root }}/home/{{ admin_user }}/.ssh/authorized_keys"
@@ -557,8 +610,9 @@
     that:
       - not final_checks_enable_ssh or ((final_checks_sshd_config.content | b64decode) is search('PermitRootLogin no'))
       - not final_checks_enable_ssh or ((final_checks_sshd_config.content | b64decode) is search('PubkeyAuthentication yes'))
+      - not final_checks_enable_ssh or final_checks_ssh_host_keys.matched > 0
       - ((admin_authorized_keys_file | default('')) | length == 0) or final_checks_admin_authorized_keys.stat.exists
-    fail_msg: "FINAL_CHECKS_FAILED: installed SSH policy or admin authorized_keys is incomplete."
+    fail_msg: "FINAL_CHECKS_FAILED: installed SSH policy, host keys, or admin authorized_keys is incomplete."
     success_msg: "Installed SSH policy matches requested state."
 
 - name: Validate secret-safe target text
@@ -607,6 +661,8 @@
         "admin_user": {{ admin_user | to_json }},
         "admin_groups": {{ final_checks_admin_groups | to_nice_json }},
         "enable_ssh": {{ final_checks_enable_ssh | to_json }},
+        "enable_wifi": {{ final_checks_enable_wifi | to_json }},
+        "enable_qemu_guest_agent": {{ final_checks_enable_qemu_guest_agent | to_json }},
         "root_uuid": {{ final_checks_root_uuid | to_json }},
         "kernel_cmdline": {{ final_checks_kernel_cmdline | to_json }},
         "kernel_artifacts": {{ final_checks_boot_artifacts.files | map(attribute='path') | map('basename') | list | to_nice_json }},
@@ -641,6 +697,8 @@
       hostname: "{{ hostname }}"
       admin_user: "{{ admin_user }}"
       enable_ssh: "{{ final_checks_enable_ssh }}"
+      wifi_enabled: "{{ final_checks_enable_wifi }}"
+      qemu_guest_agent_enabled: "{{ final_checks_enable_qemu_guest_agent }}"
       root_uuid: "{{ final_checks_root_uuid }}"
       kernel_cmdline: "{{ final_checks_kernel_cmdline }}"
       kernel_artifacts: "{{ final_checks_boot_artifacts.files | map(attribute='path') | map('basename') | list }}"

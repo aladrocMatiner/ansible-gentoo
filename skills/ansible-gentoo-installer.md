@@ -5,7 +5,7 @@ This skill describes how `gentoo-ai-installer` should build the phase-2 Ansible-
 
 Phase 1 is manual installation with Codex assistance. Phase 2 creates a reproducible installer using Ansible from an operator/controller machine against a network-reachable target booted into the official Gentoo live ISO. The Makefile controls all operator-facing commands.
 
-The local libvirt VM is a validation harness for the same Ansible workflows. It is not the final product architecture.
+The local libvirt VM and remote Proxmox VMs are validation harnesses for the same Ansible workflows. They are not the final product architecture.
 
 This skill defines standards for future Ansible implementation. It does not implement playbooks.
 
@@ -18,7 +18,7 @@ Use this skill:
 - When defining Makefile targets that wrap Ansible.
 - When reviewing safety gates, dry-run behavior, idempotency, or logging.
 - When adding or changing the read-only live ISO Ansible preflight used before installer automation.
-- When deciding whether behavior belongs in reusable Ansible roles or only in the local VM/libvirt test harness.
+- When deciding whether behavior belongs in reusable Ansible roles or only in the VM validation harnesses.
 - When adding or changing read-only disk detection or install-plan behavior.
 
 Do not use this skill to bypass OpenSpec or safety review for destructive automation.
@@ -30,6 +30,7 @@ Do not use this skill to bypass OpenSpec or safety review for destructive automa
 - Official Gentoo live ISO preflight behavior.
 - A network-reachable official Gentoo live ISO target over SSH, selected by inventory or Makefile variables such as `ANSIBLE_LIVE_HOST`.
 - Libvirt VM SSH access only when using the local validation harness.
+- Proxmox VM SSH access only when using the remote disposable Proxmox validation harness.
 - Shared SSH transport wrapper policy for controller-to-live-ISO targets: `ANSIBLE_SSH_CONNECT_TIMEOUT=10`, `ANSIBLE_SSH_SERVER_ALIVE_INTERVAL=30`, `ANSIBLE_SSH_SERVER_ALIVE_COUNT_MAX=6`, `ANSIBLE_SSH_CONTROL_MASTER=auto`, `ANSIBLE_SSH_CONTROL_PERSIST=10m`, and `ANSIBLE_SSH_CONTROL_PATH_DIR=var/ssh-control` unless the operator overrides them through the Makefile.
 - Basic console targets: amd64, OpenRC or systemd, UEFI, ext4 or planned Btrfs subvolumes, `gentoo-kernel-bin`, GRUB, NetworkManager, no LUKS.
 - Target system baseline: `docs/target-system-baseline.md`.
@@ -112,7 +113,7 @@ Rules:
 - Temporary live ISO wrappers may disable strict host-key persistence per invocation, but global `ansible.cfg` must keep host key checking enabled.
 - Long-running install commands should be launched from `tmux` or `screen` on the controller; this protects the operator session but does not replace SSH keepalives or resumable phase logic.
 - Do not treat the installed target as the control host.
-- Reusable roles must not depend on libvirt, VM names, qcow2 paths, or `/dev/vda`.
+- Reusable roles must not depend on libvirt, Proxmox, VM names, VMIDs, storage IDs, qcow2 paths, or VM-only guest disk names.
 - Do not store secrets in inventory.
 - Do not define a default install disk in inventory.
 - Explicit network target variables such as `ANSIBLE_LIVE_HOST`, `ANSIBLE_LIVE_PORT`, and `ANSIBLE_LIVE_USER` belong in Makefile wrappers, inventory, or documented operator inputs, not in role defaults.
@@ -138,6 +139,8 @@ Expected variables:
 - `locale`: target UTF-8 locale.
 - `keymap`: target console keymap.
 - `enable_ssh`: whether to install and enable SSH.
+- `enable_wifi`: whether to install target WiFi firmware and supplicant support; defaults to `no` and must not store SSIDs, passphrases, or NetworkManager connection profiles.
+- `enable_qemu_guest_agent`: whether to install and enable `app-emulation/qemu-guest-agent`; normal installs default to `no`, Proxmox validation may set it to `yes`.
 - `admin_user`: required for user/access configuration and must not have a useful default.
 - `admin_groups_csv`: comma-separated admin groups, defaulting to `wheel`.
 - `admin_shell`: target admin shell, defaulting to `/bin/bash`.
@@ -172,7 +175,7 @@ Rules:
 - systemd variables belong in `group_vars/systemd.yml` or an equivalent variant file.
 - OpenRC workflows must not call `systemctl`.
 - systemd workflows must not call `rc-update` or `rc-service`.
-- VM guest `/dev/vda` is allowed only when explicitly passed as `install_disk=/dev/vda` inside the libvirt-managed guest VM.
+- VM guest disk examples such as `/dev/vda` or `/dev/sda` are allowed only when explicitly passed as `install_disk` inside disposable VM harnesses. They must not become defaults for reusable roles or physical hosts.
 - Real network targets must use disk paths from `make detect-disks` output. VM example paths such as `/dev/vda` must not be reused as defaults for physical hosts.
 - Do not store plaintext passwords, API keys, or login tokens in variables.
 - Do not pass password hashes or SSH key contents directly as Makefile variables or inventory values; pass only approved local file paths and redact contents with `no_log`.
@@ -199,7 +202,7 @@ Shared roles:
 - `common/chroot`: prepare Handbook-aligned pseudo-filesystem mounts under `/mnt/gentoo`, copy resolver configuration safely, validate DNS with a read-only chroot lookup, report before/after mount state, and guard later target-mutating operations.
 - `common/portage`: configure minimal Portage baseline shared by both init systems, including conservative `make.conf`, official Gentoo repo sync, variant profile selection, GURU-disabled policy, pending config-update reporting, and evidence logs.
 - `common/locale_timezone_hostname`: configure target hostname, timezone, locale generation, OpenRC/systemd keymap files, and report inputs for final checks and install reports.
-- `common/package_install`: install packages from shared and variant package lists, apply conservative package USE policy, and record package/service evidence.
+- `common/package_install`: install packages from shared and variant package lists, optionally install WiFi firmware/supplicant support through `ENABLE_WIFI`, optionally install QEMU guest agent for VM validation, apply conservative package USE policy, and record package/service evidence.
 - `common/fstab`: generate stable UUID-based fstab entries for ext4 root or the approved Btrfs subvolume layout plus `/boot/efi`, validate UUIDs, and write only under `/mnt/gentoo`.
 - `common/kernel`: install `sys-kernel/installkernel`, `sys-kernel/dracut`, and `gentoo-kernel-bin`; derive the kernel command line from `/mnt/gentoo/etc/fstab`; write installkernel/dracut command-line input; validate kernel, initramfs, and module artifacts; and leave GRUB installation to `common/bootloader`.
 - `common/bootloader`: require explicit `install_disk` plus bootloader confirmation, show current EFI entries before changes, install `sys-boot/grub` and `sys-boot/efibootmgr`, run guarded UEFI `grub-install`, generate `grub.cfg`, validate root UUID and Btrfs `rootflags=subvol=@`, and record bootloader evidence.
@@ -302,7 +305,7 @@ Required gates:
 - Confirm audit bundle generation uses `make install-audit` or the final-check/full-install wrappers, reads only project-local `var/state/` and `logs/install-runs/` inputs, and rejects secret-like evidence before copying.
 - Confirm install report generation uses `make install-report`, reads only project-local `var/state/` and `logs/install-runs/` inputs, marks missing evidence as unavailable, and rejects secret-like evidence before writing the summary.
 - Confirm cleanup/reset work uses `make cleanup-plan` before deletion, requires `I_UNDERSTAND_CLEANUP_DELETE=DELETE`, preserves audit bundles by default, and restricts deletion to approved generated artifact roots.
-- Confirm first-boot validation uses `make vm-validate-first-boot`, boots only the project-owned libvirt qcow2 disk, requires completed install state and SSH access to the installed system, and writes read-only evidence under `logs/install-runs/<run-id>/first-boot/`.
+- Confirm first-boot validation uses documented VM harness targets, boots only project-owned disposable VM disks, requires completed install state and SSH access to the installed system, and writes read-only evidence under `logs/install-runs/<run-id>/first-boot/` or the relevant VM harness log directory.
 - Confirm installer roles and Makefile targets remain represented in `config/handbook-traceability.json`; regenerate `docs/handbook-traceability.md` with `make handbook-trace` when phases, roles, targets, safety gates, or project deviations change.
 - Confirm logs, state files, and audit bundles do not contain secrets.
 - Confirm operator variables pass the shared config validation before apply workflows.
@@ -353,6 +356,7 @@ Future Ansible implementation must follow these rules:
 
 - Map shared roles to the relevant Gentoo AMD64 Handbook phase where practical.
 - Document project-specific Handbook choices, including NetworkManager, GRUB UEFI, `/boot/efi`, required filesystem tools, and installkernel/initramfs support for `gentoo-kernel-bin`.
+- Document optional installed WiFi support when `ENABLE_WIFI` behavior changes, including packages, USE flags, validation, and the rule that wireless credentials are not stored by the installer.
 - Document shared guardrails when introduced: configuration schema, config validation output, target policies, state checkpoints, audit bundle paths, destructive preview output, secret input channels, error codes, cleanup/reset scope, manual escape hatch, and Handbook traceability.
 - Implement common behavior once under `roles/common/` or equivalent shared task, handler, template, validation, or variable files.
 - Add init-specific files only for behavior that genuinely differs between OpenRC and systemd.
@@ -524,6 +528,7 @@ When phase 2 Ansible behavior changes, documentation must change in the same imp
 - If manual intervention handling changes, update `docs/manual-escape-hatch-policy.md`, `docs/install-state-and-resume-checkpoints.md`, `docs/install-audit-bundle.md`, this skill, `skills/makefile-control-plane.md`, and active OpenSpec tasks together.
 - If real hardware readiness handling changes, update `docs/real-hardware-readiness.md`, `docs/destructive-safety-gates.md`, `docs/install-configuration.md`, this skill, `skills/makefile-control-plane.md`, and active OpenSpec tasks together.
 - If libvirt matrix behavior changes, update `docs/libvirt-install-test-matrix.md`, `docs/libvirt-manual-install-test.md`, `docs/ansible-architecture.md`, this skill, `skills/makefile-control-plane.md`, and active OpenSpec tasks together. If `VM_TEST_IMAGE_NAME` or another local test label changes, document its allowed characters, artifact naming effect, and non-role boundary.
+- If Proxmox validation behavior changes, update `docs/proxmox-validation.md`, `docs/proxmox-install-test-matrix.md`, `docs/proxmox-end-to-end-install-validation.md`, `docs/supported-host-requirements.md`, this skill, `skills/makefile-control-plane.md`, and active OpenSpec tasks together. Document host/node, ISO volume, storage, bridge, VLAN, VMID/IP mapping, expected guest disk, SSH bootstrap, logs, cleanup, and the boundary that reusable roles must not depend on Proxmox details.
 - If libvirt end-to-end validation changes, update `docs/libvirt-end-to-end-install-validation.md`, `docs/libvirt-manual-install-test.md`, `docs/libvirt-install-test-matrix.md`, this skill, `skills/makefile-control-plane.md`, safety review rules, and active OpenSpec tasks together.
 - If release readiness checks change, update `docs/release-readiness.md`, README, `skills/makefile-control-plane.md`, this skill, and active OpenSpec tasks together.
 - Before finishing, confirm logs documentation still states where logs are stored and that secrets must not be logged.

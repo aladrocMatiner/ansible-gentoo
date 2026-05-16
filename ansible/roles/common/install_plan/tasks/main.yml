@@ -32,6 +32,36 @@
     install_plan_uses_btrfs: "{{ filesystem == 'btrfs' }}"
     install_plan_disk_selected: "{{ install_disk is defined and (install_disk | string | length > 0) }}"
 
+- name: Store requested install disk for read-only plan
+  ansible.builtin.set_fact:
+    install_plan_requested_install_disk: "{{ install_disk | default('') }}"
+  when: install_plan_disk_selected
+
+- name: Resolve explicit install disk for read-only plan
+  ansible.builtin.command:
+    argv:
+      - readlink
+      - -f
+      - "{{ install_disk }}"
+  register: install_plan_resolved_install_disk
+  changed_when: false
+  check_mode: false
+  when: install_plan_disk_selected
+
+- name: Require resolved install disk to stay under /dev for read-only plan
+  ansible.builtin.assert:
+    that:
+      - install_plan_resolved_install_disk.stdout is match('^/dev/.+')
+      - install_plan_resolved_install_disk.stdout not in ['/dev', '/dev/']
+    fail_msg: "Explicit INSTALL_DISK={{ install_plan_requested_install_disk }} resolves outside an approved /dev path: {{ install_plan_resolved_install_disk.stdout }}"
+    success_msg: "Explicit INSTALL_DISK resolves to a concrete /dev path."
+  when: install_plan_disk_selected
+
+- name: Use resolved install disk path for read-only plan matching
+  ansible.builtin.set_fact:
+    install_disk: "{{ install_plan_resolved_install_disk.stdout }}"
+  when: install_plan_disk_selected
+
 - name: Match explicit install disk when provided
   ansible.builtin.set_fact:
     install_plan_matching_disks: >-
@@ -72,6 +102,7 @@
         custom_iso: false
       install_disk:
         selected: "{{ install_plan_disk_selected }}"
+        requested_path: "{{ install_plan_requested_install_disk | default('not selected', true) }}"
         path: "{{ install_disk | default('not selected', true) }}"
         matched_identity: "{{ (install_plan_matching_disks | default([]) | first) if install_plan_disk_selected else 'not selected' }}"
       planned_partition_layout:

@@ -33,6 +33,18 @@ case "$enable_ssh" in
   *) die "ENABLE_SSH must be 'yes' or 'no', got: $enable_ssh" ;;
 esac
 
+enable_wifi=${ENABLE_WIFI:-no}
+case "$enable_wifi" in
+  yes|no) ;;
+  *) die "ENABLE_WIFI must be 'yes' or 'no', got: $enable_wifi" ;;
+esac
+
+enable_qemu_guest_agent=${ENABLE_QEMU_GUEST_AGENT:-no}
+case "$enable_qemu_guest_agent" in
+  yes|no) ;;
+  *) die "ENABLE_QEMU_GUEST_AGENT must be 'yes' or 'no', got: $enable_qemu_guest_agent" ;;
+esac
+
 project_root=$(pwd -P)
 inventory_file=$(mktemp --suffix=.yml)
 trap 'rm -f "$inventory_file"' EXIT
@@ -50,6 +62,8 @@ EOF
 
 printf 'Installing minimal console packages for %s %s %s target on %s@%s port %s\n' "$profile" "$filesystem" "$stage3_flavor" "$ANSIBLE_LIVE_USER" "$ANSIBLE_LIVE_HOST" "$ANSIBLE_LIVE_PORT"
 printf 'ENABLE_SSH=%s\n' "$enable_ssh"
+printf 'ENABLE_WIFI=%s\n' "$enable_wifi"
+printf 'ENABLE_QEMU_GUEST_AGENT=%s\n' "$enable_qemu_guest_agent"
 printf '%s\n' 'This target installs packages and enables target-system services under /mnt/gentoo.'
 printf '%s\n' 'It does not create users, install GRUB, change EFI boot entries, partition, format, or reboot.'
 
@@ -62,5 +76,7 @@ ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook \
   -e "filesystem=${filesystem}" \
   -e "stage3_flavor=${stage3_flavor}" \
   -e "enable_ssh=${enable_ssh}" \
+  -e "enable_wifi=${enable_wifi}" \
+  -e "enable_qemu_guest_agent=${enable_qemu_guest_agent}" \
   -e "project_root=${project_root}" \
   ansible/playbooks/install-system-packages.yml

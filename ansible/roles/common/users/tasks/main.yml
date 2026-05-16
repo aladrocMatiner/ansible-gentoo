@@ -423,6 +423,30 @@
     success_msg: "OpenSSH tooling exists for installed target SSH policy."
   when: users_enable_ssh
 
+- name: Inspect installed SSH host keys
+  ansible.builtin.find:
+    paths: "{{ users_target_root }}/etc/ssh"
+    patterns: "ssh_host_*_key"
+    file_type: file
+  register: users_ssh_host_keys
+  changed_when: false
+  when: users_enable_ssh
+
+- name: Generate installed SSH host keys
+  ansible.builtin.command:
+    argv:
+      - ssh-keygen
+      - -A
+      - -f
+      - "{{ users_target_root }}"
+  register: users_ssh_host_keygen
+  changed_when: users_ssh_host_keygen.rc == 0
+  failed_when: users_ssh_host_keygen.rc != 0
+  when:
+    - not ansible_check_mode
+    - users_enable_ssh
+    - users_ssh_host_keys.matched == 0
+
 - name: Enforce installed SSH root login policy
   ansible.builtin.blockinfile:
     path: "{{ users_target_root }}/etc/ssh/sshd_config"
@@ -474,6 +498,7 @@
         "admin_password_hash_applied": {{ (users_admin_password_update is defined and users_admin_password_update is changed) | to_json }},
         "root_password_hash_applied": {{ (users_root_password_update is defined and users_root_password_update is changed) | to_json }},
         "authorized_keys_installed": {{ (users_admin_authorized_keys_copy is defined) | to_json }},
+        "ssh_host_keys_generated": {{ (users_ssh_host_keygen is defined and users_ssh_host_keygen is changed) | to_json }},
         "ssh_root_login_restricted": {{ (users_sshd_policy is defined and users_enable_ssh) | to_json }},
         "final_checks_input": true,
         "install_report_input": true
@@ -496,6 +521,7 @@
       admin_password_hash_file_used: "{{ users_admin_password_hash is defined }}"
       root_password_hash_file_used: "{{ users_root_password_hash is defined }}"
       root_ssh_login: "{{ 'disabled' if users_enable_ssh else 'not_configured' }}"
+      ssh_host_keys_generated: "{{ users_ssh_host_keygen is defined and users_ssh_host_keygen is changed }}"
       final_checks_input: true
       install_report_input: true
       logs: "{{ users_log_dir }}/"

@@ -3,7 +3,7 @@
 ## 1. Purpose
 The Safety Review Agent reviews commands, scripts, Makefile targets, documentation, and Ansible tasks before they are used in the `gentoo-ai-installer` project.
 
-The project can destroy data if disk operations are wrong. Safety review is mandatory before adding destructive operations. The Makefile is the operator-facing control plane, phase 1 starts from the official Gentoo live ISO, and phase 2 uses network Ansible automation from an operator/controller machine against a target booted into the official Gentoo live ISO. Local libvirt automation is a validation harness, not the product architecture.
+The project can destroy data if disk operations are wrong. Safety review is mandatory before adding destructive operations. The Makefile is the operator-facing control plane, phase 1 starts from the official Gentoo live ISO, and phase 2 uses network Ansible automation from an operator/controller machine against a target booted into the official Gentoo live ISO. Local libvirt automation and remote Proxmox automation are validation harnesses, not the product architecture.
 
 ## 2. Responsibilities
 - Classify operational risk before a command, script, Makefile target, or Ansible task is used.
@@ -20,6 +20,7 @@ The project can destroy data if disk operations are wrong. Safety review is mand
 - Verify physical hardware workflows require the real hardware readiness check before destructive targets are recommended.
 - Verify libvirt matrix planning remains read-only unless a later destructive matrix change adds disposable disks and normal confirmations.
 - Verify libvirt end-to-end install validation uses only the project-owned VM and retains normal destructive and bootloader confirmations.
+- Verify Proxmox validation targets operate only on project-owned generated VMIDs/names, retain destructive and bootloader confirmations for E2E install, and do not add Proxmox-specific installer roles.
 - Verify release readiness checks include secret scanning and tracked artifact checks before broader handoff.
 - Produce a structured review decision: `APPROVED`, `APPROVED WITH CHANGES`, or `REJECTED`.
 
@@ -151,6 +152,7 @@ When this agent changes or reviews safety-sensitive behavior, it must enforce do
 - If Makefile safety behavior changes, verify `README.md` or `docs/` and `skills/makefile-control-plane.md` document required variables, confirmation variables, disk identity output, and forbidden defaults.
 - If Ansible safety behavior changes, verify Ansible documentation describes required variables, confirmation gates, controller-to-target execution, dry-run limits, and fail-closed behavior.
 - If VM/libvirt safety behavior changes, verify VM documentation states that disks are qcow2 files under `./var/libvirt/` or the configured project-local `VM_DIR`, that host block devices are forbidden, that `VM_TEST_IMAGE_NAME` is only a conservative local test label and not an ISO path or secret, that start/SSH/rsync/Ansible workflows require project-owned domains matching the configured official ISO, generated artifacts, and case metadata, that cleanup is limited to the selected case artifacts, and that cleanup requires `I_UNDERSTAND_CLEANUP_DELETE=DELETE`.
+- If Proxmox safety behavior changes, verify Proxmox documentation states the Proxmox host/node, ISO volume, storage, bridge, VLAN, VMID/IP mapping, generated VM names, expected guest disk, cleanup confirmation, project-owned VM marker, and that reusable Ansible roles must not depend on Proxmox-only details.
 - A safety review must check that safety-sensitive implementation changes include documentation updates and OpenSpec documentation tasks when behavior changes.
 - The agent must reject or require changes for any dangerous behavior change that lacks matching documentation.
 - Before finishing, check `README.md`, `docs/`, `skills/`, `agents/`, and active OpenSpec tasks for stale safety rules, stale command examples, or missing recovery guidance.
@@ -178,6 +180,7 @@ The Makefile is the public control plane. Safety review must verify:
 - VM/libvirt case selection must derive domains and artifacts from `PROFILE=openrc|systemd`, `FILESYSTEM=ext4|btrfs`, `STAGE3_FLAVOR=standard|hardened|musl`, fixed platform `amd64`, and optional `VM_TEST_IMAGE_NAME`; reviewers must reject docs or scripts that require operators to hand-build full case VM names for normal workflows.
 - VM/libvirt targets must not invoke `sudo` by default.
 - VM cleanup targets must delete only generated artifacts for the configured project-owned domain and must not delete ISO files, libvirt networks, pools, volumes, unrelated domains, or secrets.
+- Proxmox cleanup targets must require `I_UNDERSTAND_CLEANUP_DELETE=DELETE`, verify the project ownership marker and generated VM name before mutation, and must not delete unrelated VMIDs, templates, ISOs, pools, or storage volumes outside the selected project-owned VM.
 - `make real-hardware-check` must be read-only, require explicit `INSTALL_DISK`, prefer stable disk identity paths, require backup/UEFI/network/power/recovery-media/destructive-preview acknowledgements, and state that it does not satisfy destructive confirmations.
 - `make vm-test-matrix-plan` must not create disks, define domains, start VMs, run destructive install targets, or treat `/dev/vda` as valid outside the planned disposable VM guest context.
 - `make vm-e2e-install` may run destructive install workflows only against the disposable libvirt guest disk, must require explicit `INSTALL_DISK=/dev/vda`, `ADMIN_USER`, `ENABLE_SSH=yes`, `I_UNDERSTAND_THIS_WIPES_DISK=yes`, and `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`, and must not attach host block devices.

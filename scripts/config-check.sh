@@ -189,6 +189,8 @@ admin_authorized_keys_file=${ADMIN_AUTHORIZED_KEYS_FILE:-}
 admin_password_hash_file=${ADMIN_PASSWORD_HASH_FILE:-}
 root_password_hash_file=${ROOT_PASSWORD_HASH_FILE:-}
 enable_ssh=${ENABLE_SSH:-no}
+enable_wifi=${ENABLE_WIFI:-no}
+enable_qemu_guest_agent=${ENABLE_QEMU_GUEST_AGENT:-no}
 target_mount=${TARGET_MOUNT:-/mnt/gentoo}
 efi_mount=${EFI_MOUNT:-${target_mount}/boot/efi}
 install_disk=${INSTALL_DISK:-}
@@ -224,6 +226,8 @@ case "$boot_mode" in
 esac
 
 is_yes_no "$enable_ssh" || add_error CONFIG_INVALID "ENABLE_SSH must be yes or no"
+is_yes_no "$enable_wifi" || add_error CONFIG_INVALID "ENABLE_WIFI must be yes or no"
+is_yes_no "$enable_qemu_guest_agent" || add_error CONFIG_INVALID "ENABLE_QEMU_GUEST_AGENT must be yes or no"
 is_yes_no "$config_requires_install_disk" || add_error CONFIG_INVALID "CONFIG_REQUIRE_INSTALL_DISK must be yes or no"
 is_yes_no "$config_destructive" || add_error CONFIG_INVALID "CONFIG_DESTRUCTIVE must be yes or no"
 
@@ -305,6 +309,8 @@ printf '  ADMIN_AUTHORIZED_KEYS_FILE: %s\n' "$([[ -n "$admin_authorized_keys_fil
 printf '  ADMIN_PASSWORD_HASH_FILE: %s\n' "$([[ -n "$admin_password_hash_file" ]] && printf '<set>' || printf '<unset>')"
 printf '  ROOT_PASSWORD_HASH_FILE: %s\n' "$([[ -n "$root_password_hash_file" ]] && printf '<set>' || printf '<unset>')"
 printf '  ENABLE_SSH: %s\n' "$enable_ssh"
+printf '  ENABLE_WIFI: %s\n' "$enable_wifi"
+printf '  ENABLE_QEMU_GUEST_AGENT: %s\n' "$enable_qemu_guest_agent"
 printf '  TARGET_MOUNT: %s\n' "$target_mount"
 printf '  EFI_MOUNT: %s\n' "$efi_mount"
 printf '  INSTALL_DISK: %s\n' "${install_disk:-<unset>}"

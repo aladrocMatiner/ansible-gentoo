@@ -40,6 +40,8 @@ ADMIN_AUTHORIZED_KEYS_FILE ?=
 ADMIN_PASSWORD_HASH_FILE ?=
 ROOT_PASSWORD_HASH_FILE ?=
 ENABLE_SSH ?= no
+ENABLE_WIFI ?= no
+ENABLE_QEMU_GUEST_AGENT ?= no
 FIRST_BOOT_USER ?=
 FIRST_BOOT_TIMEOUT ?= 180
 TARGET_MOUNT ?= /mnt/gentoo
@@ -77,6 +79,25 @@ VM_E2E_RESET_DISK ?= no
 VM_E2E_ADMIN_SUDO_NOPASSWD ?= yes
 VM_E2E_MATRIX_LOG_DIR ?= logs/libvirt-e2e-matrix
 VM_E2E_MATRIX_PARALLEL ?= 4
+PROXMOX_HOST ?= 100.64.60.211
+PROXMOX_NODE ?= pve-node10
+PROXMOX_STORAGE ?= ceph_low_prio
+PROXMOX_BRIDGE ?= vmbr0
+PROXMOX_VLAN ?= 1070
+PROXMOX_ISO ?= local:iso/install-amd64-minimal-20260510T170106Z.iso
+PROXMOX_VMID_BASE ?= 73000
+PROXMOX_VMID ?=
+PROXMOX_DISK_SIZE ?= 80G
+PROXMOX_RAM ?= 16384
+PROXMOX_CPUS ?= 4
+PROXMOX_IP_BASE ?= 10.64.70.99
+PROXMOX_GATEWAY ?= 10.64.70.1
+PROXMOX_NETMASK ?= 255.255.255.0
+PROXMOX_DNS ?= 1.1.1.1
+PROXMOX_ACCESS_INSTALL_DISK ?= /dev/sda
+PROXMOX_MATRIX_PARALLEL ?= 4
+PROXMOX_RESET_VM ?= no
+PROXMOX_E2E_MATRIX_LOG_DIR ?= logs/proxmox-e2e-matrix
 
 export LIBVIRT_URI
 export VM_NET_MODE
@@ -118,6 +139,8 @@ export ADMIN_AUTHORIZED_KEYS_FILE
 export ADMIN_PASSWORD_HASH_FILE
 export ROOT_PASSWORD_HASH_FILE
 export ENABLE_SSH
+export ENABLE_WIFI
+export ENABLE_QEMU_GUEST_AGENT
 export FIRST_BOOT_USER
 export FIRST_BOOT_TIMEOUT
 export TARGET_MOUNT
@@ -156,9 +179,29 @@ export VM_E2E_RESET_DISK
 export VM_E2E_ADMIN_SUDO_NOPASSWD
 export VM_E2E_MATRIX_LOG_DIR
 export VM_E2E_MATRIX_PARALLEL
+export PROXMOX_HOST
+export PROXMOX_NODE
+export PROXMOX_STORAGE
+export PROXMOX_BRIDGE
+export PROXMOX_VLAN
+export PROXMOX_ISO
+export PROXMOX_VMID_BASE
+export PROXMOX_VMID
+export PROXMOX_DISK_SIZE
+export PROXMOX_RAM
+export PROXMOX_CPUS
+export PROXMOX_IP_BASE
+export PROXMOX_GATEWAY
+export PROXMOX_NETMASK
+export PROXMOX_DNS
+export PROXMOX_ACCESS_INSTALL_DISK
+export PROXMOX_MATRIX_PARALLEL
+export PROXMOX_RESET_VM
+export PROXMOX_E2E_MATRIX_LOG_DIR
 
 .PHONY: help \
 	vm-list-cases vm-check vm-disk vm-define vm-start vm-start-installed vm-validate-first-boot vm-e2e-plan vm-e2e-install vm-e2e-matrix vm-test-matrix vm-test-matrix-plan vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
+	proxmox-check proxmox-list-cases proxmox-test-matrix-plan proxmox-vm-create proxmox-vm-create-all proxmox-vm-start proxmox-vm-start-installed proxmox-vm-start-installed-all proxmox-ensure-installed-access proxmox-ensure-installed-access-all proxmox-verify-installed-access proxmox-verify-installed-access-all proxmox-vm-ip proxmox-bootstrap-ssh proxmox-ansible-ping proxmox-e2e-install proxmox-e2e-matrix proxmox-vm-shutdown proxmox-vm-clean \
 	ansible-check config-check host-check real-hardware-check release-check secret-check handbook-trace ansible-live-ping ansible-live-preflight local-live-preflight local-detect-disks local-install-plan local-partition-plan detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-preview partition-preview format-preview mount-preview bootloader-preview users-preview destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan install-resume record-manual-step install-run-clean install-audit install-report cleanup-plan clean-state clean-logs clean-audit clean-stage3-cache reset-test-run \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
@@ -241,6 +284,25 @@ help:
 		'  make vm-shutdown     Request clean guest shutdown' \
 		'  make vm-destroy      Stop the configured VM without deleting artifacts' \
 		'  make vm-clean        Undefine VM and delete generated artifacts after confirmation' \
+		'  make proxmox-check   Verify Proxmox host, storage, bridge, ISO, and tools' \
+		'  make proxmox-list-cases List supported Proxmox matrix VMIDs, names, and IPs' \
+		'  make proxmox-test-matrix-plan Alias for proxmox-list-cases' \
+		'  make proxmox-vm-create Create one project-owned Proxmox VM for selected PROFILE/FILESYSTEM/STAGE3_FLAVOR' \
+		'  make proxmox-vm-create-all Create all 12 project-owned Proxmox matrix VMs' \
+		'  make proxmox-vm-start Start one Proxmox live ISO VM' \
+		'  make proxmox-vm-start-installed Boot one Proxmox VM from installed disk scsi0' \
+		'  make proxmox-vm-start-installed-all Boot all Proxmox matrix VMs from installed disks' \
+		'  make proxmox-ensure-installed-access Ensure aladroc SSH/sudo access in one installed Proxmox VM' \
+		'  make proxmox-ensure-installed-access-all Ensure aladroc SSH/sudo access in all installed Proxmox VMs' \
+		'  make proxmox-verify-installed-access Verify aladroc SSH/sudo access in one installed Proxmox VM' \
+		'  make proxmox-verify-installed-access-all Verify aladroc SSH/sudo access in all installed Proxmox VMs' \
+		'  make proxmox-vm-ip    Print deterministic IP for selected Proxmox case' \
+		'  make proxmox-bootstrap-ssh Configure temporary root SSH in one Proxmox live ISO VM' \
+		'  make proxmox-ansible-ping Validate Ansible SSH to one Proxmox live ISO VM' \
+		'  make proxmox-e2e-install DESTRUCTIVE-IN-VM: install one disposable Proxmox VM' \
+		'  make proxmox-e2e-matrix DESTRUCTIVE-IN-VM: install all Proxmox matrix cases' \
+		'  make proxmox-vm-shutdown Request clean shutdown for one Proxmox VM' \
+		'  make proxmox-vm-clean Destroy one project-owned Proxmox VM after DELETE confirmation' \
 		'' \
 		'Compatibility aliases:' \
 		'  make qemu-check      Alias for vm-check' \
@@ -292,6 +354,8 @@ help:
 		'  ADMIN_PASSWORD_HASH_FILE is optional and not printed' \
 		'  ROOT_PASSWORD_HASH_FILE is optional and not printed' \
 		'  ENABLE_SSH=$(ENABLE_SSH)' \
+		'  ENABLE_WIFI=$(ENABLE_WIFI)' \
+		'  ENABLE_QEMU_GUEST_AGENT=$(ENABLE_QEMU_GUEST_AGENT)' \
 		'  FIRST_BOOT_USER=$(FIRST_BOOT_USER)' \
 		'  FIRST_BOOT_TIMEOUT=$(FIRST_BOOT_TIMEOUT)' \
 		'  TARGET_MOUNT=$(TARGET_MOUNT)' \
@@ -320,7 +384,23 @@ help:
 		'  VM_E2E_RESET_DISK=$(VM_E2E_RESET_DISK)' \
 		'  VM_E2E_ADMIN_SUDO_NOPASSWD=$(VM_E2E_ADMIN_SUDO_NOPASSWD)' \
 		'  VM_E2E_MATRIX_LOG_DIR=$(VM_E2E_MATRIX_LOG_DIR)' \
-		'  VM_E2E_MATRIX_PARALLEL=$(VM_E2E_MATRIX_PARALLEL)'
+		'  VM_E2E_MATRIX_PARALLEL=$(VM_E2E_MATRIX_PARALLEL)' \
+		'' \
+		'Proxmox variables:' \
+		'  PROXMOX_HOST=$(PROXMOX_HOST)' \
+		'  PROXMOX_NODE=$(PROXMOX_NODE)' \
+		'  PROXMOX_STORAGE=$(PROXMOX_STORAGE)' \
+		'  PROXMOX_BRIDGE=$(PROXMOX_BRIDGE)' \
+		'  PROXMOX_VLAN=$(PROXMOX_VLAN)' \
+		'  PROXMOX_ISO=$(PROXMOX_ISO)' \
+		'  PROXMOX_VMID_BASE=$(PROXMOX_VMID_BASE)' \
+		'  PROXMOX_DISK_SIZE=$(PROXMOX_DISK_SIZE)' \
+		'  PROXMOX_RAM=$(PROXMOX_RAM)' \
+		'  PROXMOX_CPUS=$(PROXMOX_CPUS)' \
+		'  PROXMOX_IP_BASE=$(PROXMOX_IP_BASE)' \
+		'  PROXMOX_GATEWAY=$(PROXMOX_GATEWAY)' \
+		'  PROXMOX_ACCESS_INSTALL_DISK=$(PROXMOX_ACCESS_INSTALL_DISK)' \
+		'  PROXMOX_MATRIX_PARALLEL=$(PROXMOX_MATRIX_PARALLEL)'
 
 vm-check:
 	@scripts/vm-check-libvirt.sh
@@ -555,6 +635,62 @@ vm-destroy:
 
 vm-clean:
 	@scripts/vm-clean.sh
+
+proxmox-check:
+	@scripts/proxmox.py check
+
+proxmox-list-cases:
+	@scripts/proxmox.py list-cases
+
+proxmox-test-matrix-plan: proxmox-list-cases
+
+proxmox-vm-create:
+	@scripts/proxmox.py create
+
+proxmox-vm-create-all:
+	@scripts/proxmox.py create-all
+
+proxmox-vm-start:
+	@scripts/proxmox.py start
+
+proxmox-vm-start-installed:
+	@scripts/proxmox.py start-installed
+
+proxmox-vm-start-installed-all:
+	@scripts/proxmox.py start-installed-all
+
+proxmox-ensure-installed-access:
+	@scripts/proxmox.py ensure-installed-access
+
+proxmox-ensure-installed-access-all:
+	@scripts/proxmox.py ensure-installed-access-all
+
+proxmox-verify-installed-access:
+	@scripts/proxmox.py verify-installed-access
+
+proxmox-verify-installed-access-all:
+	@scripts/proxmox.py verify-installed-access-all
+
+proxmox-vm-ip:
+	@scripts/proxmox.py ip
+
+proxmox-bootstrap-ssh:
+	@scripts/proxmox.py bootstrap-ssh
+
+proxmox-ansible-ping:
+	@scripts/proxmox.py ansible-ping
+
+proxmox-e2e-install:
+	@scripts/proxmox.py e2e-install
+
+proxmox-e2e-matrix:
+	@scripts/proxmox.py e2e-matrix
+
+proxmox-vm-shutdown:
+	@scripts/proxmox.py shutdown
+
+proxmox-vm-clean:
+	@scripts/proxmox.py clean
 
 qemu-check: vm-check
 	@printf '%s\n' 'qemu-check is a compatibility alias; libvirt/virsh vm-check is the active workflow.'

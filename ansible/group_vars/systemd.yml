@@ -11,3 +11,5 @@ base_console_services:
   - name: systemd-timesyncd.service
 installed_ssh_services:
   - name: sshd.service
+qemu_guest_agent_services:
+  - name: qemu-guest-agent.service

@@ -26,6 +26,32 @@
     fail_msg: "DISK_UNSAFE: INSTALL_DISK={{ install_disk }} contains unsafe syntax."
     success_msg: "INSTALL_DISK syntax is conservative."
 
+- name: Store requested install disk path
+  ansible.builtin.set_fact:
+    disk_safety_requested_install_disk: "{{ install_disk }}"
+
+- name: Resolve install disk path
+  ansible.builtin.command:
+    argv:
+      - readlink
+      - -f
+      - "{{ install_disk }}"
+  register: disk_safety_resolved_install_disk
+  changed_when: false
+  check_mode: false
+
+- name: Require resolved install disk to stay under /dev
+  ansible.builtin.assert:
+    that:
+      - disk_safety_resolved_install_disk.stdout is match('^/dev/.+')
+      - disk_safety_resolved_install_disk.stdout not in ['/dev', '/dev/']
+    fail_msg: "DISK_UNSAFE: INSTALL_DISK={{ disk_safety_requested_install_disk }} resolves outside an approved /dev path: {{ disk_safety_resolved_install_disk.stdout }}"
+    success_msg: "INSTALL_DISK resolves to a concrete /dev path."
+
+- name: Use resolved install disk path for disk operations
+  ansible.builtin.set_fact:
+    install_disk: "{{ disk_safety_resolved_install_disk.stdout }}"
+
 - name: Require destructive confirmation when requested
   ansible.builtin.assert:
     that:
@@ -130,6 +156,7 @@
   ansible.builtin.set_fact:
     disk_safety_current_descendant_state: []
     disk_safety_current_checkpoint:
+      requested_install_disk: "{{ disk_safety_requested_install_disk }}"
       install_disk: "{{ install_disk }}"
       selected_disk:
         path: "{{ disk_safety_disk.path | default('') }}"
@@ -352,6 +379,8 @@
       destructive_commands_run: false
       confirmation_required: "{{ disk_safety_require_confirmation | default(false) | bool }}"
       confirmation_present: "{{ confirm_wipe_disk | default('') == 'yes' }}"
+      requested_install_disk: "{{ disk_safety_requested_install_disk }}"
+      resolved_install_disk: "{{ install_disk }}"
       selected_disk: "{{ disk_safety_disk }}"
       existing_children: "{{ disk_safety_children }}"
       existing_descendants: "{{ disk_safety_all_descendants }}"

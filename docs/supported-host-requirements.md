@@ -52,6 +52,20 @@ make ansible-live-preflight ANSIBLE_LIVE_HOST=<live-iso-address> ANSIBLE_LIVE_US
 
 Local live ISO fallback mode also does not require host libvirt tools, because it runs inside the already booted live ISO with `ansible_connection=local`.
 
+## Required For Proxmox Validation
+
+`make proxmox-check` verifies the controller can reach the configured Proxmox host over SSH and that the Proxmox node has the required VM tooling and inputs:
+
+- SSH access to `root@$(PROXMOX_HOST)`,
+- `qm`,
+- `pvesm`,
+- `isoinfo`,
+- active `PROXMOX_STORAGE`,
+- configured `PROXMOX_BRIDGE`,
+- official Gentoo live ISO referenced by `PROXMOX_ISO`.
+
+Proxmox validation creates disposable VMs on the remote Proxmox host. It does not require local libvirt tools and does not use local qcow2 paths.
+
 ## Failure Modes
 
 - Missing `virsh`, `qemu-img`, `qemu-system-x86_64`, `isoinfo`, `ansible`, `ssh`, or `rsync`: install the missing host tool through the host OS package manager, then rerun `make host-check`.
@@ -60,6 +74,9 @@ Local live ISO fallback mode also does not require host libvirt tools, because i
 - `VM_ISO` missing: place the official Gentoo live ISO at the configured path or set `VM_ISO=...`.
 - Not enough memory or disk: reduce `VM_RAM`/`VM_DISK_SIZE` for testing or free host resources.
 - Existing domain safety failure: inspect the configured `VM_NAME`; project targets refuse unrelated domains, host block-device-backed domains, or project-owned domains whose metadata does not match the selected case.
+- Proxmox SSH failure: verify `PROXMOX_HOST`, root SSH access, and that the Proxmox node is reachable from the controller.
+- Proxmox ISO failure: upload the official Gentoo live ISO to Proxmox storage and set `PROXMOX_ISO=local:iso/<file>.iso`.
+- Proxmox storage or bridge failure: fix the Proxmox storage/bridge configuration before creating VMs.
 
 ## Recovery
 

@@ -23,3 +23,6 @@ base_console_services:
 installed_ssh_services:
   - name: sshd
     runlevel: default
+qemu_guest_agent_services:
+  - name: qemu-guest-agent
+    runlevel: default

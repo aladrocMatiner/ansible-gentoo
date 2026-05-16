@@ -215,6 +215,7 @@ def render_report(state: dict[str, Any], run_dir: Path, evidence: dict[str, dict
         "",
         "## Network, Time, And Access",
         status_line("network manager policy", packages.get("network_manager_policy") or "NetworkManager"),
+        status_line("WiFi enabled", packages.get("enable_wifi") if "enable_wifi" in packages else final.get("enable_wifi")),
         status_line("enabled services", service_names),
         status_line("time sync", final.get("time_sync") or packages.get("time_sync_policy")),
         status_line("SSH enabled", packages.get("ssh_policy_enabled") if "ssh_policy_enabled" in packages else final.get("enable_ssh")),

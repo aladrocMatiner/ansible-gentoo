@@ -12,6 +12,7 @@ For v1:
 - Root SSH password login must not be enabled by default.
 - Passwordless root SSH must not be enabled by default.
 - Admin authorized keys are installed only from `ADMIN_AUTHORIZED_KEYS_FILE`.
+- Installed SSH host keys are generated under `/etc/ssh` when `ENABLE_SSH=yes` and no host private keys exist yet.
 - Password hashes are read only from `ADMIN_PASSWORD_HASH_FILE` and `ROOT_PASSWORD_HASH_FILE`.
 - SSH-key-only admin accounts need either a password hash for interactive sudo or `ADMIN_SUDO_NOPASSWD=yes` for passwordless sudo.
 - Secret-bearing input files must be gitignored or outside the repository.
@@ -82,12 +83,14 @@ The workflow must never commit, log, or copy into audit bundles:
 ## Validation
 
 Final checks must report installed SSH package/service status when `ENABLE_SSH=yes`, confirm root-login restrictions are present when SSH is configured, and validate whether admin sudoers requires a password or uses `NOPASSWD: ALL`.
+Final checks must also require installed SSH host keys when `ENABLE_SSH=yes`; without host keys, `sshd` may be enabled but unable to listen after first boot.
 
 First-boot validation requires SSH access to the installed VM because it runs read-only checks over Ansible. If SSH was not enabled or no authorized key was installed, first-boot validation fails clearly instead of falling back to console mutation.
 
 ## Failure Modes
 
 - SSH service missing: rerun `make install-system-packages ENABLE_SSH=yes`.
+- SSH service enabled but port 22 refuses connections after first boot: boot the VM through the live ISO recovery path, verify `/etc/ssh/ssh_host_*_key` exists in the target root, then rerun `make configure-users ENABLE_SSH=yes ...` so the workflow generates missing host keys.
 - Authorized keys missing: rerun `make configure-users ENABLE_SSH=yes ADMIN_AUTHORIZED_KEYS_FILE=...`.
 - SSH works but `sudo su -` asks for an unknown password: provide `ADMIN_PASSWORD_HASH_FILE` for password-requiring sudo, or rerun disposable tests with `ADMIN_SUDO_NOPASSWD=yes`.
 - Private key material detected: replace the file with public keys only and rotate any exposed private key.

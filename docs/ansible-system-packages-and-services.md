@@ -4,7 +4,7 @@
 
 This target follows the Gentoo AMD64 Handbook system tools and networking phases, with one project policy difference: `gentoo-ai-installer` uses NetworkManager as the v1 network manager instead of the Handbook's simplest `dhcpcd` example.
 
-The package and service set contributes to the v1 target baseline in `docs/target-system-baseline.md`. Installed time synchronization follows `docs/installed-time-sync-policy.md`; installed SSH follows `docs/installed-ssh-policy.md`; Portage world-update behavior follows `docs/portage-world-update-policy.md`.
+The package and service set contributes to the v1 target baseline in `docs/target-system-baseline.md`. Installed time synchronization follows `docs/installed-time-sync-policy.md`; installed SSH follows `docs/installed-ssh-policy.md`; installed WiFi support follows `docs/installed-wifi-policy.md`; Portage world-update behavior follows `docs/portage-world-update-policy.md`.
 
 ## Scope
 
@@ -19,6 +19,8 @@ It does:
 - install OpenRC-specific syslog, cron, and time-sync packages for OpenRC,
 - use systemd built-in service policy for systemd where applicable,
 - install OpenSSH only when `ENABLE_SSH=yes`,
+- install WiFi firmware and supplicant support only when `ENABLE_WIFI=yes`,
+- install the QEMU guest agent only when `ENABLE_QEMU_GUEST_AGENT=yes`,
 - enable services through init-specific roles,
 - record non-secret package and service evidence under `logs/install-runs/<run-id>/system-packages/`.
 
@@ -56,7 +58,16 @@ SSH package when `ENABLE_SSH=yes`:
 
 - `net-misc/openssh`
 
-The role writes `/mnt/gentoo/etc/portage/package.use/gentoo-ai-installer-system` to keep the basic console target conservative. It disables optional desktop, modem, Wi-Fi, documentation, and mail stacks unless a later OpenSpec policy adds them.
+WiFi packages when `ENABLE_WIFI=yes`:
+
+- `sys-kernel/linux-firmware`
+- `net-wireless/wpa_supplicant`
+
+QEMU guest agent package when `ENABLE_QEMU_GUEST_AGENT=yes`:
+
+- `app-emulation/qemu-guest-agent`
+
+The role writes `/mnt/gentoo/etc/portage/package.use/gentoo-ai-installer-system` to keep the basic console target conservative. It disables optional desktop, modem, documentation, and mail stacks. With the default `ENABLE_WIFI=no`, NetworkManager is built without WiFi support. With `ENABLE_WIFI=yes`, NetworkManager is built with `wifi` and `net-wireless/wpa_supplicant` is built with `dbus` while legacy `tkip` and `wep` remain disabled.
 
 ## Service Policy
 
@@ -68,12 +79,14 @@ OpenRC services are enabled with `rc-update` only:
 - `cronie`
 - `chronyd`
 - `sshd` when `ENABLE_SSH=yes`
+- `qemu-guest-agent` when `ENABLE_QEMU_GUEST_AGENT=yes`
 
 systemd services are enabled with `systemctl` only:
 
 - `NetworkManager.service`
 - `systemd-timesyncd.service`
 - `sshd.service` when `ENABLE_SSH=yes`
+- `qemu-guest-agent.service` when `ENABLE_QEMU_GUEST_AGENT=yes`
 
 OpenRC roles must not call `systemctl`. systemd roles must not call `rc-update` or `rc-service`.
 
@@ -95,6 +108,18 @@ Enable installed SSH:
 
 ```sh
 make install-system-packages PROFILE=openrc FILESYSTEM=ext4 ENABLE_SSH=yes
+```
+
+Enable installed WiFi support:
+
+```sh
+make install-system-packages PROFILE=systemd FILESYSTEM=btrfs ENABLE_WIFI=yes
+```
+
+Enable QEMU guest agent for Proxmox validation:
+
+```sh
+make install-system-packages PROFILE=systemd FILESYSTEM=ext4 ENABLE_QEMU_GUEST_AGENT=yes
 ```
 
 `make install-base-packages` is a compatibility alias for `make install-system-packages`.
@@ -124,8 +149,10 @@ Successful output must show:
 
 - all requested packages installed,
 - NetworkManager enabled for the selected init system,
+- WiFi packages and USE policy present only when `ENABLE_WIFI=yes`,
 - time-sync service enabled according to policy,
 - SSH service enabled only when `ENABLE_SSH=yes`,
+- QEMU guest agent service enabled only when `ENABLE_QEMU_GUEST_AGENT=yes`,
 - package/service report with `final_checks_input: true`.
 
 ## Failure Modes
@@ -135,8 +162,10 @@ Successful output must show:
 - Chroot pseudo-filesystems are missing.
 - Portage profile or repository sync was not prepared.
 - Package USE policy needs adjustment.
+- WiFi package or USE policy is missing after `ENABLE_WIFI=yes`.
 - OpenRC service names do not exist in the target.
 - systemd unit names do not exist in the target.
+- QEMU guest agent package or service is unavailable for the selected profile.
 - OpenRC workflow attempts to call systemd tooling.
 - systemd workflow attempts to call OpenRC tooling.
 
@@ -146,6 +175,8 @@ Successful output must show:
 - If Portage cannot resolve packages, rerun `make configure-portage` and inspect `/mnt/gentoo/etc/portage/package.use/gentoo-ai-installer-system`.
 - If a service cannot be enabled, confirm the selected `PROFILE` matches the stage3 and Portage profile.
 - If SSH is needed after a run with `ENABLE_SSH=no`, rerun with `ENABLE_SSH=yes`; do not manually enable it outside the Makefile workflow.
+- If WiFi support is needed after a run with `ENABLE_WIFI=no`, rerun with `ENABLE_WIFI=yes`; do not store SSIDs or passphrases in project files.
+- If Proxmox guest integration is needed after a run with `ENABLE_QEMU_GUEST_AGENT=no`, rerun with `ENABLE_QEMU_GUEST_AGENT=yes`; do not manually enable it outside the Makefile workflow.
 
 ## Output Artifacts
 

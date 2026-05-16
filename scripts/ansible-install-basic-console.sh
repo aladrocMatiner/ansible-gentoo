@@ -42,6 +42,18 @@ case "$enable_ssh" in
   *) die "ENABLE_SSH must be 'yes' or 'no', got: $enable_ssh" ;;
 esac
 
+enable_wifi=${ENABLE_WIFI:-no}
+case "$enable_wifi" in
+  yes|no) ;;
+  *) die "ENABLE_WIFI must be 'yes' or 'no', got: $enable_wifi" ;;
+esac
+
+enable_qemu_guest_agent=${ENABLE_QEMU_GUEST_AGENT:-no}
+case "$enable_qemu_guest_agent" in
+  yes|no) ;;
+  *) die "ENABLE_QEMU_GUEST_AGENT must be 'yes' or 'no', got: $enable_qemu_guest_agent" ;;
+esac
+
 admin_sudo_nopasswd=${ADMIN_SUDO_NOPASSWD:-no}
 case "$admin_sudo_nopasswd" in
   yes|no) ;;
@@ -88,6 +100,8 @@ timezone: "${TIMEZONE:-UTC}"
 locale: "${LOCALE:-en_US.UTF-8}"
 keymap: "${KEYMAP:-us}"
 enable_ssh: "${enable_ssh}"
+enable_wifi: "${enable_wifi}"
+enable_qemu_guest_agent: "${enable_qemu_guest_agent}"
 admin_user: "${admin_user}"
 admin_groups_csv: "${ADMIN_GROUPS:-wheel}"
 admin_shell: "${ADMIN_SHELL:-/bin/bash}"
@@ -108,6 +122,8 @@ printf 'INSTALL_DISK=%s\n' "$install_disk"
 printf 'ADMIN_USER=%s\n' "$admin_user"
 printf 'ADMIN_SUDO_NOPASSWD=%s\n' "$admin_sudo_nopasswd"
 printf 'ENABLE_SSH=%s\n' "$enable_ssh"
+printf 'ENABLE_WIFI=%s\n' "$enable_wifi"
+printf 'ENABLE_QEMU_GUEST_AGENT=%s\n' "$enable_qemu_guest_agent"
 printf 'I_UNDERSTAND_THIS_WIPES_DISK=%s\n' "$confirm_wipe_disk"
 printf 'I_UNDERSTAND_BOOTLOADER_CHANGES=%s\n' "$bootloader_confirmation"
 printf '%s\n' 'This is a destructive full install flow: it partitions, formats, mounts, extracts stage3, configures the target, installs GRUB, and runs final checks.'

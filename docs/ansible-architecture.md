@@ -5,7 +5,7 @@ This document defines the planned Ansible architecture for `gentoo-ai-installer`
 ## Purpose
 The Ansible installer phase should turn validated manual Gentoo installation steps into a reusable, network-capable installer. The normal execution model is an operator/controller machine running Ansible over SSH against a target booted into the official Gentoo live ISO.
 
-Local libvirt/virsh workflows are a validation harness for that installer. They provide a safe VM target, serial-console SSH bootstrap, and disposable qcow2 disks so the same Ansible playbooks can be tested before real hardware. VM-specific paths, domain names, and `/dev/vda` assumptions must stay out of reusable roles except in test fixtures and examples.
+Local libvirt/virsh workflows and remote Proxmox workflows are validation harnesses for that installer. They provide disposable VM targets, console SSH bootstrap, and VM-owned disks so the same Ansible playbooks can be tested before real hardware. VM-specific paths, domain names, VMIDs, storage names, and guest disk assumptions such as `/dev/vda` or `/dev/sda` must stay out of reusable roles except in test fixtures and examples.
 
 Before destructive workflows are recommended for a physical machine, operators must run `make real-hardware-check` with an explicit network live ISO target and selected disk. That readiness report does not replace destructive or bootloader confirmations.
 
@@ -191,7 +191,7 @@ Shared roles live under `roles/common/` or an equivalent shared structure.
 - `portage`: shared Portage baseline.
 - `system_baseline`: validates the target basic-console contract.
 - `locale_timezone_hostname`: target hostname, timezone, locale, and keymap configuration.
-- `package_install`: shared package installation framework and conservative basic-console package USE policy.
+- `package_install`: shared package installation framework, conservative basic-console package USE policy, and optional installed WiFi package policy through `ENABLE_WIFI`.
 - `fstab`: UUID-based fstab generation.
 - `kernel`: `gentoo-kernel-bin` installation, installkernel/dracut support, fstab-derived kernel command line, and kernel/initramfs artifact evidence.
 - `bootloader`: GRUB UEFI package installation, EFI/NVRAM preview, `grub-install`, `grub.cfg` generation, and boot command-line validation.
@@ -217,7 +217,7 @@ Currently implemented shared roles and workflows:
 - `common/fstab`: generates UUID-based `/mnt/gentoo/etc/fstab` entries for ext4 root or the approved Btrfs subvolume layout plus `/boot/efi`, validates UUIDs, and records evidence for final checks and install reports.
 - `common/kernel`: installs `sys-kernel/installkernel`, `sys-kernel/dracut`, and `sys-kernel/gentoo-kernel-bin`, writes Handbook-aligned command-line input derived from `/mnt/gentoo/etc/fstab`, validates `/boot` kernel/initramfs artifacts, and records evidence for final checks and install reports.
 - `common/ssh`: converts `ENABLE_SSH` into package and service inputs without storing secrets or enabling root password login by default.
-- `common/package_install`: installs the shared console package set, OpenRC/systemd variant packages, Btrfs tooling when selected, optional OpenSSH, and records package/service evidence for final checks and install reports.
+- `common/package_install`: installs the shared console package set, OpenRC/systemd variant packages, Btrfs tooling when selected, optional OpenSSH, optional WiFi firmware/supplicant support through `ENABLE_WIFI`, optional QEMU guest agent support, and records package/service evidence for final checks and install reports.
 - `common/users`: creates or updates the target admin user, configures sudo through `wheel` by default, supports explicit passwordless sudo mode for disposable tests or operator policy, applies optional password hashes from gitignored controller-local files with `no_log`, installs optional admin authorized keys, enforces installed SSH root-login restrictions when SSH is enabled, and records non-secret evidence.
 - `common/bootloader`: requires explicit `install_disk` and `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`, shows EFI entries before GRUB actions, installs `sys-boot/grub` and `sys-boot/efibootmgr`, runs guarded UEFI `grub-install`, generates `grub.cfg`, validates the approved root command line, and records bootloader evidence.
 - `common/final_checks`: runs read-only reboot readiness checks, requires `ADMIN_USER`, validates fstab, kernel/initramfs, GRUB/EFI files, Btrfs subvolumes, services, users, target identity, Portage baseline, SSH policy, and writes a secret-safe readiness report.
@@ -259,6 +259,7 @@ Shared variables have one meaning across both flows:
 - `stage3_flavor`
 - `init_system`
 - `enable_ssh`
+- `enable_wifi`
 - `confirm_wipe_disk`
 - `target_mount`
 - `efi_mount`
@@ -276,7 +277,7 @@ Rules:
 - `stage3_flavor` must be `standard`, `hardened`, or `musl`, and must select the matching official stage3/profile family without changing shared disk safety.
 - Stage3 verification must follow `docs/stage3-signature-policy.md`: checksum verification is mandatory, signature verification must fail closed unless a later OpenSpec change approves an explicit override, and cached artifacts must be reverified before extraction.
 - Variant values should live in `group_vars/openrc.yml`, `group_vars/systemd.yml`, or an equivalent documented mechanism.
-- VM guest `/dev/vda` is allowed only when explicitly passed as `install_disk=/dev/vda` inside the libvirt-managed guest VM.
+- VM guest disk examples such as `/dev/vda` or `/dev/sda` are allowed only when explicitly passed as `install_disk` inside disposable VM harnesses.
 - `ansible_live_host` selects an explicit network target and must not default to a VM address.
 - When `ansible_live_host` is omitted, Makefile wrappers may discover the configured local libvirt VM for test workflows only.
 
@@ -285,10 +286,10 @@ The controller is the machine where the operator runs Makefile targets and Ansib
 
 Rules:
 
-- Reusable Ansible roles must be inventory-driven and must not depend on libvirt, virsh, VM names, local qcow2 paths, or project-local artifact directories.
+- Reusable Ansible roles must be inventory-driven and must not depend on libvirt, Proxmox, VM names, VMIDs, storage IDs, local qcow2 paths, or project-local artifact directories.
 - The live ISO target may be physical hardware, a remote VM, or the project libvirt VM.
 - `ANSIBLE_LIVE_HOST` is the explicit Makefile-level target selector for a real network target.
-- The local libvirt VM is used when `ANSIBLE_LIVE_HOST` is empty and the wrapper can discover the project-owned VM.
+- The local libvirt VM is used when `ANSIBLE_LIVE_HOST` is empty and the wrapper can discover the project-owned VM. Proxmox wrappers may derive a matrix VM IP for validation, but reusable roles must still see a normal SSH target.
 - Local VM labels such as `VM_TEST_IMAGE_NAME` are harness metadata only; reusable Ansible roles must not use them to select packages, disks, profiles, or target behavior.
 - Temporary host-key relaxation is allowed only for official live ISO targets where host keys are ephemeral, and it must remain scoped to wrapper invocations.
 - No inventory, group vars file, or role defaults may select an install disk.
@@ -319,11 +320,11 @@ make install-openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda ADMIN_USER=gentoo I_U
 make install-systemd FILESYSTEM=btrfs INSTALL_DISK=/dev/vda ADMIN_USER=gentoo I_UNDERSTAND_THIS_WIPES_DISK=yes I_UNDERSTAND_BOOTLOADER_CHANGES=yes
 ```
 
-The `/dev/vda` examples are VM-only examples for the local libvirt harness. For real network targets, use the explicit disk path reported by `make detect-disks ANSIBLE_LIVE_HOST=...`.
+The `/dev/vda` and `/dev/sda` examples are VM-only examples for the libvirt and Proxmox harnesses. For real network targets, use the explicit disk path reported by `make detect-disks ANSIBLE_LIVE_HOST=...`.
 
 Targets should pass `PROFILE=openrc` or `PROFILE=systemd` into a shared Ansible flow where practical. Avoid duplicated OpenRC and systemd command chains when a shared command can be parameterized safely.
 
-Targets should pass network target variables into Ansible through the documented wrapper layer. VM/libvirt discovery is a convenience for local testing and must not be required by the reusable installer.
+Targets should pass network target variables into Ansible through the documented wrapper layer. VM/libvirt and Proxmox discovery are conveniences for validation and must not be required by the reusable installer.
 
 Only targets present in the current `Makefile` should be documented as runnable in user-facing quick-start instructions.
 
@@ -388,6 +389,7 @@ Future implementation must keep these policy areas shared across OpenRC and syst
 
 - Time sync: OpenRC and systemd may use different service managers, but the target must have a documented time synchronization plan.
 - SSH: optional installed SSH is controlled by `ENABLE_SSH`; root password login and passwordless root SSH are not enabled by default.
+- WiFi: optional installed WiFi package support is controlled by `ENABLE_WIFI`; firmware and supplicant support may be installed, but SSIDs, passphrases, and NetworkManager connection profiles are not stored by the installer.
 - Boot command line: root is identified by stable UUID where practical; Btrfs requires `rootflags=subvol=@` or equivalent verified behavior.
 - Downloads/cache: cached stage3 artifacts must still pass checksum/signature verification before extraction.
 - Portage updates: broad `@world` update is not run by default in v1 unless a later approved change enables it.
@@ -407,7 +409,17 @@ libvirt/virsh is the first safe test environment for OpenRC and systemd install 
 - `VM_TEST_IMAGE_NAME=<label>` may be used by local VM planning to label a manually tested image or test line in generated domain, disk, state, and log names. It is not an ISO path and must not affect reusable Ansible role behavior.
 - Reusable Ansible roles must not derive behavior from `VM_NAME`, libvirt XML, qcow2 paths, or the case domain; those are local harness details only.
 - `make vm-e2e-plan` and `make vm-e2e-install` validate a selected full disposable VM install path, including first boot and audit evidence, while keeping host block devices forbidden.
-- First-boot validation boots from the installed disk and verifies network, hostname, root UUID, admin user, requested passwordless sudo mode, NetworkManager, and optional SSH.
+- First-boot validation boots from the installed disk and verifies network, hostname, root UUID, admin user, requested passwordless sudo mode, NetworkManager, optional WiFi policy evidence, and optional SSH.
+
+Proxmox is the remote VM validation harness for the same SSH-driven installer.
+
+- Use the official Gentoo live ISO from the configured Proxmox ISO volume.
+- Select Proxmox cases with `PROFILE=openrc|systemd`, `FILESYSTEM=ext4|btrfs`, and `STAGE3_FLAVOR=standard|hardened|musl`; Proxmox targets derive `gentoo-test[-VM_TEST_IMAGE_NAME]-amd64-<profile>-<filesystem>[-<stage3-flavor>]` VM names.
+- Use deterministic VMID/IP mapping from `PROXMOX_VMID_BASE` and `PROXMOX_IP_BASE`.
+- Use Proxmox only through Makefile targets such as `make proxmox-check`, `make proxmox-vm-create`, `make proxmox-bootstrap-ssh`, `make proxmox-ansible-ping`, and `make proxmox-e2e-matrix`.
+- Use the explicit guest disk discovered in the Proxmox live ISO. The current SCSI setup uses `/dev/sda`; this is a VM harness value, not a reusable role default.
+- Proxmox VM creation enables the Proxmox guest-agent channel on project-owned VMs. The shared Ansible package/service roles install and enable `app-emulation/qemu-guest-agent` only when `ENABLE_QEMU_GUEST_AGENT=yes`.
+- Keep Proxmox VMID, storage, bridge, VLAN, ISO volume, and serial-console behavior out of shared Ansible roles.
 
 ## Acceptable Reuse
 Acceptable patterns:

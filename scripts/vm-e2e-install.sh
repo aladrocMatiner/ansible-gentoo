@@ -95,6 +95,7 @@ mkdir -p "$e2e_log_dir"
 printf 'Libvirt end-to-end install validation\n' | tee "$e2e_log_dir/summary.txt"
 printf 'profile=%s filesystem=%s stage3_flavor=%s install_disk=%s admin_user=%s\n' "$profile" "$filesystem" "$stage3_flavor" "$install_disk" "$admin_user" | tee -a "$e2e_log_dir/summary.txt"
 printf 'admin_sudo_nopasswd=%s\n' "$vm_e2e_admin_sudo_nopasswd" | tee -a "$e2e_log_dir/summary.txt"
+printf 'enable_wifi=%s\n' "${ENABLE_WIFI:-no}" | tee -a "$e2e_log_dir/summary.txt"
 printf '%s\n' 'This workflow is destructive inside the disposable VM qcow2 disk and does not touch host block devices.' | tee -a "$e2e_log_dir/summary.txt"
 
 run_step e2e-plan scripts/vm-e2e-plan.py

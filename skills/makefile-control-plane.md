@@ -14,7 +14,7 @@ Use this skill when:
 - Adding Codex bootstrap behavior.
 - Adding OpenSpec maintenance commands.
 - Adding scripts that an operator might run.
-- Adding or changing VM/libvirt manual-install test targets.
+- Adding or changing VM/libvirt or Proxmox validation targets.
 - Adding Ansible playbooks or roles.
 - Adding or changing network live ISO Ansible target selection.
 - Adding disk, filesystem, mount, stage3, chroot, bootloader, user, password, or cleanup operations.
@@ -41,10 +41,10 @@ Use this skill when:
 - Route Codex bootstrap through make targets.
 - Route Ansible through make targets.
 - Route scripts through make targets.
-- Route VM/libvirt operations through make targets.
+- Route VM/libvirt and Proxmox operations through make targets.
 - Do not require the operator to run scripts directly.
 - Treat Ansible as the main product path: Makefile targets should run reusable Ansible workflows against an explicit network live ISO target when `ANSIBLE_LIVE_HOST` is provided.
-- Treat libvirt/VM targets as local validation harnesses for the same Ansible workflows, not as required production installer infrastructure.
+- Treat libvirt/VM and Proxmox targets as validation harnesses for the same Ansible workflows, not as required production installer infrastructure.
 - For OpenRC and systemd Ansible flows, prefer parameterized shared Makefile targets or thin variant targets that pass variables into a shared Ansible flow.
 - Avoid separate duplicated command chains when `PROFILE=openrc` or `PROFILE=systemd` can select the variant safely.
 - Ansible quality checks must be exposed through `make ansible-check`; operators and agents should not need to remember raw syntax-check or lint commands.
@@ -78,6 +78,9 @@ Required project variables:
 - `ADMIN_AUTHORIZED_KEYS_FILE`
 - `ADMIN_PASSWORD_HASH_FILE`
 - `ROOT_PASSWORD_HASH_FILE`
+- `ENABLE_SSH`
+- `ENABLE_WIFI`
+- `ENABLE_QEMU_GUEST_AGENT`
 - `I_UNDERSTAND_BOOTLOADER_CHANGES`
 - `I_UNDERSTAND_THIS_WIPES_DISK`
 - `MANUAL_STEP_SUMMARY`
@@ -118,6 +121,26 @@ VM/libvirt variables:
 - `VM_E2E_RESET_DISK`
 - `VM_E2E_ADMIN_SUDO_NOPASSWD`
 
+Proxmox validation variables:
+
+- `PROXMOX_HOST`
+- `PROXMOX_NODE`
+- `PROXMOX_STORAGE`
+- `PROXMOX_BRIDGE`
+- `PROXMOX_VLAN`
+- `PROXMOX_ISO`
+- `PROXMOX_VMID_BASE`
+- `PROXMOX_VMID`
+- `PROXMOX_DISK_SIZE`
+- `PROXMOX_RAM`
+- `PROXMOX_CPUS`
+- `PROXMOX_IP_BASE`
+- `PROXMOX_GATEWAY`
+- `PROXMOX_NETMASK`
+- `PROXMOX_DNS`
+- `PROXMOX_MATRIX_PARALLEL`
+- `PROXMOX_E2E_MATRIX_LOG_DIR`
+
 Ansible live target variables:
 
 - `ANSIBLE_LIVE_HOST`
@@ -149,6 +172,9 @@ Recommended defaults:
 - `ADMIN_GROUPS=wheel`
 - `ADMIN_SHELL=/bin/bash`
 - `PRIVILEGE_TOOL=sudo`
+- `ENABLE_SSH=no`
+- `ENABLE_WIFI=no`
+- `ENABLE_QEMU_GUEST_AGENT=no`
 
 Recommended VM/libvirt defaults:
 
@@ -173,6 +199,21 @@ Recommended VM/libvirt defaults:
 - `VM_TEST_MATRIX_RUN_TARGET_PLANS=no`
 - `VM_E2E_RESET_DISK=no`
 - `VM_E2E_ADMIN_SUDO_NOPASSWD=yes`
+
+Recommended Proxmox validation defaults for the current lab:
+
+- `PROXMOX_HOST=100.64.60.211`
+- `PROXMOX_NODE=pve-node10`
+- `PROXMOX_STORAGE=ceph_low_prio`
+- `PROXMOX_BRIDGE=vmbr0`
+- `PROXMOX_VLAN=1070`
+- `PROXMOX_ISO=local:iso/install-amd64-minimal-20260510T170106Z.iso`
+- `PROXMOX_VMID_BASE=73000`
+- `PROXMOX_DISK_SIZE=80G`
+- `PROXMOX_RAM=16384`
+- `PROXMOX_CPUS=4`
+- `PROXMOX_IP_BASE=10.64.70.99`
+- `PROXMOX_MATRIX_PARALLEL=4`
 
 Recommended Ansible live target defaults:
 
@@ -209,6 +250,9 @@ Rules:
 - `ADMIN_USER` must have no useful default for user-creation workflows; `make configure-users` must require it explicitly.
 - `ADMIN_SUDO_NOPASSWD` is treated as `no` for normal installs unless explicitly set to `yes`; disposable libvirt E2E installs may default it through `VM_E2E_ADMIN_SUDO_NOPASSWD=yes`.
 - `ADMIN_PASSWORD_HASH_FILE`, `ROOT_PASSWORD_HASH_FILE`, and `ADMIN_AUTHORIZED_KEYS_FILE` are local input file paths only. The Makefile may report whether they are set, but it must not print their contents.
+- `ENABLE_SSH=yes` installs and enables OpenSSH in the target; normal installs default to `no`.
+- `ENABLE_WIFI=yes` installs target WiFi firmware and supplicant support without storing SSIDs, passphrases, or NetworkManager connection profiles; normal installs default to `no`.
+- `ENABLE_QEMU_GUEST_AGENT=yes` installs and enables `app-emulation/qemu-guest-agent` for VM integration; Proxmox E2E validation may default it to `yes`, but normal installs default to `no`.
 - `I_UNDERSTAND_BOOTLOADER_CHANGES=yes` is required for GRUB/EFI workflows that may update persistent EFI boot entries.
 - `MANUAL_STEP_SUMMARY` and `MANUAL_STEP_REASON` are required only for `make record-manual-step`; they must describe non-secret operator intervention and should not be printed by help output.
 - `MANUAL_STEP_NEXT_ACTION` may override the default revalidation instruction for `make record-manual-step`; it must remain non-secret and should point back to Makefile-mediated checks or plans.
@@ -217,6 +261,7 @@ Rules:
 - `VM_DISK` must be a project-relative qcow2 path under `VM_DIR`.
 - `VM_TEST_IMAGE_NAME`, when set, must be a conservative label, not a path or secret; it may be inserted into generated VM domain, qcow2, log, and state names for manual validation images.
 - `PROFILE`, `FILESYSTEM`, and `STAGE3_FLAVOR` are the source of truth for local libvirt case selection; Makefile VM targets must not require operators to construct full case VM names manually.
+- `PROFILE`, `FILESYSTEM`, and `STAGE3_FLAVOR` are also the source of truth for Proxmox case selection. Proxmox targets must derive VMID, VM name, and deterministic IP from the selected case unless an explicit, documented override is provided.
 - `make vm-list-cases` must remain read-only and show generated domain, disk, state, log, and status for every supported amd64 profile/filesystem/stage3 flavor case.
 - `VM_DIR` must not be the project root, `/dev`, absolute, symlinked, or contain parent traversal.
 - `VM_BOOT_MODE=bios` must be rejected in v1.
@@ -339,6 +384,9 @@ Expected behavior:
 - `make vm-check`: read-only validation of libvirt tools, ISO resolution, UEFI firmware, network mode, and safe project-local paths.
 - `make vm-e2e-plan`: plan a full disposable libvirt install validation, require explicit `/dev/vda`, `ADMIN_USER`, and `ENABLE_SSH=yes`, integrate matrix planning, and avoid VM mutation.
 - `make vm-test-matrix-plan`: enumerate OpenRC/systemd, ext4/Btrfs, and standard/hardened/musl libvirt validation entries, validate each entry's configuration, write local matrix evidence, and avoid creating disks or domains.
+- `make proxmox-check`: read-only validation of Proxmox SSH access, Proxmox tools, configured storage, bridge, and official Gentoo ISO volume.
+- `make proxmox-list-cases`: read-only listing of Proxmox matrix VMIDs, generated VM names, deterministic IPs, storage, bridge, VLAN, and expected install disk requirement.
+- `make proxmox-test-matrix-plan`: alias for the read-only Proxmox case listing.
 
 ## 7. Semi-dangerous Targets
 Semi-dangerous and high-risk target-root targets may modify the live ISO environment or the mounted target root, but they must not partition, format, wipe, overwrite disks, install bootloaders, or reboot unless they are listed as destructive targets. User and password workflows are high-risk persistent target-root changes and require secret-safe input handling instead of disk-wipe confirmation.
@@ -389,6 +437,8 @@ Expected behavior:
 - `make generate-fstab`: require explicit `INSTALL_DISK`, verify mounted target filesystems and UUIDs, and write only `/mnt/gentoo/etc/fstab` with ext4 or approved Btrfs subvolume entries plus `/boot/efi`.
 - `make install-kernel`: require prepared `/mnt/gentoo`, prepared chroot pseudo-filesystems, mounted `/mnt/gentoo/boot/efi`, and generated fstab; install `gentoo-kernel-bin` with installkernel/dracut support; write target kernel command-line input; validate `/boot` artifacts; and avoid GRUB or EFI boot-entry changes.
 - `make install-system-packages`: require prepared `/mnt/gentoo` and chroot pseudo-filesystems; install the minimal console package set; apply conservative package USE policy; enable services through init-specific roles; and avoid users, passwords, GRUB, EFI boot entries, disk partitioning, formatting, and reboot.
+- `make install-system-packages ENABLE_WIFI=yes`: include `sys-kernel/linux-firmware`, `net-wireless/wpa_supplicant`, NetworkManager WiFi USE support, and wpa_supplicant D-Bus support without configuring wireless credentials.
+- `make install-system-packages ENABLE_QEMU_GUEST_AGENT=yes`: include `app-emulation/qemu-guest-agent` and enable the matching OpenRC/systemd service for VM validation targets such as Proxmox.
 - `make install-base-packages`: compatibility alias for `make install-system-packages` when present.
 - `make configure-users`: require explicit `ADMIN_USER`, prepared `/mnt/gentoo`, installed sudo tooling, and secret-safe optional file inputs; configure the admin user, sudo policy including optional `ADMIN_SUDO_NOPASSWD=yes`, optional password hashes, optional authorized keys, and installed SSH root-login restrictions without printing secret values.
 - `make vm-disk`: create or preserve the project-local qcow2 VM disk.
@@ -407,6 +457,17 @@ Expected behavior:
 - `make vm-shutdown`: request guest shutdown.
 - `make vm-destroy`: stop the configured project-owned domain without deleting artifacts.
 - `make vm-clean`: undefine the selected project-owned case domain and delete generated VM artifacts only when `I_UNDERSTAND_CLEANUP_DELETE=DELETE` is set.
+- `make proxmox-vm-create`: create one project-owned disposable Proxmox VM for selected `PROFILE`, `FILESYSTEM`, and `STAGE3_FLAVOR`, and enable the Proxmox guest-agent channel.
+- `make proxmox-vm-create-all`: create all supported Proxmox matrix VMs and enable the Proxmox guest-agent channel on each project-owned VM.
+- `make proxmox-vm-start`: start or reset the selected project-owned Proxmox VM into official live ISO mode.
+- `make proxmox-vm-start-installed`: switch the selected project-owned Proxmox VM to boot from installed disk `scsi0`.
+- `make proxmox-vm-ip`: print the deterministic IP for the selected Proxmox case.
+- `make proxmox-bootstrap-ssh`: configure temporary root SSH in the live ISO through the Proxmox serial terminal.
+- `make proxmox-ansible-ping`: validate Ansible SSH connectivity to the Proxmox live ISO target.
+- `make proxmox-e2e-install`: run a full destructive install inside one disposable Proxmox VM with explicit `INSTALL_DISK`, wipe confirmation, bootloader confirmation, and installed SSH inputs.
+- `make proxmox-e2e-matrix`: run the full Proxmox install matrix with bounded parallelism and the normal destructive confirmations.
+- `make proxmox-vm-shutdown`: request clean shutdown for one project-owned Proxmox VM.
+- `make proxmox-vm-clean`: destroy one project-owned Proxmox VM after `I_UNDERSTAND_CLEANUP_DELETE=DELETE`.
 
 `make mount-target` is destructive-adjacent because mounting over a wrong path can hide data. It must print current mounts, refuse unrelated existing mounts, remain idempotent for already-correct mounts, and fail closed when ambiguity exists.
 
@@ -565,6 +626,7 @@ Rules:
 - Review dangerous targets with `agents/safety-review-agent.md` before use.
 - If secrets are written to project files, remove them immediately and keep them out of commits.
 - If a VM/libvirt target fails, run `make vm-check` first and verify `virsh`, `qemu-img`, UEFI firmware, ISO location, `LIBVIRT_URI`, and network mode.
+- If a Proxmox target fails, run `make proxmox-check` first and verify `PROXMOX_HOST`, SSH access, `PROXMOX_STORAGE`, `PROXMOX_BRIDGE`, `PROXMOX_VLAN`, and `PROXMOX_ISO`.
 - If `vm-ssh` fails, verify SSH has been enabled inside the official live ISO and that the configured forwarded port is reachable.
 - If cleanup is needed, use `make vm-clean` and confirm that the printed generated artifact list contains only the configured disk, XML, NVRAM, and logs.
 
@@ -580,6 +642,7 @@ When Makefile behavior changes, documentation must change in the same commit or 
 - If VM/libvirt targets change, update `docs/libvirt-manual-install-test.md`, any QEMU migration note, and active OpenSpec tasks. Document ISO path, qcow2 path, libvirt URI, network mode, serial console, SSH bootstrap, guest `/dev/vda`, Ansible connectivity validation, and cleanup behavior.
 - If VM test matrix targets change, update `docs/libvirt-install-test-matrix.md`, `docs/libvirt-manual-install-test.md`, this skill, and active OpenSpec tasks. Document matrix entries, optional manual test image labels, generated domain/disk names, logs, and which phases are implemented.
 - If VM end-to-end validation changes, update `docs/libvirt-end-to-end-install-validation.md`, `docs/libvirt-manual-install-test.md`, `docs/libvirt-install-test-matrix.md`, this skill, safety review rules, and active OpenSpec tasks. Document confirmations, logs, audit references, and first-boot expectations.
+- If Proxmox validation targets change, update `docs/proxmox-validation.md`, `docs/proxmox-install-test-matrix.md`, `docs/proxmox-end-to-end-install-validation.md`, `docs/supported-host-requirements.md`, this skill, safety review rules, and active OpenSpec tasks. Document Proxmox variables, VMID/IP mapping, generated names, expected guest disk, SSH bootstrap, logs, cleanup, and the rule that reusable Ansible roles must not depend on Proxmox-only details.
 - If release readiness behavior changes, update `docs/release-readiness.md`, README, this skill, and active OpenSpec tasks together.
 - If host requirement checks change, update `docs/supported-host-requirements.md`, `docs/libvirt-manual-install-test.md`, `docs/install-configuration.md`, and active OpenSpec tasks.
 - If live ISO Ansible preflight targets change, update `docs/ansible-live-preflight.md`, `docs/libvirt-manual-install-test.md`, `skills/ansible-gentoo-installer.md`, and the active OpenSpec tasks.

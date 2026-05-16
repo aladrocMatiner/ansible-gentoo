@@ -221,9 +221,9 @@
       "preconditions": ["Portage baseline complete"],
       "required_variables": [],
       "required_confirmations": [],
-      "completion_evidence": ["installed package set", "init-specific service enablement evidence"],
+      "completion_evidence": ["installed package set", "init-specific service enablement evidence", "optional WiFi package policy evidence when ENABLE_WIFI=yes"],
       "validation": ["common/ssh and common/package_install pass"],
-      "skip_criteria": "Package set and service enablement match expected profile/init system.",
+      "skip_criteria": "Package set, optional WiFi policy, and service enablement match expected profile/init system.",
       "rerun_criteria": "Conditionally safe after target root and Portage validation.",
       "recovery_advice": "Fix package conflicts or service enablement errors, then rerun this phase."
     },

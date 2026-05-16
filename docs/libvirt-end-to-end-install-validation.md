@@ -20,6 +20,7 @@ The plan:
 - requires explicit `INSTALL_DISK=/dev/vda`,
 - requires `ADMIN_USER` because first-boot validation needs an installed account,
 - requires `ENABLE_SSH=yes` because first-boot validation connects over SSH,
+- accepts optional `ENABLE_WIFI=yes` to test the installed WiFi package policy inside the disposable VM,
 - requires `ADMIN_AUTHORIZED_KEYS_FILE` containing public keys so first-boot validation can authenticate,
 - integrates the libvirt matrix planner,
 - writes `logs/libvirt-e2e/<timestamp>-<profile>-<filesystem>[-<stage3-flavor>]/e2e-plan.json`,
@@ -147,6 +148,7 @@ logs/libvirt-e2e-matrix/<timestamp>/<case>/vm-e2e-install.log
 - Full validation still requires `I_UNDERSTAND_THIS_WIPES_DISK=yes`.
 - Bootloader validation still requires `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`.
 - Installed SSH must be enabled with `ENABLE_SSH=yes`, and `ADMIN_AUTHORIZED_KEYS_FILE` must contain public keys so first-boot validation can connect without a password.
+- `ENABLE_WIFI=yes` may be added to validate the optional installed WiFi package policy; the VM harness does not configure real wireless credentials.
 - Disposable E2E validation defaults to `ADMIN_SUDO_NOPASSWD=yes` through `VM_E2E_ADMIN_SUDO_NOPASSWD=yes`; real installs keep password-requiring sudo unless explicitly changed.
 - The live ISO VM is cleanly shut down before first-boot validation. This avoids booting from a qcow2 whose target filesystems still have pending writes.
 - Resetting generated VM artifacts and the selected case state pointer requires `I_UNDERSTAND_CLEANUP_DELETE=DELETE`.

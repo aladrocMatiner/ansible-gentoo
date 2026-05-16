@@ -128,10 +128,10 @@
       "make_targets": ["install-system-packages"],
       "ansible_roles": ["common/ssh", "common/package_install", "init/openrc", "init/systemd"],
       "status": "implemented",
-      "safety_gates": ["shared package framework", "init-specific service enablement", "NetworkManager policy"],
+      "safety_gates": ["shared package framework", "init-specific service enablement", "NetworkManager policy", "optional WiFi package policy without stored credentials"],
       "validation_evidence": ["logs/install-runs/<run-id>/system-packages/packages-services.json"],
-      "deviations": ["Uses NetworkManager for v1 and init-specific OpenRC/systemd service enablement."],
-      "openspec_refs": ["implement-ansible-system-packages-and-services", "define-installed-ssh-policy", "define-installed-time-sync-policy"]
+      "deviations": ["Uses NetworkManager for v1 and init-specific OpenRC/systemd service enablement.", "Installs WiFi firmware and supplicant support only when ENABLE_WIFI=yes; wireless credentials are not managed by the installer."],
+      "openspec_refs": ["implement-ansible-system-packages-and-services", "define-installed-ssh-policy", "define-installed-time-sync-policy", "enable-installed-wifi-support-option"]
     },
     {
       "phase": "Users and access",

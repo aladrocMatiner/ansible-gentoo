@@ -83,7 +83,7 @@ Policy:
 - Prefer package-specific flags later if needed instead of global flags.
 - Record every non-default global flag and its reason.
 
-The v1 target is a simple working OpenRC or systemd console system with GRUB, NetworkManager, and `gentoo-kernel-bin`.
+The v1 target is a simple working OpenRC or systemd console system with GRUB, NetworkManager, and `gentoo-kernel-bin`. Installed WiFi support is optional through `ENABLE_WIFI=yes`; it must use package-specific USE policy and must not store wireless credentials.
 
 ## 9. Profile Selection
 Profile selection must:
@@ -150,6 +150,7 @@ Policy:
 - Keep package set small.
 - Do not install Codex into the final Gentoo system in v1.
 - Do not add desktop environments, broad toolchains, or convenience packages unless approved.
+- Install WiFi firmware and `wpa_supplicant` only when `ENABLE_WIFI=yes`; keep NetworkManager built without WiFi support by default.
 - Record package names and reasons.
 - Package installation mutates the target system and should be run only after chroot and target-root checks pass.
 
@@ -169,7 +170,7 @@ Target expectations:
 - `make configure-portage`: implemented target that writes minimal `make.conf`, installs official Gentoo repo settings, syncs official Gentoo repository metadata, selects the amd64 OpenRC or systemd profile matching `PROFILE`, reports pending protected config updates, and confirms GURU is disabled.
 - `make select-profile`: planned split target that would select and show the amd64 profile.
 - `make sync-portage`: planned split target that would sync official Gentoo repository metadata.
-- `make install-system-packages`: install the v1 base console package set, apply the approved package USE policy, and enable init-specific target services.
+- `make install-system-packages`: install the v1 base console package set, apply the approved package USE policy, optionally install WiFi support with `ENABLE_WIFI=yes`, and enable init-specific target services.
 - `make install-base-packages`: compatibility alias for `make install-system-packages` when present.
 
 The operator should not be asked to run raw `emerge`, `eselect profile`, or repository commands when Makefile targets exist.
@@ -220,6 +221,7 @@ This skill should produce or request:
 When Portage setup behavior changes, documentation must change in the same implementation step.
 
 - If `make.conf`, `COMMON_FLAGS`, `MAKEOPTS`, `ACCEPT_LICENSE`, USE flag policy, profile selection, mirrors, repositories, overlays, or base package policy changes, update this skill and the relevant manual install documentation under `docs/`.
+- If installed WiFi support policy changes, update `docs/installed-wifi-policy.md`, `docs/ansible-system-packages-and-services.md`, and the package USE examples here.
 - If GURU overlay policy changes, document whether the change applies only to the live Codex bootstrap environment or to the installed Gentoo system.
 - If Codex installation policy changes, update `skills/codex-bootstrap-on-gentoo-live.md` and Codex bootstrap docs; v1 documentation must not imply Codex is installed into the final Gentoo system unless an approved change does that.
 - If Makefile targets such as `make configure-portage`, `make select-profile`, `make sync-portage`, `make install-system-packages`, or `make install-base-packages` change, update this skill and `skills/makefile-control-plane.md`.

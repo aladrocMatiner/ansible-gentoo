@@ -347,17 +347,20 @@ Safety gates:
 - shared package framework
 - init-specific service enablement
 - NetworkManager policy
+- optional WiFi package policy without stored credentials
 
 Validation evidence:
 - logs/install-runs/<run-id>/system-packages/packages-services.json
 
 Project-specific deviations:
 - Uses NetworkManager for v1 and init-specific OpenRC/systemd service enablement.
+- Installs WiFi firmware and supplicant support only when ENABLE_WIFI=yes; wireless credentials are not managed by the installer.
 
 OpenSpec references:
 - implement-ansible-system-packages-and-services
 - define-installed-ssh-policy
 - define-installed-time-sync-policy
+- enable-installed-wifi-support-option
 
 ### Users and access
 

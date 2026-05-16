@@ -3,6 +3,8 @@
   ansible.builtin.set_fact:
     package_install_target_root: "{{ target_mount | default('/mnt/gentoo') }}"
     package_install_enable_ssh: "{{ (enable_ssh | default('no') | string | lower) == 'yes' }}"
+    package_install_enable_wifi: "{{ (enable_wifi | default('no') | string | lower) == 'yes' }}"
+    package_install_enable_qemu_guest_agent: "{{ (enable_qemu_guest_agent | default('no') | string | lower) == 'yes' }}"
 
 - name: Validate package installation inputs
   ansible.builtin.assert:
@@ -15,6 +17,8 @@
       - filesystem in ['ext4', 'btrfs']
       - enable_ssh is defined
       - (enable_ssh | string | lower) in ['yes', 'no']
+      - (enable_wifi | default('no') | string | lower) in ['yes', 'no']
+      - (enable_qemu_guest_agent | default('no') | string | lower) in ['yes', 'no']
       - package_install_target_root == '/mnt/gentoo'
       - package_install_target_root != '/'
       - base_console_common_packages is defined
@@ -24,8 +28,32 @@
       - btrfs_console_packages is defined
       - ssh_requested_packages is defined
       - ssh_requested_services is defined
+      - wifi_console_packages is defined
+      - wifi_package_use is defined
+      - qemu_guest_agent_packages is defined
+      - qemu_guest_agent_services is defined
     fail_msg: "PACKAGE_INSTALL_FAILED: package variables, init system, filesystem, SSH policy, or target root are invalid."
     success_msg: "Package installation inputs are approved."
+
+- name: Define WiFi package USE override atoms
+  ansible.builtin.set_fact:
+    package_install_wifi_package_use_atoms: "{{ wifi_package_use | map(attribute='atom') | list }}"
+
+- name: Build effective package USE policy
+  ansible.builtin.set_fact:
+    package_install_effective_package_use: >-
+      {{
+        (
+          (
+            base_console_package_use
+            | rejectattr('atom', 'in', package_install_wifi_package_use_atoms)
+            | list
+          )
+          + wifi_package_use
+        )
+        if package_install_enable_wifi
+        else base_console_package_use
+      }}
 
 - name: Ensure target package.use directory exists for system package policy
   ansible.builtin.file:
@@ -41,8 +69,9 @@
     content: |
       # Managed by gentoo-ai-installer.
       # Keep the basic console target conservative and avoid optional desktop,
-      # modem, Wi-Fi, documentation, and mail stacks unless a later policy adds them.
-      {% for entry in base_console_package_use %}
+      # modem, documentation, and mail stacks. Wi-Fi support is enabled only
+      # when ENABLE_WIFI=yes is passed through the Makefile control plane.
+      {% for entry in package_install_effective_package_use %}
       {{ entry.atom }} {{ entry.flags }}
       {% endfor %}
   register: package_install_use_config
@@ -94,9 +123,11 @@
           + base_console_variant_packages
           + (btrfs_console_packages if filesystem == 'btrfs' else [])
           + ssh_requested_packages
+          + (wifi_console_packages if package_install_enable_wifi else [])
+          + (qemu_guest_agent_packages if package_install_enable_qemu_guest_agent else [])
         ) | unique | list
       }}
-    package_install_requested_services: "{{ (base_console_services + ssh_requested_services) | unique | list }}"
+    package_install_requested_services: "{{ (base_console_services + ssh_requested_services + (qemu_guest_agent_services if package_install_enable_qemu_guest_agent else [])) | unique | list }}"
 
 - name: Validate package atoms and service names
   ansible.builtin.assert:
@@ -200,8 +231,10 @@
         "init_system": {{ init_system | to_json }},
         "filesystem": {{ filesystem | to_json }},
         "enable_ssh": {{ package_install_enable_ssh | to_json }},
+        "enable_wifi": {{ package_install_enable_wifi | to_json }},
+        "enable_qemu_guest_agent": {{ package_install_enable_qemu_guest_agent | to_json }},
         "packages": {{ package_install_requested_packages | to_nice_json }},
-        "package_use": {{ base_console_package_use | to_nice_json }},
+        "package_use": {{ package_install_effective_package_use | to_nice_json }},
         "missing_before": {{ package_install_missing_packages | to_nice_json }},
         "services": {{ package_install_requested_services | to_nice_json }},
         "package_install_ran": {{ (package_install_emerge is defined and package_install_emerge is changed) | to_json }},
@@ -224,8 +257,10 @@
       packages: "{{ package_install_requested_packages }}"
       services: "{{ package_install_requested_services }}"
       network_manager: enabled
+      wifi_enabled: "{{ package_install_enable_wifi }}"
       time_sync: "{{ 'chrony' if profile == 'openrc' else 'systemd-timesyncd' }}"
       ssh_enabled: "{{ package_install_enable_ssh }}"
+      qemu_guest_agent_enabled: "{{ package_install_enable_qemu_guest_agent }}"
       final_checks_input: true
       install_report_input: true
       logs: "{{ package_install_log_dir }}/"

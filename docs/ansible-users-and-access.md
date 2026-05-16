@@ -55,7 +55,7 @@ make configure-users ADMIN_USER=gentoo ENABLE_SSH=yes ADMIN_AUTHORIZED_KEYS_FILE
 - Leaves existing passwords unchanged unless a password hash file is explicitly provided.
 - Applies password hashes with `chpasswd -e` using Ansible `no_log`.
 - Installs `authorized_keys` only when `ADMIN_AUTHORIZED_KEYS_FILE` is provided.
-- When `ENABLE_SSH=yes`, enforces `PermitRootLogin no` in the installed target SSH config.
+- When `ENABLE_SSH=yes`, generates installed SSH host keys if missing and enforces `PermitRootLogin no` in the installed target SSH config.
 
 ## Safety Notes
 
@@ -70,6 +70,7 @@ The workflow refuses to use git-tracked files as password hash or authorized key
 - `sudo su -` asks for a password after SSH-key-only install: rerun the users workflow with a password hash, or for disposable tests set `ADMIN_SUDO_NOPASSWD=yes`.
 - Missing chroot mounts: run `make prepare-chroot` first.
 - Missing OpenSSH with `ENABLE_SSH=yes`: run `make install-system-packages ENABLE_SSH=yes`.
+- Missing installed SSH host keys: rerun `make configure-users ENABLE_SSH=yes`; final checks fail closed when `ENABLE_SSH=yes` and no host keys exist.
 - Invalid password hash: provide a single encrypted hash line, not a plaintext password.
 - Tracked secret input file: move the file under `var/secrets/` or outside the repository.
 

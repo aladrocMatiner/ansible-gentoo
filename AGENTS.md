@@ -3,7 +3,7 @@
 ## 1. Project Overview
 Project name: `gentoo-ai-installer`.
 
-v1 uses the official Gentoo live ISO and installs Codex temporarily in the live environment. The Makefile is the operator-facing control plane. OpenSpec controls project changes. The primary phase-2 deliverable is a reusable Ansible installer that can run from an operator/controller machine against a network-reachable Gentoo live ISO target over SSH. libvirt/virsh is the local validation harness for testing the same Ansible workflows safely before real hardware. Optional local live ISO Ansible targets are fallback/diagnostic paths run inside the live ISO with `ansible_connection=local`; they must not replace the network SSH workflow. VM tests must avoid touching host disks.
+v1 uses the official Gentoo live ISO and installs Codex temporarily in the live environment. The Makefile is the operator-facing control plane. OpenSpec controls project changes. The primary phase-2 deliverable is a reusable Ansible installer that can run from an operator/controller machine against a network-reachable Gentoo live ISO target over SSH. libvirt/virsh is the local validation harness for testing the same Ansible workflows safely before real hardware. Proxmox is a remote VM validation harness for testing the same SSH-driven installer on disposable Proxmox VMs. Optional local live ISO Ansible targets are fallback/diagnostic paths run inside the live ISO with `ansible_connection=local`; they must not replace the network SSH workflow. VM tests must avoid touching host disks.
 
 ## 2. Control Plane Rule
 All operator-facing workflows must be exposed through Makefile targets.
@@ -20,6 +20,7 @@ Agents must check documentation before finishing, correct stale documentation th
 - Script added or changed: update `docs/` or relevant `skills/`; document arguments, environment variables, safety checks, examples, and failure modes.
 - Ansible playbook or role added or changed: update Ansible documentation; document variables, required inventory, safety gates, controller-to-target SSH assumptions, and execution target.
 - VM/libvirt workflow changed: update VM docs; document ISO path, disk path, optional `VM_TEST_IMAGE_NAME` local test labels, libvirt URI, network mode, serial console behavior, SSH bootstrap, cleanup behavior, and whether behavior is implemented or planned.
+- Proxmox workflow changed: update Proxmox docs; document Proxmox host/node, ISO volume, storage, bridge, VLAN, VMID/IP mapping, serial console SSH bootstrap, guest-agent channel and guest package behavior, installed-disk boot behavior, cleanup behavior, and whether behavior is implemented or planned.
 - Manual intervention or resume behavior changed: update `docs/manual-escape-hatch-policy.md`, `docs/install-state-and-resume-checkpoints.md`, `docs/install-audit-bundle.md`, and relevant agent or skill files.
 - Codex bootstrap changed: update Codex bootstrap docs; document install method, token handling, validation, and cleanup.
 - Safety rule changed: update safety docs and relevant agent or skill files.
@@ -68,7 +69,7 @@ Scripts must document usage in `docs/` or relevant `skills/`. Scripts must print
 ## 10. Ansible Documentation Rule
 Playbooks and roles must document required variables. Dangerous playbooks must document safety gates. Controller-vs-target execution must be explicit.
 
-The reusable network Ansible installer is the product. VM/libvirt scripts, SSH bootstrap helpers, and local artifact directories are test harness pieces used to validate the installer. Shared Ansible roles and Makefile targets must not depend on a libvirt domain name, VM-only IP discovery, `./var/libvirt/`, or `/dev/vda` except in VM-specific tests and examples.
+The reusable network Ansible installer is the product. VM/libvirt scripts, Proxmox scripts, SSH bootstrap helpers, and VM artifact directories are test harness pieces used to validate the installer. Shared Ansible roles and Makefile targets must not depend on a libvirt domain name, Proxmox VMID, Proxmox storage name, VM-only IP discovery, `./var/libvirt/`, or a VM-only guest disk path except in VM-specific tests and examples.
 
 Controller-to-live-ISO Ansible wrappers must use the shared SSH transport policy exposed through Makefile variables such as `ANSIBLE_SSH_CONNECT_TIMEOUT`, `ANSIBLE_SSH_SERVER_ALIVE_INTERVAL`, `ANSIBLE_SSH_SERVER_ALIVE_COUNT_MAX`, `ANSIBLE_SSH_CONTROL_MASTER`, `ANSIBLE_SSH_CONTROL_PERSIST`, and `ANSIBLE_SSH_CONTROL_PATH_DIR`. Do not duplicate raw `--ssh-common-args` strings in wrapper scripts. Keep temporary live ISO host-key relaxation scoped to wrapper invocations; do not disable host-key checking globally.
 
@@ -135,7 +136,23 @@ VM docs must explain:
 
 Compatibility `qemu-*` targets may exist only as aliases to the libvirt workflow. Planned VM behavior must be clearly labeled as planned and not documented as available.
 
-## 14. Codex Bootstrap Documentation Rule
+## 14. Proxmox Documentation Rule
+Proxmox docs must explain:
+
+- The Proxmox host and node variables.
+- The Proxmox ISO volume containing the official Gentoo live ISO.
+- Generated VM names from fixed platform `amd64`, `PROFILE`, `FILESYSTEM`, `STAGE3_FLAVOR`, and optional `VM_TEST_IMAGE_NAME`.
+- VMID and IP mapping for matrix cases.
+- Proxmox storage, bridge, VLAN, RAM, CPU, and disk-size variables.
+- Proxmox guest-agent channel behavior and the `ENABLE_QEMU_GUEST_AGENT` guest package/service switch.
+- That Proxmox VMs are disposable validation targets for the SSH-driven Ansible installer.
+- Temporary live ISO SSH bootstrap behavior.
+- The explicit `INSTALL_DISK` value expected inside the Proxmox guest, commonly `/dev/sda` for the current SCSI setup.
+- `make proxmox-check`, `make proxmox-list-cases`, `make proxmox-vm-create`, `make proxmox-vm-create-all`, `make proxmox-vm-start`, `make proxmox-bootstrap-ssh`, `make proxmox-ansible-ping`, `make proxmox-e2e-install`, `make proxmox-e2e-matrix`, `make proxmox-vm-start-installed`, `make proxmox-vm-shutdown`, and `make proxmox-vm-clean`.
+- Cleanup confirmation and project-owned VM marker checks.
+- That reusable Ansible roles must not depend on Proxmox VMIDs, storage names, bridge names, or Proxmox-only discovery.
+
+## 15. Codex Bootstrap Documentation Rule
 Codex bootstrap docs must explain:
 
 - Install method.
@@ -144,10 +161,10 @@ Codex bootstrap docs must explain:
 - Cleanup behavior.
 - Validation commands.
 
-## 15. What Not to Document
+## 16. What Not to Document
 Do not document real secrets, real API keys, private SSH keys, real tokens, local credentials, or passwords. Do not document local-only personal paths unless they are examples. Do not duplicate large blocks of the same content across many files. Do not document behavior that does not exist yet as if it already exists. Clearly label planned behavior as planned.
 
-## 16. Review Requirements Before Finishing a Task
+## 17. Review Requirements Before Finishing a Task
 At the end of each implementation task, report:
 
 - Documentation files updated.

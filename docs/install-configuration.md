@@ -60,6 +60,8 @@ make config-check CONFIG_DESTRUCTIVE=yes INSTALL_DISK=/dev/vda I_UNDERSTAND_THIS
 | `ADMIN_PASSWORD_HASH_FILE` | unset | Optional local gitignored file containing one encrypted admin password hash. |
 | `ROOT_PASSWORD_HASH_FILE` | unset | Optional local gitignored file containing one encrypted root password hash. |
 | `ENABLE_SSH` | `no` | Must be `yes` or `no`. |
+| `ENABLE_WIFI` | `no` | Must be `yes` or `no`; installs firmware and supplicant support without storing WiFi credentials. |
+| `ENABLE_QEMU_GUEST_AGENT` | `no` | Must be `yes` or `no`; Proxmox validation may set it to install and enable `app-emulation/qemu-guest-agent`. |
 | `TARGET_MOUNT` | `/mnt/gentoo` | Must be an absolute path and must not be `/`. |
 | `EFI_MOUNT` | `/mnt/gentoo/boot/efi` | Must be below `TARGET_MOUNT`. |
 | `INSTALL_DISK` | no default | Must be explicit when required; never defaults. |

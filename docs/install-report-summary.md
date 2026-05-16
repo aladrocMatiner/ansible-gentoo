@@ -36,7 +36,7 @@ The report includes available non-secret data for:
 - hostname, timezone, locale, and keymap
 - root and EFI UUIDs, fstab entries, and Btrfs root command-line policy
 - kernel artifacts, module directories, GRUB status, and boot command line
-- NetworkManager, time sync, optional SSH status, admin user, groups, sudo policy, and passwordless sudo mode
+- NetworkManager, optional WiFi policy, time sync, optional SSH status, admin user, groups, sudo policy, and passwordless sudo mode
 - Portage profile, flags, repo sync status, world update status, and pending config updates
 - final-check status, first-boot status when available, audit bundle path, and next action guidance
 

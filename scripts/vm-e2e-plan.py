@@ -46,6 +46,7 @@ def validate() -> dict[str, str]:
     install_disk = env("INSTALL_DISK")
     admin_user = env("ADMIN_USER")
     enable_ssh = env("ENABLE_SSH", "no")
+    enable_wifi = env("ENABLE_WIFI", "no")
     admin_sudo_nopasswd = env("ADMIN_SUDO_NOPASSWD") or env("VM_E2E_ADMIN_SUDO_NOPASSWD", "yes") or "yes"
     admin_authorized_keys_file = env("ADMIN_AUTHORIZED_KEYS_FILE")
 
@@ -62,6 +63,8 @@ def validate() -> dict[str, str]:
         errors.append("ADMIN_USER must be set to a conservative installed-system user name")
     if enable_ssh != "yes":
         errors.append("ENABLE_SSH=yes is required so first-boot validation can connect to the installed VM")
+    if enable_wifi not in {"yes", "no"}:
+        errors.append("ENABLE_WIFI must be yes or no when set")
     if admin_sudo_nopasswd not in {"yes", "no"}:
         errors.append("ADMIN_SUDO_NOPASSWD must be yes or no when set")
     if not admin_authorized_keys_file:
@@ -79,6 +82,7 @@ def validate() -> dict[str, str]:
         "install_disk": install_disk,
         "admin_user": admin_user,
         "enable_ssh": enable_ssh,
+        "enable_wifi": enable_wifi,
         "admin_sudo_nopasswd": admin_sudo_nopasswd,
         "admin_authorized_keys_file": "<set>",
     }

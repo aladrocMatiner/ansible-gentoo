@@ -143,6 +143,8 @@ def validate_inputs() -> dict[str, str | int | Path]:
         die("DISK_UNSAFE", "VM_TEST_MATRIX_INSTALL_DISK must be /dev/vda for disposable libvirt matrix installs")
     if env("ENABLE_SSH", "no") != "yes":
         die("VM_E2E_MATRIX_INVALID", "vm-e2e-matrix requires ENABLE_SSH=yes")
+    if env("ENABLE_WIFI", "no") not in {"yes", "no"}:
+        die("VM_E2E_MATRIX_INVALID", "ENABLE_WIFI must be yes or no when set")
     validate_admin_user(env("ADMIN_USER"))
     validate_public_key_file(env("ADMIN_AUTHORIZED_KEYS_FILE"))
     if env("VM_E2E_RESET_DISK", "no") != "yes":

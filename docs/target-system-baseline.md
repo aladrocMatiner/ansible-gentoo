@@ -26,7 +26,9 @@ Every supported v1 install must provide:
 - logging service or journald equivalent,
 - cron service or systemd timer equivalent,
 - installed time synchronization according to `docs/installed-time-sync-policy.md`,
-- optional installed SSH according to `docs/installed-ssh-policy.md` only when `ENABLE_SSH=yes`.
+- optional installed SSH according to `docs/installed-ssh-policy.md` only when `ENABLE_SSH=yes`,
+- optional installed WiFi firmware and supplicant support according to `docs/installed-wifi-policy.md` only when `ENABLE_WIFI=yes`,
+- optional QEMU guest agent integration only when `ENABLE_QEMU_GUEST_AGENT=yes`, primarily for Proxmox validation VMs.
 
 The current sudo implementation requires a password by default. `ADMIN_SUDO_NOPASSWD=yes` may be used for disposable test targets or explicit operator policy; libvirt E2E installs default it to `yes` so SSH-key-only test admins can run `sudo su -`.
 
@@ -42,6 +44,7 @@ For `PROFILE=openrc`, the installed target must use:
 - OpenRC-compatible cron package and service,
 - OpenRC time-sync service according to the installed time-sync policy,
 - optional OpenSSH service enabled through OpenRC when `ENABLE_SSH=yes`.
+- optional QEMU guest agent service enabled through OpenRC when `ENABLE_QEMU_GUEST_AGENT=yes`.
 
 OpenRC workflows must not call `systemctl`.
 
@@ -57,6 +60,7 @@ For `PROFILE=systemd`, the installed target must use:
 - systemd timer/service assumptions instead of OpenRC cron/syslog packages,
 - systemd time-sync service according to the installed time-sync policy,
 - optional OpenSSH service enabled through systemd when `ENABLE_SSH=yes`.
+- optional QEMU guest agent service enabled through systemd when `ENABLE_QEMU_GUEST_AGENT=yes`.
 
 systemd workflows must not call `rc-update` or `rc-service`.
 
@@ -81,7 +85,7 @@ Final checks and first-boot validation must evaluate the baseline where practica
 - target identity: hostname, timezone, locale, keymap,
 - boot readiness: UEFI, kernel, initramfs, GRUB, root UUID, EFI files,
 - filesystem policy: ext4 or approved Btrfs layout,
-- service policy: NetworkManager, time sync, logging/cron or systemd equivalents, optional SSH,
+- service policy: NetworkManager, time sync, logging/cron or systemd equivalents, optional SSH, optional WiFi package policy,
 - access policy: admin user, groups, shell, privilege escalation,
 - Portage policy: selected profile, conservative flags, repo sync, pending config updates,
 - secret safety: no plaintext credentials or private keys in state, logs, or reports.

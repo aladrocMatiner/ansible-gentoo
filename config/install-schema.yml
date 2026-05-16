@@ -199,6 +199,28 @@ variables:
       - apply
     notes: Controls installed-system SSH policy once that workflow is implemented.
 
+  ENABLE_WIFI:
+    ansible_names:
+      - enable_wifi
+    default: "no"
+    allowed:
+      - "yes"
+      - "no"
+    required_for:
+      - apply
+    notes: Installs installed-system WiFi firmware and supplicant support when explicitly requested. This does not store SSIDs, passphrases, or NetworkManager connection secrets.
+
+  ENABLE_QEMU_GUEST_AGENT:
+    ansible_names:
+      - enable_qemu_guest_agent
+    default: "no"
+    allowed:
+      - "yes"
+      - "no"
+    required_for:
+      - apply
+    notes: Installs and enables app-emulation/qemu-guest-agent for VM integration when explicitly requested. Proxmox validation may set this to yes; normal installs default to no.
+
   TARGET_MOUNT:
     ansible_names:
       - target_mount

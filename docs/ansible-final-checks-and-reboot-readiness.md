@@ -4,7 +4,7 @@
 
 It does not install packages, change files under `/mnt/gentoo`, alter EFI boot entries, create users, change passwords, or reboot.
 
-The role evaluates the v1 target baseline defined in `docs/target-system-baseline.md`, including the installed time-sync policy in `docs/installed-time-sync-policy.md`, installed SSH policy in `docs/installed-ssh-policy.md`, boot command line policy in `docs/boot-kernel-commandline-policy.md`, and Portage world-update policy in `docs/portage-world-update-policy.md`.
+The role evaluates the v1 target baseline defined in `docs/target-system-baseline.md`, including the installed time-sync policy in `docs/installed-time-sync-policy.md`, installed SSH policy in `docs/installed-ssh-policy.md`, installed WiFi policy in `docs/installed-wifi-policy.md`, boot command line policy in `docs/boot-kernel-commandline-policy.md`, and Portage world-update policy in `docs/portage-world-update-policy.md`.
 
 ## Run
 
@@ -60,6 +60,7 @@ The role validates:
 - kernel, initramfs, and module artifacts
 - required package installation state
 - NetworkManager, time-sync, syslog, cron, and optional SSH service enablement
+- optional WiFi package and USE policy when `ENABLE_WIFI=yes`
 - admin user, group membership, shell, sudoers syntax, and requested passwordless sudo mode
 - hostname, timezone, locale, and keymap baseline
 - Portage profile matching `PROFILE` and `STAGE3_FLAVOR`, `make.conf`, GURU-disabled policy, and pending config-update files
@@ -89,7 +90,8 @@ The bundle contains secret-scanned local evidence and includes the final reboot 
 - Missing fstab or wrong UUID policy: rerun `make generate-fstab`.
 - Missing kernel or initramfs: rerun `make install-kernel`.
 - Missing GRUB or EFI files: rerun `make install-bootloader`.
-- Missing packages or services: rerun `make install-system-packages` with the same `PROFILE`, `FILESYSTEM`, `STAGE3_FLAVOR`, and `ENABLE_SSH` values.
+- Missing packages or services: rerun `make install-system-packages` with the same `PROFILE`, `FILESYSTEM`, `STAGE3_FLAVOR`, `ENABLE_SSH`, and `ENABLE_WIFI` values.
+- Missing WiFi package USE policy: rerun `make install-system-packages ENABLE_WIFI=yes` so Portage can rebuild NetworkManager or wpa_supplicant with the requested flags.
 - Wrong Portage profile: rerun `make configure-portage` with the same `PROFILE` and `STAGE3_FLAVOR` used for `make stage3-install`.
 - Missing admin user or sudoers policy: rerun `make configure-users` with the same `ADMIN_SUDO_NOPASSWD` value intended for the target.
 - Pending Portage config updates: inspect the listed `._cfg` files before reboot.

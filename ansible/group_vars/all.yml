@@ -12,6 +12,13 @@ btrfs_console_packages:
 installed_ssh_packages:
   - net-misc/openssh
 
+wifi_console_packages:
+  - sys-kernel/linux-firmware
+  - net-wireless/wpa_supplicant
+
+qemu_guest_agent_packages:
+  - app-emulation/qemu-guest-agent
+
 base_console_package_use:
   - atom: app-admin/sudo
     flags: -sendmail
@@ -25,5 +32,11 @@ base_console_package_use:
     flags: -anacron
   - atom: sys-fs/btrfs-progs
     flags: -convert -man zstd
+
+wifi_package_use:
+  - atom: net-misc/networkmanager
+    flags: gnutls wifi -nss -introspection -modemmanager -ppp -wext
+  - atom: net-wireless/wpa_supplicant
+    flags: dbus -tkip -wep
 
 stage3_flavor: standard
