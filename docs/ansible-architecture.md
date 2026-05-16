@@ -161,6 +161,11 @@ ansible/
     post_install/
       desktop_common/
       desktop_i3_x11/
+      desktop_wayland_common/
+      desktop_sway_wayland/
+      desktop_hyprland_wayland/
+      desktop_niri_wayland/
+      desktop_mango_wayland/
     init/
       openrc/
       systemd/
@@ -206,6 +211,11 @@ Shared roles live under `roles/common/` or an equivalent shared structure.
 - `final_checks`: read-only reboot readiness validation for mounts, fstab, kernel/initramfs, GRUB/EFI files, users, services, target baseline, Portage status, SSH policy, and secret-safe report inputs.
 - `post_install/desktop_common`: installed-target SSH boundary, user selection, elevation checks, live-ISO rejection, shared desktop variables, and reusable plan output for optional post-install desktop profiles.
 - `post_install/desktop_i3_x11`: i3/X11 package policy, `startx` session templates, package installed-state checks, and i3-specific validation. It must not perform base installer, disk, bootloader, stage3, or live ISO work.
+- `post_install/desktop_wayland_common`: shared Wayland package availability checks, package installation, session launcher creation, config templating, command validation, display-manager-disabled validation, and fail-closed Gentoo-package-source policy.
+- `post_install/desktop_sway_wayland`: Sway-specific package lists, config template, and conservative Wayland validation inputs.
+- `post_install/desktop_hyprland_wayland`: Hyprland-specific package lists, config template, and experimental acknowledgement inputs.
+- `post_install/desktop_niri_wayland`: Niri-specific package lists, Xwayland compatibility inputs, config template, and experimental acknowledgement inputs.
+- `post_install/desktop_mango_wayland`: Mango-specific package availability boundary, config template, validation command alternatives, and experimental acknowledgement inputs.
 
 Currently implemented shared roles and workflows:
 
@@ -231,6 +241,11 @@ Currently implemented shared roles and workflows:
 - `common/final_checks`: runs read-only reboot readiness checks, requires `ADMIN_USER`, validates fstab, kernel/initramfs, GRUB/EFI files, Btrfs subvolumes, services, users, target identity, Portage baseline, SSH policy, and writes a secret-safe readiness report.
 - `post_install/desktop_common`: validates that optional desktop workflows target an already installed amd64 Gentoo system over SSH, require an existing `DESKTOP_USER`, reject live ISO roots, and require root or passwordless sudo for package and user-session file changes.
 - `post_install/desktop_i3_x11`: implements the optional `i3-x11` post-install profile with Xorg/xinit/i3 package checks, managed `.xinitrc`, managed i3 config, and display-manager-disabled validation.
+- `post_install/desktop_wayland_common`: implements shared Wayland post-install package checks, Gentoo-only package source enforcement, optional portal/Xwayland package inclusion, managed session launcher output, and display-manager-disabled validation.
+- `post_install/desktop_sway_wayland`: implements `sway-wayland` as the conservative Wayland profile.
+- `post_install/desktop_hyprland_wayland`: implements `hyprland-wayland` as an advanced experimental profile requiring `DESKTOP_EXPERIMENTAL_OK=yes` for install.
+- `post_install/desktop_niri_wayland`: implements `niri-wayland` as an innovative experimental profile requiring `DESKTOP_EXPERIMENTAL_OK=yes` for install.
+- `post_install/desktop_mango_wayland`: implements `mango-wayland` as an experimental package-availability profile requiring `DESKTOP_EXPERIMENTAL_OK=yes` for install.
 - `ansible/playbooks/install-basic-console.yml`: shared destructive orchestration sequence that wires the implemented roles together in Handbook order and passes one `install_run_id` to per-phase evidence logs.
 - `ansible/playbooks/install-openrc.yml` and `ansible/playbooks/install-systemd.yml`: thin entrypoints that select only the init variant and import the shared install flow.
 - `init/openrc`: enables target services with `rc-update` only.
@@ -331,6 +346,8 @@ make install-systemd FILESYSTEM=btrfs INSTALL_DISK=/dev/vda ADMIN_USER=gentoo I_
 make desktop-plan DESKTOP_TARGET_HOST=192.0.2.10 DESKTOP_TARGET_USER=gentoo DESKTOP_USER=gentoo
 make desktop-install DESKTOP_TARGET_HOST=192.0.2.10 DESKTOP_TARGET_USER=gentoo DESKTOP_USER=gentoo
 make desktop-validate DESKTOP_TARGET_HOST=192.0.2.10 DESKTOP_TARGET_USER=gentoo DESKTOP_USER=gentoo
+make desktop-install DESKTOP_PROFILE=sway-wayland DESKTOP_TARGET_HOST=192.0.2.10 DESKTOP_TARGET_USER=gentoo DESKTOP_USER=gentoo
+make desktop-install DESKTOP_PROFILE=hyprland-wayland DESKTOP_TARGET_HOST=192.0.2.10 DESKTOP_TARGET_USER=gentoo DESKTOP_USER=gentoo DESKTOP_EXPERIMENTAL_OK=yes
 ```
 
 The `/dev/vda` and `/dev/sda` examples are VM-only examples for the libvirt and Proxmox harnesses. For real network targets, use the explicit disk path reported by `make detect-disks ANSIBLE_LIVE_HOST=...`.
@@ -339,7 +356,7 @@ Targets should pass `PROFILE=openrc` or `PROFILE=systemd` into a shared Ansible 
 
 Targets should pass network target variables into Ansible through the documented wrapper layer. VM/libvirt and Proxmox discovery are conveniences for validation and must not be required by the reusable installer.
 
-Post-install desktop targets use `DESKTOP_TARGET_HOST`, not `ANSIBLE_LIVE_HOST`, because they connect to the installed system after reboot rather than the official live ISO. They must keep host-key checking policy suitable for persistent installed systems and must not rely on live ISO host-key relaxation.
+Post-install desktop targets use `DESKTOP_TARGET_HOST`, not `ANSIBLE_LIVE_HOST`, because they connect to the installed system after reboot rather than the official live ISO. They must keep host-key checking policy suitable for persistent installed systems and must not rely on live ISO host-key relaxation. Experimental Wayland profile installation requires `DESKTOP_EXPERIMENTAL_OK=yes` and must keep `DESKTOP_PACKAGE_SOURCE=gentoo`.
 
 Only targets present in the current `Makefile` should be documented as runnable in user-facing quick-start instructions.
 

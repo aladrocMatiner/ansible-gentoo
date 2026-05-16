@@ -5,6 +5,10 @@
     desktop_common_profile: "{{ desktop_profile | default('i3-x11') }}"
     desktop_common_user: "{{ desktop_user | default('') }}"
     desktop_common_install_recommends: "{{ desktop_install_recommends | default('yes') }}"
+    desktop_common_enable_portal: "{{ desktop_enable_portal | default('yes') }}"
+    desktop_common_enable_xwayland: "{{ desktop_enable_xwayland | default('yes') }}"
+    desktop_common_experimental_ok: "{{ desktop_experimental_ok | default('no') }}"
+    desktop_common_package_source: "{{ desktop_package_source | default('gentoo') }}"
     desktop_common_display_manager: "{{ desktop_display_manager | default('none') }}"
     desktop_common_session_start: "{{ desktop_session_start | default('startx') }}"
     desktop_common_privilege_tool: "{{ desktop_privilege_tool | default('sudo') }}"
@@ -16,11 +20,23 @@
       - desktop_common_profile in desktop_supported_profiles
       - desktop_common_user is match('^[a-z_][a-z0-9_-]{0,31}\\$?$')
       - desktop_common_install_recommends in ['yes', 'no']
+      - desktop_common_enable_portal in ['yes', 'no']
+      - desktop_common_enable_xwayland in ['yes', 'no']
+      - desktop_common_experimental_ok in ['yes', 'no']
+      - desktop_common_package_source == 'gentoo'
       - desktop_common_display_manager == 'none'
-      - desktop_common_session_start == 'startx'
+      - desktop_common_session_start in ['startx', 'manual']
       - desktop_common_privilege_tool == 'sudo'
     fail_msg: "DESKTOP_FAILED: desktop profile, user, session, or privilege inputs are invalid."
     success_msg: "Desktop profile inputs are valid."
+
+- name: Validate desktop session policy
+  ansible.builtin.assert:
+    that:
+      - desktop_common_profile != 'i3-x11' or desktop_common_session_start == 'startx'
+      - desktop_common_profile == 'i3-x11' or desktop_common_session_start == 'manual'
+    fail_msg: "DESKTOP_FAILED: i3 requires DESKTOP_SESSION_START=startx; Wayland profiles require DESKTOP_SESSION_START=manual."
+    success_msg: "Desktop session policy is valid for selected profile."
 
 - name: Read target root filesystem type
   ansible.builtin.command:
@@ -129,6 +145,52 @@
     fail_msg: "DESKTOP_FAILED: DESKTOP_TARGET_USER must be root or have passwordless sudo for Makefile-driven desktop installation."
     success_msg: "Desktop target user can elevate for package and config changes."
 
+- name: Read systemd display manager enablement
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-enabled
+      - display-manager.service
+  register: desktop_common_systemd_display_manager
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when:
+    - desktop_common_action in ['install', 'validate']
+    - desktop_common_display_manager == 'none'
+    - ansible_service_mgr | default('') == 'systemd'
+
+- name: Read OpenRC default runlevel services
+  ansible.builtin.command:
+    argv:
+      - rc-update
+      - show
+      - default
+  register: desktop_common_openrc_services
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when:
+    - desktop_common_action in ['install', 'validate']
+    - desktop_common_display_manager == 'none'
+    - ansible_service_mgr | default('') != 'systemd'
+
+- name: Store display manager policy result
+  ansible.builtin.set_fact:
+    desktop_common_display_manager_disabled: >-
+      {{
+        desktop_common_action == 'plan'
+        or desktop_common_display_manager != 'none'
+        or (
+          ansible_service_mgr | default('') == 'systemd'
+          and desktop_common_systemd_display_manager.rc | default(1) != 0
+        )
+        or (
+          ansible_service_mgr | default('') != 'systemd'
+          and desktop_common_openrc_services.stdout | default('') is not search('(^|\\n)\\s*(xdm|display-manager|gdm|sddm|lightdm)\\s')
+        )
+      }}
+
 - name: Report desktop common plan
   ansible.builtin.debug:
     msg:
@@ -138,6 +200,10 @@
       user_home: "{{ desktop_common_user_home }}"
       session_start: "{{ desktop_common_session_start }}"
       display_manager: "{{ desktop_common_display_manager }}"
+      enable_portal: "{{ desktop_common_enable_portal }}"
+      enable_xwayland: "{{ desktop_common_enable_xwayland }}"
+      experimental_ok: "{{ desktop_common_experimental_ok }}"
+      package_source: "{{ desktop_common_package_source }}"
       target_root: "{{ desktop_common_root_mount.stdout }}"
       live_iso_rejected: true
       destructive_install_commands_allowed: false

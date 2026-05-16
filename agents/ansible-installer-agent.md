@@ -83,6 +83,11 @@ ansible/
     post_install/
       desktop_common/
       desktop_i3_x11/
+      desktop_wayland_common/
+      desktop_sway_wayland/
+      desktop_hyprland_wayland/
+      desktop_niri_wayland/
+      desktop_mango_wayland/
     init/
       openrc/
       systemd/
@@ -100,6 +105,7 @@ Layout intent:
 - `playbooks/install-basic-console.yml`: shared console install flow used by both variants; it must contain the Handbook-ordered role sequence once.
 - `roles/common/*`: shared implementation for behavior that does not genuinely differ by init system.
 - `roles/post_install/*`: optional installed-system customizations that run after first boot; they must not import base installer disk, stage3, chroot, bootloader, or live ISO roles.
+- `roles/post_install/desktop_wayland_common`: shared Wayland package/source-policy/session validation for Sway, Hyprland, Niri, and Mango. Experimental profiles must not duplicate this logic or bypass its Gentoo-only package source checks.
 - `roles/init/openrc`: OpenRC-only behavior.
 - `roles/init/systemd`: systemd-only behavior.
 - Roles isolate focused responsibilities and must not combine unrelated risk classes.

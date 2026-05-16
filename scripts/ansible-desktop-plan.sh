@@ -6,7 +6,7 @@ source "$(dirname "$0")/vm-libvirt-common.sh"
 source "$(dirname "$0")/ansible-desktop-common.sh"
 
 require_command ansible-playbook
-load_desktop_inputs
+load_desktop_inputs plan
 
 inventory_file=$(mktemp --suffix=.yml)
 trap 'rm -f "$inventory_file"' EXIT

@@ -1,0 +1,25 @@
+---
+desktop_niri_core_packages:
+  - sys-apps/dbus
+  - gui-wm/niri
+  - gui-apps/foot
+
+desktop_niri_recommended_packages:
+  - gui-apps/fuzzel
+  - gui-apps/wl-clipboard
+  - gui-apps/grim
+  - gui-apps/slurp
+
+desktop_niri_xwayland_packages:
+  - gui-wm/xwayland-satellite
+
+desktop_niri_validation_commands:
+  - name: niri
+    commands:
+      - niri-session
+      - niri
+  - name: foot
+    commands:
+      - foot
+
+desktop_niri_session_command: exec dbus-run-session -- niri-session

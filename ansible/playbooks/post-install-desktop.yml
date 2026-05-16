@@ -4,6 +4,19 @@
   gather_facts: true
   vars_files:
     - ../group_vars/desktop_i3_x11.yml
+    - ../group_vars/desktop_sway_wayland.yml
+    - ../group_vars/desktop_hyprland_wayland.yml
+    - ../group_vars/desktop_niri_wayland.yml
+    - ../group_vars/desktop_mango_wayland.yml
   roles:
     - role: post_install/desktop_common
     - role: post_install/desktop_i3_x11
+      when: desktop_profile | default('i3-x11') == 'i3-x11'
+    - role: post_install/desktop_sway_wayland
+      when: desktop_profile | default('i3-x11') == 'sway-wayland'
+    - role: post_install/desktop_hyprland_wayland
+      when: desktop_profile | default('i3-x11') == 'hyprland-wayland'
+    - role: post_install/desktop_niri_wayland
+      when: desktop_profile | default('i3-x11') == 'niri-wayland'
+    - role: post_install/desktop_mango_wayland
+      when: desktop_profile | default('i3-x11') == 'mango-wayland'

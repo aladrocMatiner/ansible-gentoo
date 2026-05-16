@@ -1,0 +1,21 @@
+---
+- name: Define Mango Wayland profile facts
+  ansible.builtin.set_fact:
+    desktop_wayland_profile_name: mango-wayland
+    desktop_wayland_label: Mango
+    desktop_wayland_requires_experimental: true
+    desktop_wayland_core_packages: "{{ desktop_mango_core_packages }}"
+    desktop_wayland_recommended_packages: "{{ desktop_mango_recommended_packages }}"
+    desktop_wayland_portal_packages: []
+    desktop_wayland_xwayland_packages: []
+    desktop_wayland_validation_commands: "{{ desktop_mango_validation_commands }}"
+    desktop_wayland_config_dir: "{{ desktop_common_user_home }}/.config/mango"
+    desktop_wayland_config_template: mango-config.j2
+    desktop_wayland_config_dest: "{{ desktop_common_user_home }}/.config/mango/config"
+    desktop_wayland_session_file: "{{ desktop_common_user_home }}/.config/gentoo-ai-installer/mango-wayland-session.sh"
+    desktop_wayland_session_command: "{{ desktop_mango_session_command }}"
+    desktop_wayland_session_match: "mango|mangowc"
+
+- name: Apply shared Wayland desktop workflow for Mango
+  ansible.builtin.import_role:
+    name: post_install/desktop_wayland_common

@@ -1,0 +1,21 @@
+---
+- name: Define Niri Wayland profile facts
+  ansible.builtin.set_fact:
+    desktop_wayland_profile_name: niri-wayland
+    desktop_wayland_label: Niri
+    desktop_wayland_requires_experimental: true
+    desktop_wayland_core_packages: "{{ desktop_niri_core_packages }}"
+    desktop_wayland_recommended_packages: "{{ desktop_niri_recommended_packages }}"
+    desktop_wayland_portal_packages: []
+    desktop_wayland_xwayland_packages: "{{ desktop_niri_xwayland_packages }}"
+    desktop_wayland_validation_commands: "{{ desktop_niri_validation_commands }}"
+    desktop_wayland_config_dir: "{{ desktop_common_user_home }}/.config/niri"
+    desktop_wayland_config_template: niri-config.kdl.j2
+    desktop_wayland_config_dest: "{{ desktop_common_user_home }}/.config/niri/config.kdl"
+    desktop_wayland_session_file: "{{ desktop_common_user_home }}/.config/gentoo-ai-installer/niri-wayland-session.sh"
+    desktop_wayland_session_command: "{{ desktop_niri_session_command }}"
+    desktop_wayland_session_match: "niri"
+
+- name: Apply shared Wayland desktop workflow for Niri
+  ansible.builtin.import_role:
+    name: post_install/desktop_wayland_common

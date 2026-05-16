@@ -1,0 +1,21 @@
+---
+- name: Define Sway Wayland profile facts
+  ansible.builtin.set_fact:
+    desktop_wayland_profile_name: sway-wayland
+    desktop_wayland_label: Sway
+    desktop_wayland_requires_experimental: false
+    desktop_wayland_core_packages: "{{ desktop_sway_core_packages }}"
+    desktop_wayland_recommended_packages: "{{ desktop_sway_recommended_packages }}"
+    desktop_wayland_portal_packages: "{{ desktop_sway_portal_packages }}"
+    desktop_wayland_xwayland_packages: []
+    desktop_wayland_validation_commands: "{{ desktop_sway_validation_commands }}"
+    desktop_wayland_config_dir: "{{ desktop_common_user_home }}/.config/sway"
+    desktop_wayland_config_template: sway-config.j2
+    desktop_wayland_config_dest: "{{ desktop_common_user_home }}/.config/sway/config"
+    desktop_wayland_session_file: "{{ desktop_common_user_home }}/.config/gentoo-ai-installer/sway-wayland-session.sh"
+    desktop_wayland_session_command: "{{ desktop_sway_session_command }}"
+    desktop_wayland_session_match: "sway"
+
+- name: Apply shared Wayland desktop workflow for Sway
+  ansible.builtin.import_role:
+    name: post_install/desktop_wayland_common

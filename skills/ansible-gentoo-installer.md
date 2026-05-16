@@ -93,6 +93,11 @@ ansible/
     post_install/
       desktop_common/
       desktop_i3_x11/
+      desktop_wayland_common/
+      desktop_sway_wayland/
+      desktop_hyprland_wayland/
+      desktop_niri_wayland/
+      desktop_mango_wayland/
     init/
       openrc/
       systemd/
@@ -167,11 +172,15 @@ Expected variables:
 - `efi_partition`: set only after approved plan.
 - `root_partition`: set only after approved plan.
 - `confirm_wipe_disk`: required for destructive tasks. It may be populated from Makefile `I_UNDERSTAND_THIS_WIPES_DISK=yes`.
-- `desktop_profile`: post-install desktop profile, currently `i3-x11`.
+- `desktop_profile`: post-install desktop profile; supported values are `i3-x11`, `sway-wayland`, `hyprland-wayland`, `niri-wayland`, and `mango-wayland`.
 - `desktop_user`: existing installed user that receives session files.
 - `desktop_install_recommends`: `yes` or `no` package recommendation policy.
+- `desktop_enable_portal`: `yes` or `no` Wayland portal package policy where the profile defines portal packages.
+- `desktop_enable_xwayland`: `yes` or `no` Xwayland compatibility package policy where the profile defines Xwayland packages.
+- `desktop_experimental_ok`: `yes` is required before installing experimental Wayland profiles.
+- `desktop_package_source`: currently `gentoo`; overlays, source builds, binary downloads, and keyword changes need later OpenSpec approval.
 - `desktop_display_manager`: currently `none` only.
-- `desktop_session_start`: currently `startx` only.
+- `desktop_session_start`: `startx` for i3, `manual` for Wayland profiles.
 
 Rules:
 
@@ -225,6 +234,11 @@ Shared roles:
 - `common/final_checks`: require explicit `admin_user`, run read-only reboot readiness validation for target mounts, chroot mounts, fstab, Btrfs subvolumes, kernel/initramfs, GRUB/EFI files, services, users, target identity, Portage baseline, SSH policy, and secret-safe report inputs.
 - `post_install/desktop_common`: validate installed-target boundaries, reject live ISO roots, require an existing desktop user, verify root/passwordless sudo elevation, normalize desktop variables, and report shared desktop plan output.
 - `post_install/desktop_i3_x11`: manage i3/X11 package policy, `startx` session templates, package installed-state checks, i3/startx command validation, and display-manager-disabled validation.
+- `post_install/desktop_wayland_common`: manage shared Wayland package availability checks, `emerge --noreplace` package installation, Gentoo-only package source enforcement, managed session launcher creation, config templating, command validation, and display-manager-disabled validation.
+- `post_install/desktop_sway_wayland`: define Sway as the conservative Wayland profile and pass package/config inputs to the shared Wayland role.
+- `post_install/desktop_hyprland_wayland`: define Hyprland as an advanced experimental Wayland profile requiring `desktop_experimental_ok=yes` for install.
+- `post_install/desktop_niri_wayland`: define Niri as an innovative experimental Wayland profile, including optional Xwayland compatibility package inputs.
+- `post_install/desktop_mango_wayland`: define Mango/MangoWC as an experimental package-availability profile that fails closed if Gentoo packages are unavailable.
 
 Init-specific roles:
 
@@ -437,6 +451,10 @@ These targets define the expected control-plane contract for future Ansible inst
 - `make desktop-plan DESKTOP_TARGET_HOST=... DESKTOP_TARGET_USER=... DESKTOP_USER=...`
 - `make desktop-install DESKTOP_TARGET_HOST=... DESKTOP_TARGET_USER=... DESKTOP_USER=...`
 - `make desktop-validate DESKTOP_TARGET_HOST=... DESKTOP_TARGET_USER=... DESKTOP_USER=...`
+- `make desktop-sway-install DESKTOP_TARGET_HOST=... DESKTOP_TARGET_USER=... DESKTOP_USER=...`
+- `make desktop-hyprland-install DESKTOP_TARGET_HOST=... DESKTOP_TARGET_USER=... DESKTOP_USER=... DESKTOP_EXPERIMENTAL_OK=yes`
+- `make desktop-niri-install DESKTOP_TARGET_HOST=... DESKTOP_TARGET_USER=... DESKTOP_USER=... DESKTOP_EXPERIMENTAL_OK=yes`
+- `make desktop-mango-install DESKTOP_TARGET_HOST=... DESKTOP_TARGET_USER=... DESKTOP_USER=... DESKTOP_EXPERIMENTAL_OK=yes`
 - `make install-openrc`
 - `make install-systemd`
 - `make final-checks`

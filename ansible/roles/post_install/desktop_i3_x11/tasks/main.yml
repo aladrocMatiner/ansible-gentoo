@@ -169,34 +169,6 @@
     - desktop_common_action in ['install', 'validate']
     - desktop_i3_session_files.results[0].stat.exists | default(false)
 
-- name: Read systemd display manager enablement
-  ansible.builtin.command:
-    argv:
-      - systemctl
-      - is-enabled
-      - display-manager.service
-  register: desktop_i3_systemd_display_manager
-  changed_when: false
-  failed_when: false
-  check_mode: false
-  when:
-    - desktop_common_action in ['install', 'validate']
-    - ansible_service_mgr | default('') == 'systemd'
-
-- name: Read OpenRC default runlevel services
-  ansible.builtin.command:
-    argv:
-      - rc-update
-      - show
-      - default
-  register: desktop_i3_openrc_services
-  changed_when: false
-  failed_when: false
-  check_mode: false
-  when:
-    - desktop_common_action in ['install', 'validate']
-    - ansible_service_mgr | default('') != 'systemd'
-
 - name: Validate i3 desktop state
   ansible.builtin.assert:
     that:
@@ -204,8 +176,7 @@
       - desktop_i3_commands.results | default([]) | selectattr('rc', 'ne', 0) | list | length == 0
       - desktop_i3_session_files.results | default([]) | selectattr('stat.exists') | list | length == 2
       - (desktop_i3_xinitrc.content | default('') | b64decode) is search('exec .*i3')
-      - ansible_service_mgr | default('') != 'systemd' or desktop_i3_systemd_display_manager.rc != 0
-      - ansible_service_mgr | default('') == 'systemd' or desktop_i3_openrc_services.stdout is not search('(^|\\n)\\s*(xdm|display-manager|gdm|sddm|lightdm)\\s')
+      - desktop_common_display_manager_disabled | bool
     fail_msg: "DESKTOP_FAILED: i3 packages, commands, session files, or display-manager policy do not match the requested profile."
     success_msg: "i3 desktop profile validates successfully."
   when: desktop_common_action in ['install', 'validate']

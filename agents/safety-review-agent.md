@@ -183,6 +183,7 @@ The Makefile is the public control plane. Safety review must verify:
 - VM/libvirt targets must not invoke `sudo` by default.
 - VM cleanup targets must delete only generated artifacts for the configured project-owned domain and must not delete ISO files, libvirt networks, pools, volumes, unrelated domains, or secrets.
 - Post-install desktop targets must require `DESKTOP_TARGET_HOST`, `DESKTOP_TARGET_USER`, and `DESKTOP_USER`; must not use `ANSIBLE_LIVE_HOST`; and must reject targets that look like the official live ISO root.
+- Experimental post-install desktop installs such as Hyprland, Niri, and Mango must require `DESKTOP_EXPERIMENTAL_OK=yes`, must keep `DESKTOP_PACKAGE_SOURCE=gentoo`, and must not add overlays, unmask packages, clone source repositories, source-build compositors, or install prebuilt binaries.
 - Proxmox cleanup targets must require `I_UNDERSTAND_CLEANUP_DELETE=DELETE`, verify the project ownership marker and generated VM name before mutation, and must not delete unrelated VMIDs, templates, ISOs, pools, or storage volumes outside the selected project-owned VM.
 - `make real-hardware-check` must be read-only, require explicit `INSTALL_DISK`, prefer stable disk identity paths, require backup/UEFI/network/power/recovery-media/destructive-preview acknowledgements, and state that it does not satisfy destructive confirmations.
 - `make vm-test-matrix-plan` must not create disks, define domains, start VMs, run destructive install targets, or treat `/dev/vda` as valid outside the planned disposable VM guest context.
@@ -222,6 +223,7 @@ For Ansible playbooks, roles, and tasks:
 - Global `ansible.cfg` must not disable host key checking; temporary live ISO SSH exceptions must remain scoped to the VM/live ISO wrappers.
 - Reusable Ansible roles must not depend on libvirt, VM IP discovery, qcow2 paths, or `/dev/vda`; those assumptions are allowed only in local test harness documentation and must not weaken safety gates.
 - Post-install desktop roles must validate installed-target markers before package work, must not import or include base installer roles, and must keep package/session-file changes separate from disk, bootloader, stage3, chroot, and privileged-user changes.
+- Shared Wayland profile roles must reuse the common Wayland package/source-policy checks rather than reimplementing experimental gates inconsistently.
 - `make ansible-check` must be run or prepared for Ansible changes, and review output must state whether syntax checks and ansible-lint ran.
 
 ## 14. Review Output Format

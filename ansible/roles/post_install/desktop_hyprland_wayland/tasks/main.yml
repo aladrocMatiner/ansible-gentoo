@@ -1,0 +1,21 @@
+---
+- name: Define Hyprland Wayland profile facts
+  ansible.builtin.set_fact:
+    desktop_wayland_profile_name: hyprland-wayland
+    desktop_wayland_label: Hyprland
+    desktop_wayland_requires_experimental: true
+    desktop_wayland_core_packages: "{{ desktop_hyprland_core_packages }}"
+    desktop_wayland_recommended_packages: "{{ desktop_hyprland_recommended_packages }}"
+    desktop_wayland_portal_packages: "{{ desktop_hyprland_portal_packages }}"
+    desktop_wayland_xwayland_packages: []
+    desktop_wayland_validation_commands: "{{ desktop_hyprland_validation_commands }}"
+    desktop_wayland_config_dir: "{{ desktop_common_user_home }}/.config/hypr"
+    desktop_wayland_config_template: hyprland-config.j2
+    desktop_wayland_config_dest: "{{ desktop_common_user_home }}/.config/hypr/hyprland.conf"
+    desktop_wayland_session_file: "{{ desktop_common_user_home }}/.config/gentoo-ai-installer/hyprland-wayland-session.sh"
+    desktop_wayland_session_command: "{{ desktop_hyprland_session_command }}"
+    desktop_wayland_session_match: "Hyprland"
+
+- name: Apply shared Wayland desktop workflow for Hyprland
+  ansible.builtin.import_role:
+    name: post_install/desktop_wayland_common

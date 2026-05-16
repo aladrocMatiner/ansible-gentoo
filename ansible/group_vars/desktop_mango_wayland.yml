@@ -1,0 +1,21 @@
+---
+desktop_mango_core_packages:
+  - sys-apps/dbus
+  - gui-wm/mango
+  - gui-apps/foot
+
+desktop_mango_recommended_packages:
+  - gui-apps/wl-clipboard
+  - gui-apps/grim
+  - gui-apps/slurp
+
+desktop_mango_validation_commands:
+  - name: Mango compositor
+    commands:
+      - mangowc
+      - mango
+  - name: foot
+    commands:
+      - foot
+
+desktop_mango_session_command: exec dbus-run-session -- mangowc

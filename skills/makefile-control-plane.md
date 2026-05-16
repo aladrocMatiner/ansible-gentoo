@@ -161,6 +161,10 @@ Post-install desktop target variables:
 - `DESKTOP_TARGET_USER`
 - `DESKTOP_USER`
 - `DESKTOP_INSTALL_RECOMMENDS`
+- `DESKTOP_ENABLE_PORTAL`
+- `DESKTOP_ENABLE_XWAYLAND`
+- `DESKTOP_EXPERIMENTAL_OK`
+- `DESKTOP_PACKAGE_SOURCE`
 - `DESKTOP_DISPLAY_MANAGER`
 - `DESKTOP_SESSION_START`
 - `DESKTOP_PRIVILEGE_TOOL`
@@ -241,14 +245,18 @@ Recommended Ansible live target defaults:
 
 Recommended post-install desktop defaults:
 
-- `DESKTOP_PROFILE=i3-x11`
+- `DESKTOP_PROFILE=i3-x11`; supported values are `i3-x11`, `sway-wayland`, `hyprland-wayland`, `niri-wayland`, and `mango-wayland`.
 - `DESKTOP_TARGET_HOST` has no default; it must be an already installed Gentoo SSH target, not the live ISO.
 - `DESKTOP_TARGET_PORT=22`
 - `DESKTOP_TARGET_USER` has no default; it must be root or a passwordless sudo user.
 - `DESKTOP_USER` has no default; it must be an existing installed user.
 - `DESKTOP_INSTALL_RECOMMENDS=yes`
+- `DESKTOP_ENABLE_PORTAL=yes`
+- `DESKTOP_ENABLE_XWAYLAND=yes`
+- `DESKTOP_EXPERIMENTAL_OK=no`; required as `yes` for Hyprland, Niri, and Mango install targets.
+- `DESKTOP_PACKAGE_SOURCE=gentoo`; overlays, source builds, binary downloads, and keyword changes require later OpenSpec work.
 - `DESKTOP_DISPLAY_MANAGER=none`
-- `DESKTOP_SESSION_START=startx`
+- `DESKTOP_SESSION_START` is profile-derived when unset: `startx` for `i3-x11`, `manual` for Wayland profiles.
 - `DESKTOP_PRIVILEGE_TOOL=sudo`
 
 Rules:
@@ -302,6 +310,8 @@ Rules:
 - `make desktop-install` may install packages and write user session files, but it must not partition, format, mount target roots, extract stage3, chroot, install GRUB, or modify EFI entries.
 - `DESKTOP_USER` must not default to an operator username or VM-specific username.
 - Desktop targets must keep installed-system host-key policy separate from temporary live ISO host-key relaxation.
+- Experimental profile install targets must require `DESKTOP_EXPERIMENTAL_OK=yes` and must fail closed when package availability checks fail.
+- `DESKTOP_PACKAGE_SOURCE` must remain `gentoo` until a separate OpenSpec change defines overlay, source-build, or binary-package policy.
 - `VM_NETWORK` is required only when `VM_NET_MODE=network`.
 - `VM_RAM`, `VM_CPUS`, ports, and `VM_DISK_SIZE` must be validated before generated XML or disk creation uses them.
 - VM definitions should pass serial console kernel args so `make vm-console` is usable with the official live ISO.
@@ -382,7 +392,7 @@ Expected behavior:
 - `make local-install-plan`: optional fallback read-only install plan target run inside the official live ISO.
 - `make local-partition-plan`: optional fallback read-only partition plan target run inside the official live ISO; it still requires explicit `INSTALL_DISK`.
 - `make install-plan`: summarize intended install flow without making changes; default `PROFILE=openrc`, `FILESYSTEM=ext4`, and `STAGE3_FLAVOR=standard`, but never default `INSTALL_DISK`.
-- `make desktop-plan`: connect to an installed Gentoo target over SSH, validate desktop profile inputs and installed-target boundaries, and report i3/X11 package/session changes without mutating the target.
+- `make desktop-plan`: connect to an installed Gentoo target over SSH, validate desktop profile inputs and installed-target boundaries, and report selected profile package/session changes without mutating the target.
 - `make desktop-validate`: connect to an installed Gentoo target over SSH and verify package, command, user-session, and display-manager state without mutating the target.
 - `make partition-plan`: require explicit `INSTALL_DISK` and summarize the exact GPT partition layout without writing.
 - `make mount-plan`: require explicit `INSTALL_DISK` and summarize the future root and EFI mount layout without running `mount`, `umount`, or `mkdir`.
@@ -466,6 +476,10 @@ Expected behavior:
 - `make stage3-install`: use `STAGE3_MIRROR` and `STAGE3_CACHE_DIR`, verify official metadata and SHA512/signatures, then extract only into mounted `/mnt/gentoo`.
 - `make mount-target`: mount explicitly provided partitions to explicitly provided target paths after mount-state checks; for Btrfs it must mount root with `subvol=@` and the approved subvolumes from `docs/btrfs-layout-policy.md`.
 - `make desktop-install`: connect only to an already installed Gentoo target through `DESKTOP_TARGET_HOST`, install the selected post-install desktop package set, write managed session files for `DESKTOP_USER`, and refuse live ISO, disk, bootloader, stage3, mount, or chroot behavior.
+- `make desktop-sway-install`: convenience target for `DESKTOP_PROFILE=sway-wayland`.
+- `make desktop-hyprland-install`: convenience target for `DESKTOP_PROFILE=hyprland-wayland`; requires `DESKTOP_EXPERIMENTAL_OK=yes`.
+- `make desktop-niri-install`: convenience target for `DESKTOP_PROFILE=niri-wayland`; requires `DESKTOP_EXPERIMENTAL_OK=yes`.
+- `make desktop-mango-install`: convenience target for `DESKTOP_PROFILE=mango-wayland`; requires `DESKTOP_EXPERIMENTAL_OK=yes`.
 - `make prepare-chroot`: require mounted `/mnt/gentoo` with extracted stage3 markers, mount or verify pseudo-filesystems only under `/mnt/gentoo`, prepare target DNS, validate DNS with a read-only chroot lookup, and print before/after mount state.
 - `make configure-portage`: manage conservative target `make.conf`, install official Gentoo repo configuration, run official Gentoo repo sync, select the matching OpenRC/systemd profile from variant variables, keep GURU disabled, report pending config updates, and skip broad `@world`.
 - `make configure-system`: configure target hostname, timezone, UTF-8 locale, and OpenRC/systemd console keymap files under `/mnt/gentoo`; generate the locale and refresh target env only when locale files change.

@@ -1,6 +1,10 @@
 ---
 desktop_supported_profiles:
   - i3-x11
+  - sway-wayland
+  - hyprland-wayland
+  - niri-wayland
+  - mango-wayland
 
 desktop_i3_core_packages:
   - sys-apps/dbus

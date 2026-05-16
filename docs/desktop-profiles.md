@@ -9,8 +9,12 @@ They are not part of the basic-console installer. They must not run against the 
 | Profile | Status | Session | Default display manager |
 | --- | --- | --- | --- |
 | `i3-x11` | implemented | `startx` | `none` |
+| `sway-wayland` | implemented, conservative Wayland | manual TTY launch | `none` |
+| `hyprland-wayland` | implemented, experimental | manual TTY launch | `none` |
+| `niri-wayland` | implemented, experimental/innovative | manual TTY launch | `none` |
+| `mango-wayland` | implemented, experimental package availability | manual TTY launch | `none` |
 
-Future desktop profiles should reuse the same Makefile targets, wrapper scripts, `post_install/desktop_common` role, and installed-target SSH model.
+Future desktop profiles should reuse the same Makefile targets, wrapper scripts, `post_install/desktop_common` role, shared Wayland helper role where relevant, and installed-target SSH model.
 
 ## Required Target State
 
@@ -66,6 +70,15 @@ make desktop-i3-install \
   DESKTOP_USER=<installed-user>
 ```
 
+Wayland convenience targets:
+
+```sh
+make desktop-sway-install DESKTOP_TARGET_HOST=<host-or-ip> DESKTOP_TARGET_USER=<ssh-user> DESKTOP_USER=<installed-user>
+make desktop-hyprland-install DESKTOP_TARGET_HOST=<host-or-ip> DESKTOP_TARGET_USER=<ssh-user> DESKTOP_USER=<installed-user> DESKTOP_EXPERIMENTAL_OK=yes
+make desktop-niri-install DESKTOP_TARGET_HOST=<host-or-ip> DESKTOP_TARGET_USER=<ssh-user> DESKTOP_USER=<installed-user> DESKTOP_EXPERIMENTAL_OK=yes
+make desktop-mango-install DESKTOP_TARGET_HOST=<host-or-ip> DESKTOP_TARGET_USER=<ssh-user> DESKTOP_USER=<installed-user> DESKTOP_EXPERIMENTAL_OK=yes
+```
+
 ## Variables
 
 | Variable | Default | Required | Meaning |
@@ -76,8 +89,12 @@ make desktop-i3-install \
 | `DESKTOP_TARGET_USER` | none | yes | SSH user for Ansible. Must be root or passwordless sudo. |
 | `DESKTOP_USER` | none | yes | Installed user that receives session files. |
 | `DESKTOP_INSTALL_RECOMMENDS` | `yes` | no | Install profile helper packages. |
+| `DESKTOP_ENABLE_PORTAL` | `yes` | no | Install Wayland portal support where the profile defines portal packages. |
+| `DESKTOP_ENABLE_XWAYLAND` | `yes` | no | Install Xwayland compatibility packages where the profile defines them. |
+| `DESKTOP_EXPERIMENTAL_OK` | `no` | for experimental installs | Required for Hyprland, Niri, and Mango install targets. |
+| `DESKTOP_PACKAGE_SOURCE` | `gentoo` | no | Only `gentoo` is allowed; overlays/source builds need a later OpenSpec change. |
 | `DESKTOP_DISPLAY_MANAGER` | `none` | no | Display manager policy. Only `none` is implemented. |
-| `DESKTOP_SESSION_START` | `startx` | no | Session start method. Only `startx` is implemented. |
+| `DESKTOP_SESSION_START` | profile default | no | `startx` for i3; `manual` for Wayland profiles. |
 | `DESKTOP_PRIVILEGE_TOOL` | `sudo` | no | Privilege tool. Only `sudo` is implemented. |
 
 ## Safety Boundary
@@ -91,6 +108,7 @@ Desktop workflows may install packages and write session files under the selecte
 - call `efibootmgr`,
 - change EFI boot entries,
 - edit live ISO state as if it were the installed target,
+- enable overlays, accept unstable keywords, clone upstream repositories, source-build compositors, or install prebuilt binaries,
 - store passwords, tokens, or private keys.
 
 The role validates the installed target boundary before package work. If the target looks like a live ISO root, the workflow fails.
@@ -102,10 +120,19 @@ The role validates the installed target boundary before package work. If the tar
 - `DESKTOP_USER must name an existing installed-system user`: create or select the user before running the desktop profile.
 - `target does not look like an installed amd64 Gentoo system`: boot the installed system, not the live ISO.
 - `requested packages are unavailable`: sync or fix the target Portage tree, then rerun the plan.
+- `DESKTOP_EXPERIMENTAL_OK=yes is required`: only install Hyprland, Niri, or Mango after accepting their package availability and compatibility risk.
+- `DESKTOP_PACKAGE_SOURCE must be gentoo`: overlay, source-build, or binary package behavior is not implemented in these profiles.
 - SSH timeouts: verify the installed system network, firewall, SSH daemon, port, and host key.
 
 ## Recovery
 
 Run `make desktop-plan` again after correcting inputs or target state. If package installation fails, fix the Portage error on the installed target and rerun `make desktop-install`; the package task uses `--noreplace` and validates installed state before deciding whether to run.
 
-If session files are wrong, rerun `make desktop-install` for the same `DESKTOP_USER`. The managed `.xinitrc` and i3 config are rewritten from templates.
+If session files are wrong, rerun `make desktop-install` for the same `DESKTOP_USER`. Managed session launchers and profile configs are rewritten from templates.
+
+For Wayland profile details:
+
+- `docs/desktop-sway-wayland.md`
+- `docs/desktop-hyprland-wayland.md`
+- `docs/desktop-niri-wayland.md`
+- `docs/desktop-mango-wayland.md`

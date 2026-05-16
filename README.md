@@ -61,15 +61,15 @@ Use `make record-manual-step MANUAL_STEP_SUMMARY=... MANUAL_STEP_REASON=...` to 
 
 Use `make vm-validate-first-boot ADMIN_USER=<admin-user>` after a completed VM install to boot the installed qcow2 disk and run read-only first-boot checks over SSH; see `docs/first-boot-validation.md`.
 
-Optional post-install desktop profiles run only after the base system is installed, booted, SSH-reachable, and validated. The first implemented profile is `i3` on X11:
+Optional post-install desktop profiles run only after the base system is installed, booted, SSH-reachable, and validated. Implemented profiles are `i3-x11`, `sway-wayland`, `hyprland-wayland`, `niri-wayland`, and `mango-wayland`:
 
 ```sh
-make desktop-plan DESKTOP_TARGET_HOST=<host> DESKTOP_TARGET_USER=<ssh-user> DESKTOP_USER=<installed-user>
-make desktop-install DESKTOP_TARGET_HOST=<host> DESKTOP_TARGET_USER=<ssh-user> DESKTOP_USER=<installed-user>
-make desktop-validate DESKTOP_TARGET_HOST=<host> DESKTOP_TARGET_USER=<ssh-user> DESKTOP_USER=<installed-user>
+make desktop-plan DESKTOP_PROFILE=sway-wayland DESKTOP_TARGET_HOST=<host> DESKTOP_TARGET_USER=<ssh-user> DESKTOP_USER=<installed-user>
+make desktop-install DESKTOP_PROFILE=sway-wayland DESKTOP_TARGET_HOST=<host> DESKTOP_TARGET_USER=<ssh-user> DESKTOP_USER=<installed-user>
+make desktop-validate DESKTOP_PROFILE=sway-wayland DESKTOP_TARGET_HOST=<host> DESKTOP_TARGET_USER=<ssh-user> DESKTOP_USER=<installed-user>
 ```
 
-See `docs/desktop-profiles.md` and `docs/desktop-i3-x11.md`.
+Experimental profiles require `DESKTOP_EXPERIMENTAL_OK=yes` for install. See `docs/desktop-profiles.md` and the profile-specific docs.
 
 Use `make vm-test-matrix-plan` to plan OpenRC/systemd, ext4/Btrfs, and standard/hardened/musl libvirt validation entries without creating disks or running destructive installs; see `docs/libvirt-install-test-matrix.md`.
 

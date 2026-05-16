@@ -1,0 +1,28 @@
+# Managed by gentoo-ai-installer.
+$mod = SUPER
+$terminal = foot
+$menu = wofi --show drun
+
+exec-once = waybar
+
+bind = $mod, RETURN, exec, $terminal
+bind = $mod, D, exec, $menu
+bind = $mod SHIFT, Q, killactive
+bind = $mod SHIFT, E, exit
+
+bind = $mod, H, movefocus, l
+bind = $mod, J, movefocus, d
+bind = $mod, K, movefocus, u
+bind = $mod, L, movefocus, r
+
+bind = $mod, 1, workspace, 1
+bind = $mod, 2, workspace, 2
+bind = $mod, 3, workspace, 3
+bind = $mod, 4, workspace, 4
+bind = $mod, 5, workspace, 5
+
+bind = $mod SHIFT, 1, movetoworkspace, 1
+bind = $mod SHIFT, 2, movetoworkspace, 2
+bind = $mod SHIFT, 3, movetoworkspace, 3
+bind = $mod SHIFT, 4, movetoworkspace, 4
+bind = $mod SHIFT, 5, movetoworkspace, 5

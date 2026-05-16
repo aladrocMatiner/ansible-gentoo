@@ -1,0 +1,27 @@
+---
+desktop_hyprland_core_packages:
+  - sys-apps/dbus
+  - gui-wm/hyprland
+  - gui-apps/foot
+
+desktop_hyprland_recommended_packages:
+  - gui-apps/waybar
+  - gui-apps/wofi
+  - gui-apps/wl-clipboard
+  - gui-apps/grim
+  - gui-apps/slurp
+  - gui-apps/hyprpaper
+
+desktop_hyprland_portal_packages:
+  - sys-apps/xdg-desktop-portal
+  - gui-libs/xdg-desktop-portal-hyprland
+
+desktop_hyprland_validation_commands:
+  - name: Hyprland
+    commands:
+      - Hyprland
+  - name: foot
+    commands:
+      - foot
+
+desktop_hyprland_session_command: exec dbus-run-session -- Hyprland

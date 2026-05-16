@@ -74,6 +74,8 @@ The reusable network Ansible installer is the product. VM/libvirt scripts, Proxm
 
 Optional post-install desktop profiles are installed-system workflows. They must run against an already installed Gentoo system over SSH, use `DESKTOP_TARGET_HOST` rather than `ANSIBLE_LIVE_HOST`, reject live ISO roots, and stay separate from disk, stage3, chroot, bootloader, and base installer user roles.
 
+Experimental Wayland desktop profiles such as Hyprland, Niri, and Mango must require `DESKTOP_EXPERIMENTAL_OK=yes` before install, keep `DESKTOP_PACKAGE_SOURCE=gentoo`, and must not add overlays, unmask packages, clone source repositories, build compositors from source, or install prebuilt binaries without a later OpenSpec change.
+
 Controller-to-live-ISO Ansible wrappers must use the shared SSH transport policy exposed through Makefile variables such as `ANSIBLE_SSH_CONNECT_TIMEOUT`, `ANSIBLE_SSH_SERVER_ALIVE_INTERVAL`, `ANSIBLE_SSH_SERVER_ALIVE_COUNT_MAX`, `ANSIBLE_SSH_CONTROL_MASTER`, `ANSIBLE_SSH_CONTROL_PERSIST`, and `ANSIBLE_SSH_CONTROL_PATH_DIR`. Do not duplicate raw `--ssh-common-args` strings in wrapper scripts. Keep temporary live ISO host-key relaxation scoped to wrapper invocations; do not disable host-key checking globally.
 
 Future Ansible installer behavior must use the official Gentoo AMD64 Handbook as the baseline installation procedure: <https://wiki.gentoo.org/wiki/Handbook:AMD64>. Agents may adapt Handbook steps into reusable Ansible roles, but must preserve the project safety model, Makefile control-plane rule, OpenSpec review flow, and v1 assumptions.

@@ -6,28 +6,28 @@
 - [x] Validate with `openspec validate --all --strict`.
 
 ## Architecture
-- [ ] Define Hyprland as an advanced experimental Wayland profile.
-- [ ] Define experimental acknowledgement requirements.
-- [ ] Define `desktop_hyprland_wayland` role responsibilities.
-- [ ] Define Hyprland package and helper policy.
-- [ ] Define validation checks.
+- [x] Define Hyprland as an advanced experimental Wayland profile.
+- [x] Define experimental acknowledgement requirements.
+- [x] Define `desktop_hyprland_wayland` role responsibilities.
+- [x] Define Hyprland package and helper policy.
+- [x] Define validation checks.
 
 ## Future Implementation
-- [ ] Add Hyprland profile variables.
-- [ ] Add Hyprland role tasks and templates.
-- [ ] Reuse shared desktop and Wayland helper tasks.
-- [ ] Add Makefile help entries.
-- [ ] Add package availability preflight.
-- [ ] Run `make ansible-check`.
+- [x] Add Hyprland profile variables.
+- [x] Add Hyprland role tasks and templates.
+- [x] Reuse shared desktop and Wayland helper tasks.
+- [x] Add Makefile help entries.
+- [x] Add package availability preflight.
+- [x] Run `make ansible-check`.
 
 ## Documentation
-- [ ] Add or update `docs/desktop-profiles.md`.
-- [ ] Add `docs/desktop-hyprland-wayland.md`.
-- [ ] Document experimental status, launch method, and recovery.
-- [ ] Update relevant skills and OpenSpec tasks.
+- [x] Add or update `docs/desktop-profiles.md`.
+- [x] Add `docs/desktop-hyprland-wayland.md`.
+- [x] Document experimental status, launch method, and recovery.
+- [x] Update relevant skills and OpenSpec tasks.
 
 ## Review Checklist
-- [ ] Confirm no automatic overlays, unmasking, or source builds.
-- [ ] Confirm no destructive installer behavior.
-- [ ] Confirm Hyprland-specific behavior is isolated.
-- [ ] Confirm docs do not present Hyprland as the default.
+- [x] Confirm no automatic overlays, unmasking, or source builds.
+- [x] Confirm no destructive installer behavior.
+- [x] Confirm Hyprland-specific behavior is isolated.
+- [x] Confirm docs do not present Hyprland as the default.
