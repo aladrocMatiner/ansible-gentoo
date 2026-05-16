@@ -61,6 +61,16 @@ Use `make record-manual-step MANUAL_STEP_SUMMARY=... MANUAL_STEP_REASON=...` to 
 
 Use `make vm-validate-first-boot ADMIN_USER=<admin-user>` after a completed VM install to boot the installed qcow2 disk and run read-only first-boot checks over SSH; see `docs/first-boot-validation.md`.
 
+Optional post-install desktop profiles run only after the base system is installed, booted, SSH-reachable, and validated. The first implemented profile is `i3` on X11:
+
+```sh
+make desktop-plan DESKTOP_TARGET_HOST=<host> DESKTOP_TARGET_USER=<ssh-user> DESKTOP_USER=<installed-user>
+make desktop-install DESKTOP_TARGET_HOST=<host> DESKTOP_TARGET_USER=<ssh-user> DESKTOP_USER=<installed-user>
+make desktop-validate DESKTOP_TARGET_HOST=<host> DESKTOP_TARGET_USER=<ssh-user> DESKTOP_USER=<installed-user>
+```
+
+See `docs/desktop-profiles.md` and `docs/desktop-i3-x11.md`.
+
 Use `make vm-test-matrix-plan` to plan OpenRC/systemd, ext4/Btrfs, and standard/hardened/musl libvirt validation entries without creating disks or running destructive installs; see `docs/libvirt-install-test-matrix.md`.
 
 Use `make vm-e2e-plan PROFILE=openrc FILESYSTEM=ext4 STAGE3_FLAVOR=standard INSTALL_DISK=/dev/vda ADMIN_USER=<admin-user> ENABLE_SSH=yes ADMIN_AUTHORIZED_KEYS_FILE=<public-key-file>` before running disposable full-VM validation with `make vm-e2e-install`; see `docs/libvirt-end-to-end-install-validation.md`.

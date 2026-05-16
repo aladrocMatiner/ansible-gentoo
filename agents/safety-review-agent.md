@@ -21,6 +21,7 @@ The project can destroy data if disk operations are wrong. Safety review is mand
 - Verify libvirt matrix planning remains read-only unless a later destructive matrix change adds disposable disks and normal confirmations.
 - Verify libvirt end-to-end install validation uses only the project-owned VM and retains normal destructive and bootloader confirmations.
 - Verify Proxmox validation targets operate only on project-owned generated VMIDs/names, retain destructive and bootloader confirmations for E2E install, and do not add Proxmox-specific installer roles.
+- Verify optional post-install desktop profiles run only against installed systems over SSH and do not import live ISO, disk, stage3, chroot, bootloader, or installer user roles.
 - Verify release readiness checks include secret scanning and tracked artifact checks before broader handoff.
 - Produce a structured review decision: `APPROVED`, `APPROVED WITH CHANGES`, or `REJECTED`.
 
@@ -37,7 +38,7 @@ Use the highest applicable risk level:
 
 - `SAFE`: read-only inspection. Examples: listing disks, showing mounts, printing config, checking versions.
 - `LOW`: installs packages or temporary tools in the live environment only. Example: temporary Codex bootstrap in the live ISO.
-- `MEDIUM`: modifies the target Gentoo root but does not affect partition tables. Examples: editing target `/etc/fstab`, extracting stage3 into a confirmed empty target root, writing Portage config.
+- `MEDIUM`: modifies the target Gentoo root but does not affect partition tables, boot entries, privileged users, or services. Examples: editing target `/etc/fstab`, extracting stage3 into a confirmed empty target root, writing Portage config, installing optional post-install desktop packages, or writing user desktop session files.
 - `HIGH`: modifies bootloader, users, services, or persistent system state. Examples: GRUB install, EFI boot entry change, privileged user creation, password change, passwordless sudo policy, enabling NetworkManager.
 - `DESTRUCTIVE`: partitions, formats, wipes, overwrites disks, or deletes data. Examples: partition table changes, filesystem creation, disk wiping, recursive deletion, overwriting target data.
 
@@ -153,6 +154,7 @@ When this agent changes or reviews safety-sensitive behavior, it must enforce do
 - If Ansible safety behavior changes, verify Ansible documentation describes required variables, confirmation gates, controller-to-target execution, dry-run limits, and fail-closed behavior.
 - If VM/libvirt safety behavior changes, verify VM documentation states that disks are qcow2 files under `./var/libvirt/` or the configured project-local `VM_DIR`, that host block devices are forbidden, that `VM_TEST_IMAGE_NAME` is only a conservative local test label and not an ISO path or secret, that start/SSH/rsync/Ansible workflows require project-owned domains matching the configured official ISO, generated artifacts, and case metadata, that cleanup is limited to the selected case artifacts, and that cleanup requires `I_UNDERSTAND_CLEANUP_DELETE=DELETE`.
 - If Proxmox safety behavior changes, verify Proxmox documentation states the Proxmox host/node, ISO volume, storage, bridge, VLAN, VMID/IP mapping, generated VM names, expected guest disk, cleanup confirmation, project-owned VM marker, and that reusable Ansible roles must not depend on Proxmox-only details.
+- If post-install desktop safety behavior changes, verify `docs/desktop-profiles.md`, the profile-specific desktop doc, `docs/ansible-architecture.md`, and relevant skills state the installed-target SSH boundary, live ISO rejection, package scope, user-session file paths, and forbidden disk/bootloader/stage3/chroot operations.
 - A safety review must check that safety-sensitive implementation changes include documentation updates and OpenSpec documentation tasks when behavior changes.
 - The agent must reject or require changes for any dangerous behavior change that lacks matching documentation.
 - Before finishing, check `README.md`, `docs/`, `skills/`, `agents/`, and active OpenSpec tasks for stale safety rules, stale command examples, or missing recovery guidance.
@@ -180,6 +182,7 @@ The Makefile is the public control plane. Safety review must verify:
 - VM/libvirt case selection must derive domains and artifacts from `PROFILE=openrc|systemd`, `FILESYSTEM=ext4|btrfs`, `STAGE3_FLAVOR=standard|hardened|musl`, fixed platform `amd64`, and optional `VM_TEST_IMAGE_NAME`; reviewers must reject docs or scripts that require operators to hand-build full case VM names for normal workflows.
 - VM/libvirt targets must not invoke `sudo` by default.
 - VM cleanup targets must delete only generated artifacts for the configured project-owned domain and must not delete ISO files, libvirt networks, pools, volumes, unrelated domains, or secrets.
+- Post-install desktop targets must require `DESKTOP_TARGET_HOST`, `DESKTOP_TARGET_USER`, and `DESKTOP_USER`; must not use `ANSIBLE_LIVE_HOST`; and must reject targets that look like the official live ISO root.
 - Proxmox cleanup targets must require `I_UNDERSTAND_CLEANUP_DELETE=DELETE`, verify the project ownership marker and generated VM name before mutation, and must not delete unrelated VMIDs, templates, ISOs, pools, or storage volumes outside the selected project-owned VM.
 - `make real-hardware-check` must be read-only, require explicit `INSTALL_DISK`, prefer stable disk identity paths, require backup/UEFI/network/power/recovery-media/destructive-preview acknowledgements, and state that it does not satisfy destructive confirmations.
 - `make vm-test-matrix-plan` must not create disks, define domains, start VMs, run destructive install targets, or treat `/dev/vda` as valid outside the planned disposable VM guest context.
@@ -218,6 +221,7 @@ For Ansible playbooks, roles, and tasks:
 - Secret-handling tasks must use `no_log` or equivalent redaction where sensitive values could appear in output, logs, facts, or diffs.
 - Global `ansible.cfg` must not disable host key checking; temporary live ISO SSH exceptions must remain scoped to the VM/live ISO wrappers.
 - Reusable Ansible roles must not depend on libvirt, VM IP discovery, qcow2 paths, or `/dev/vda`; those assumptions are allowed only in local test harness documentation and must not weaken safety gates.
+- Post-install desktop roles must validate installed-target markers before package work, must not import or include base installer roles, and must keep package/session-file changes separate from disk, bootloader, stage3, chroot, and privileged-user changes.
 - `make ansible-check` must be run or prepared for Ansible changes, and review output must state whether syntax checks and ansible-lint ran.
 
 ## 14. Review Output Format

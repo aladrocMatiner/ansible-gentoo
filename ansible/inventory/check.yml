@@ -8,3 +8,7 @@ all:
       ansible_connection: ssh
       ansible_user: root
       ansible_python_interpreter: auto_silent
+    gentoo_desktop:
+      ansible_connection: ssh
+      ansible_user: root
+      ansible_python_interpreter: auto_silent

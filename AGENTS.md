@@ -19,6 +19,7 @@ Agents must check documentation before finishing, correct stale documentation th
 - Makefile target added, changed, or removed: update `README.md` or `docs/`, and update `skills/makefile-control-plane.md` if the behavior is reusable.
 - Script added or changed: update `docs/` or relevant `skills/`; document arguments, environment variables, safety checks, examples, and failure modes.
 - Ansible playbook or role added or changed: update Ansible documentation; document variables, required inventory, safety gates, controller-to-target SSH assumptions, and execution target.
+- Post-install desktop workflow changed: update desktop docs, Ansible architecture docs, relevant skills, and OpenSpec tasks; document installed-target SSH variables, package scope, user session files, validation checks, and live ISO exclusion.
 - VM/libvirt workflow changed: update VM docs; document ISO path, disk path, optional `VM_TEST_IMAGE_NAME` local test labels, libvirt URI, network mode, serial console behavior, SSH bootstrap, cleanup behavior, and whether behavior is implemented or planned.
 - Proxmox workflow changed: update Proxmox docs; document Proxmox host/node, ISO volume, storage, bridge, VLAN, VMID/IP mapping, serial console SSH bootstrap, guest-agent channel and guest package behavior, installed-disk boot behavior, cleanup behavior, and whether behavior is implemented or planned.
 - Manual intervention or resume behavior changed: update `docs/manual-escape-hatch-policy.md`, `docs/install-state-and-resume-checkpoints.md`, `docs/install-audit-bundle.md`, and relevant agent or skill files.
@@ -70,6 +71,8 @@ Scripts must document usage in `docs/` or relevant `skills/`. Scripts must print
 Playbooks and roles must document required variables. Dangerous playbooks must document safety gates. Controller-vs-target execution must be explicit.
 
 The reusable network Ansible installer is the product. VM/libvirt scripts, Proxmox scripts, SSH bootstrap helpers, and VM artifact directories are test harness pieces used to validate the installer. Shared Ansible roles and Makefile targets must not depend on a libvirt domain name, Proxmox VMID, Proxmox storage name, VM-only IP discovery, `./var/libvirt/`, or a VM-only guest disk path except in VM-specific tests and examples.
+
+Optional post-install desktop profiles are installed-system workflows. They must run against an already installed Gentoo system over SSH, use `DESKTOP_TARGET_HOST` rather than `ANSIBLE_LIVE_HOST`, reject live ISO roots, and stay separate from disk, stage3, chroot, bootloader, and base installer user roles.
 
 Controller-to-live-ISO Ansible wrappers must use the shared SSH transport policy exposed through Makefile variables such as `ANSIBLE_SSH_CONNECT_TIMEOUT`, `ANSIBLE_SSH_SERVER_ALIVE_INTERVAL`, `ANSIBLE_SSH_SERVER_ALIVE_COUNT_MAX`, `ANSIBLE_SSH_CONTROL_MASTER`, `ANSIBLE_SSH_CONTROL_PERSIST`, and `ANSIBLE_SSH_CONTROL_PATH_DIR`. Do not duplicate raw `--ssh-common-args` strings in wrapper scripts. Keep temporary live ISO host-key relaxation scoped to wrapper invocations; do not disable host-key checking globally.
 

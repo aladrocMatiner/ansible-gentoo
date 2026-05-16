@@ -1,0 +1,225 @@
+---
+- name: Validate i3 profile selection
+  ansible.builtin.assert:
+    that:
+      - desktop_common_profile == 'i3-x11'
+      - desktop_common_session_start == 'startx'
+      - desktop_common_display_manager == 'none'
+      - desktop_i3_core_packages is defined
+      - desktop_i3_recommended_packages is defined
+    fail_msg: "DESKTOP_FAILED: i3 X11 profile inputs are invalid."
+    success_msg: "i3 X11 profile inputs are valid."
+
+- name: Build i3 package request
+  ansible.builtin.set_fact:
+    desktop_i3_requested_packages: >-
+      {{
+        (
+          desktop_i3_core_packages
+          + (desktop_i3_recommended_packages if desktop_common_install_recommends == 'yes' else [])
+        ) | unique | list
+      }}
+
+- name: Check i3 package availability
+  ansible.builtin.command:
+    argv:
+      - portageq
+      - match
+      - /
+      - "{{ item }}"
+  loop: "{{ desktop_i3_requested_packages }}"
+  register: desktop_i3_package_availability
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: desktop_common_action in ['plan', 'install']
+
+- name: Store unavailable i3 packages
+  ansible.builtin.set_fact:
+    desktop_i3_unavailable_packages: "{{ desktop_i3_package_availability.results | default([]) | selectattr('rc', 'ne', 0) | map(attribute='item') | list }}"
+  when: desktop_common_action in ['plan', 'install']
+
+- name: Require i3 packages to exist in Portage
+  ansible.builtin.assert:
+    that:
+      - desktop_i3_unavailable_packages | length == 0
+    fail_msg: "DESKTOP_FAILED: requested i3/X11 packages are unavailable in the target Portage tree: {{ desktop_i3_unavailable_packages | join(', ') }}"
+    success_msg: "Requested i3/X11 packages are available in Portage."
+  when: desktop_common_action in ['plan', 'install']
+
+- name: Check installed i3 packages
+  ansible.builtin.command:
+    argv:
+      - portageq
+      - has_version
+      - /
+      - "{{ item }}"
+  loop: "{{ desktop_i3_requested_packages }}"
+  register: desktop_i3_package_state
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Store missing i3 packages
+  ansible.builtin.set_fact:
+    desktop_i3_missing_packages: "{{ desktop_i3_package_state.results | selectattr('rc', 'ne', 0) | map(attribute='item') | list }}"
+
+- name: Report i3 desktop package plan
+  ansible.builtin.debug:
+    msg:
+      action: "{{ desktop_common_action }}"
+      packages: "{{ desktop_i3_requested_packages }}"
+      missing_packages: "{{ desktop_i3_missing_packages }}"
+      session_file: "{{ desktop_common_user_home }}/.xinitrc"
+      i3_config: "{{ desktop_common_user_home }}/.config/i3/config"
+      display_manager: none
+
+- name: Install i3 desktop packages
+  ansible.builtin.command:
+    argv: "{{ ['emerge', '--verbose', '--noreplace', '--changed-use'] + desktop_i3_requested_packages }}"
+  become: true
+  register: desktop_i3_emerge
+  changed_when: desktop_i3_missing_packages | length > 0
+  failed_when: desktop_i3_emerge.rc != 0
+  retries: 2
+  delay: 30
+  until: desktop_i3_emerge.rc == 0
+  when:
+    - desktop_common_action == 'install'
+    - not ansible_check_mode
+    - desktop_i3_missing_packages | length > 0
+
+- name: Ensure i3 config directory exists
+  ansible.builtin.file:
+    path: "{{ desktop_common_user_home }}/.config/i3"
+    state: directory
+    owner: "{{ desktop_common_user }}"
+    group: "{{ desktop_common_user_group_fields[0] }}"
+    mode: "0755"
+  become: true
+  when:
+    - desktop_common_action == 'install'
+    - not ansible_check_mode
+
+- name: Install i3 xinitrc
+  ansible.builtin.template:
+    src: xinitrc.j2
+    dest: "{{ desktop_common_user_home }}/.xinitrc"
+    owner: "{{ desktop_common_user }}"
+    group: "{{ desktop_common_user_group_fields[0] }}"
+    mode: "0644"
+  become: true
+  when:
+    - desktop_common_action == 'install'
+    - not ansible_check_mode
+
+- name: Install i3 config
+  ansible.builtin.template:
+    src: i3-config.j2
+    dest: "{{ desktop_common_user_home }}/.config/i3/config"
+    owner: "{{ desktop_common_user }}"
+    group: "{{ desktop_common_user_group_fields[0] }}"
+    mode: "0644"
+  become: true
+  when:
+    - desktop_common_action == 'install'
+    - not ansible_check_mode
+
+- name: Recheck installed i3 packages
+  ansible.builtin.command:
+    argv:
+      - portageq
+      - has_version
+      - /
+      - "{{ item }}"
+  loop: "{{ desktop_i3_requested_packages }}"
+  register: desktop_i3_package_state_after
+  changed_when: false
+  failed_when: desktop_i3_package_state_after.rc != 0
+  check_mode: false
+  when: desktop_common_action in ['install', 'validate']
+
+- name: Check i3 validation commands
+  ansible.builtin.command:
+    argv:
+      - /bin/bash
+      - -lc
+      - "command -v {{ item.command | quote }}"
+  loop: "{{ desktop_i3_validation_commands }}"
+  register: desktop_i3_commands
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: desktop_common_action in ['install', 'validate']
+
+- name: Check i3 session files
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ desktop_common_user_home }}/.xinitrc"
+    - "{{ desktop_common_user_home }}/.config/i3/config"
+  register: desktop_i3_session_files
+  when: desktop_common_action in ['install', 'validate']
+
+- name: Read i3 xinitrc
+  ansible.builtin.slurp:
+    src: "{{ desktop_common_user_home }}/.xinitrc"
+  register: desktop_i3_xinitrc
+  when:
+    - desktop_common_action in ['install', 'validate']
+    - desktop_i3_session_files.results[0].stat.exists | default(false)
+
+- name: Read systemd display manager enablement
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-enabled
+      - display-manager.service
+  register: desktop_i3_systemd_display_manager
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when:
+    - desktop_common_action in ['install', 'validate']
+    - ansible_service_mgr | default('') == 'systemd'
+
+- name: Read OpenRC default runlevel services
+  ansible.builtin.command:
+    argv:
+      - rc-update
+      - show
+      - default
+  register: desktop_i3_openrc_services
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when:
+    - desktop_common_action in ['install', 'validate']
+    - ansible_service_mgr | default('') != 'systemd'
+
+- name: Validate i3 desktop state
+  ansible.builtin.assert:
+    that:
+      - desktop_i3_package_state_after.results | default([]) | selectattr('rc', 'ne', 0) | list | length == 0
+      - desktop_i3_commands.results | default([]) | selectattr('rc', 'ne', 0) | list | length == 0
+      - desktop_i3_session_files.results | default([]) | selectattr('stat.exists') | list | length == 2
+      - (desktop_i3_xinitrc.content | default('') | b64decode) is search('exec .*i3')
+      - ansible_service_mgr | default('') != 'systemd' or desktop_i3_systemd_display_manager.rc != 0
+      - ansible_service_mgr | default('') == 'systemd' or desktop_i3_openrc_services.stdout is not search('(^|\\n)\\s*(xdm|display-manager|gdm|sddm|lightdm)\\s')
+    fail_msg: "DESKTOP_FAILED: i3 packages, commands, session files, or display-manager policy do not match the requested profile."
+    success_msg: "i3 desktop profile validates successfully."
+  when: desktop_common_action in ['install', 'validate']
+
+- name: Report i3 desktop result
+  ansible.builtin.debug:
+    msg:
+      status: "{{ 'planned' if desktop_common_action == 'plan' else 'validated' }}"
+      profile: i3-x11
+      user: "{{ desktop_common_user }}"
+      packages: "{{ desktop_i3_requested_packages }}"
+      missing_before: "{{ desktop_i3_missing_packages }}"
+      xinitrc: "{{ desktop_common_user_home }}/.xinitrc"
+      i3_config: "{{ desktop_common_user_home }}/.config/i3/config"
+      start_method: startx
+      display_manager: none
+      destructive_install_commands_run: false

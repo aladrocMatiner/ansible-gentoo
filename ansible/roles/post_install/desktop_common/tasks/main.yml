@@ -1,0 +1,143 @@
+---
+- name: Define desktop common facts
+  ansible.builtin.set_fact:
+    desktop_common_action: "{{ desktop_action | default('install') }}"
+    desktop_common_profile: "{{ desktop_profile | default('i3-x11') }}"
+    desktop_common_user: "{{ desktop_user | default('') }}"
+    desktop_common_install_recommends: "{{ desktop_install_recommends | default('yes') }}"
+    desktop_common_display_manager: "{{ desktop_display_manager | default('none') }}"
+    desktop_common_session_start: "{{ desktop_session_start | default('startx') }}"
+    desktop_common_privilege_tool: "{{ desktop_privilege_tool | default('sudo') }}"
+
+- name: Validate desktop common inputs
+  ansible.builtin.assert:
+    that:
+      - desktop_common_action in ['plan', 'install', 'validate']
+      - desktop_common_profile in desktop_supported_profiles
+      - desktop_common_user is match('^[a-z_][a-z0-9_-]{0,31}\\$?$')
+      - desktop_common_install_recommends in ['yes', 'no']
+      - desktop_common_display_manager == 'none'
+      - desktop_common_session_start == 'startx'
+      - desktop_common_privilege_tool == 'sudo'
+    fail_msg: "DESKTOP_FAILED: desktop profile, user, session, or privilege inputs are invalid."
+    success_msg: "Desktop profile inputs are valid."
+
+- name: Read target root filesystem type
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --mountpoint
+      - /
+      - --noheadings
+      - --output
+      - FSTYPE,SOURCE
+  register: desktop_common_root_mount
+  changed_when: false
+  check_mode: false
+
+- name: Check installed target files
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /etc/gentoo-release
+    - /etc/fstab
+  register: desktop_common_target_files
+
+- name: Validate installed target boundary
+  ansible.builtin.assert:
+    that:
+      - ansible_system == 'Linux'
+      - ansible_architecture == 'x86_64'
+      - desktop_common_target_files.results | selectattr('stat.exists') | list | length == desktop_common_target_files.results | length
+      - desktop_common_root_mount.stdout is not search('(^|\\s)(overlay|squashfs|iso9660|tmpfs)(\\s|$)')
+    fail_msg: "DESKTOP_FAILED: target does not look like an installed amd64 Gentoo system; refusing to run desktop profile against a live ISO or temporary root."
+    success_msg: "Installed target boundary checks passed."
+
+- name: Read selected desktop user account
+  ansible.builtin.command:
+    argv:
+      - getent
+      - passwd
+      - "{{ desktop_common_user }}"
+  register: desktop_common_user_passwd
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Require selected desktop user account
+  ansible.builtin.assert:
+    that:
+      - desktop_common_user_passwd.rc == 0
+      - desktop_common_user_passwd.stdout.split(':') | length >= 7
+    fail_msg: "DESKTOP_FAILED: DESKTOP_USER must name an existing installed-system user: {{ desktop_common_user }}"
+    success_msg: "Selected desktop user account exists."
+
+- name: Store selected desktop user fields
+  ansible.builtin.set_fact:
+    desktop_common_user_fields: "{{ desktop_common_user_passwd.stdout.split(':') }}"
+
+- name: Read selected desktop user primary group
+  ansible.builtin.command:
+    argv:
+      - getent
+      - group
+      - "{{ desktop_common_user_fields[3] }}"
+  register: desktop_common_user_group
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Require selected desktop user primary group
+  ansible.builtin.assert:
+    that:
+      - desktop_common_user_group.rc == 0
+      - desktop_common_user_group.stdout.split(':') | length >= 3
+    fail_msg: "DESKTOP_FAILED: selected desktop user primary group was not found: {{ desktop_common_user_fields[3] }}"
+    success_msg: "Selected desktop user primary group exists."
+
+- name: Store selected desktop user paths
+  ansible.builtin.set_fact:
+    desktop_common_user_group_fields: "{{ desktop_common_user_group.stdout.split(':') }}"
+    desktop_common_user_home: "{{ desktop_common_user_fields[5] }}"
+    desktop_common_user_shell: "{{ desktop_common_user_fields[6] }}"
+
+- name: Validate selected desktop user home
+  ansible.builtin.assert:
+    that:
+      - desktop_common_user_home is match('^/home/[A-Za-z0-9_.-]+$')
+      - desktop_common_user_shell is match('^/')
+      - desktop_common_user_group_fields | length >= 3
+    fail_msg: "DESKTOP_FAILED: selected desktop user home, shell, or primary group is not suitable for managed session files."
+    success_msg: "Selected desktop user is suitable for managed session files."
+
+- name: Check non-root sudo access for desktop mutation
+  ansible.builtin.command:
+    argv:
+      - sudo
+      - -n
+      - "true"
+  register: desktop_common_sudo_check
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: ansible_user_id != 'root'
+
+- name: Require root or passwordless sudo for desktop mutation
+  ansible.builtin.assert:
+    that:
+      - ansible_user_id == 'root' or desktop_common_sudo_check.rc == 0
+    fail_msg: "DESKTOP_FAILED: DESKTOP_TARGET_USER must be root or have passwordless sudo for Makefile-driven desktop installation."
+    success_msg: "Desktop target user can elevate for package and config changes."
+
+- name: Report desktop common plan
+  ansible.builtin.debug:
+    msg:
+      action: "{{ desktop_common_action }}"
+      profile: "{{ desktop_common_profile }}"
+      user: "{{ desktop_common_user }}"
+      user_home: "{{ desktop_common_user_home }}"
+      session_start: "{{ desktop_common_session_start }}"
+      display_manager: "{{ desktop_common_display_manager }}"
+      target_root: "{{ desktop_common_root_mount.stdout }}"
+      live_iso_rejected: true
+      destructive_install_commands_allowed: false

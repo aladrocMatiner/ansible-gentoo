@@ -153,6 +153,18 @@ Ansible live target variables:
 - `ANSIBLE_SSH_CONTROL_PERSIST`
 - `ANSIBLE_SSH_CONTROL_PATH_DIR`
 
+Post-install desktop target variables:
+
+- `DESKTOP_PROFILE`
+- `DESKTOP_TARGET_HOST`
+- `DESKTOP_TARGET_PORT`
+- `DESKTOP_TARGET_USER`
+- `DESKTOP_USER`
+- `DESKTOP_INSTALL_RECOMMENDS`
+- `DESKTOP_DISPLAY_MANAGER`
+- `DESKTOP_SESSION_START`
+- `DESKTOP_PRIVILEGE_TOOL`
+
 Recommended defaults:
 
 - `HOSTNAME=gentoo`
@@ -227,6 +239,18 @@ Recommended Ansible live target defaults:
 - `ANSIBLE_SSH_CONTROL_PERSIST=10m`
 - `ANSIBLE_SSH_CONTROL_PATH_DIR=var/ssh-control`
 
+Recommended post-install desktop defaults:
+
+- `DESKTOP_PROFILE=i3-x11`
+- `DESKTOP_TARGET_HOST` has no default; it must be an already installed Gentoo SSH target, not the live ISO.
+- `DESKTOP_TARGET_PORT=22`
+- `DESKTOP_TARGET_USER` has no default; it must be root or a passwordless sudo user.
+- `DESKTOP_USER` has no default; it must be an existing installed user.
+- `DESKTOP_INSTALL_RECOMMENDS=yes`
+- `DESKTOP_DISPLAY_MANAGER=none`
+- `DESKTOP_SESSION_START=startx`
+- `DESKTOP_PRIVILEGE_TOOL=sudo`
+
 Rules:
 
 - `INSTALL_DISK` must not have a default value.
@@ -273,6 +297,11 @@ Rules:
 - Documentation for long-running Ansible install targets should recommend running the controller-side Makefile command inside `tmux` or `screen`.
 - `local-*` Ansible targets run inside the official Gentoo live ISO with `ansible_connection=local`; they are fallback/diagnostic targets and must not replace the primary SSH/network workflow.
 - Local Ansible targets must not disable host-key checking globally, because they do not use SSH to the live ISO.
+- Post-install desktop targets must use `DESKTOP_TARGET_HOST` and must not reuse `ANSIBLE_LIVE_HOST`; desktop profiles run against the installed system after reboot, not the live ISO.
+- `make desktop-plan` and `make desktop-validate` are read-only with respect to target state.
+- `make desktop-install` may install packages and write user session files, but it must not partition, format, mount target roots, extract stage3, chroot, install GRUB, or modify EFI entries.
+- `DESKTOP_USER` must not default to an operator username or VM-specific username.
+- Desktop targets must keep installed-system host-key policy separate from temporary live ISO host-key relaxation.
 - `VM_NETWORK` is required only when `VM_NET_MODE=network`.
 - `VM_RAM`, `VM_CPUS`, ports, and `VM_DISK_SIZE` must be validated before generated XML or disk creation uses them.
 - VM definitions should pass serial console kernel args so `make vm-console` is usable with the official live ISO.
@@ -326,6 +355,8 @@ Required safe targets:
 - `make reset-test-run`
 - `make install-plan PROFILE=openrc`
 - `make install-plan PROFILE=systemd`
+- `make desktop-plan`
+- `make desktop-validate`
 - `make vm-list-cases`
 - `make vm-check`
 - `make vm-e2e-plan`
@@ -351,6 +382,8 @@ Expected behavior:
 - `make local-install-plan`: optional fallback read-only install plan target run inside the official live ISO.
 - `make local-partition-plan`: optional fallback read-only partition plan target run inside the official live ISO; it still requires explicit `INSTALL_DISK`.
 - `make install-plan`: summarize intended install flow without making changes; default `PROFILE=openrc`, `FILESYSTEM=ext4`, and `STAGE3_FLAVOR=standard`, but never default `INSTALL_DISK`.
+- `make desktop-plan`: connect to an installed Gentoo target over SSH, validate desktop profile inputs and installed-target boundaries, and report i3/X11 package/session changes without mutating the target.
+- `make desktop-validate`: connect to an installed Gentoo target over SSH and verify package, command, user-session, and display-manager state without mutating the target.
 - `make partition-plan`: require explicit `INSTALL_DISK` and summarize the exact GPT partition layout without writing.
 - `make mount-plan`: require explicit `INSTALL_DISK` and summarize the future root and EFI mount layout without running `mount`, `umount`, or `mkdir`.
 - `make filesystem-plan`: require explicit `INSTALL_DISK` and summarize the future EFI/root filesystem creation plan without running `mkfs.*`, `wipefs`, `mount`, `umount`, or `mkdir`.
@@ -397,6 +430,7 @@ Semi-dangerous targets:
 - `make prepare-live-env`
 - `make download-stage3`
 - `make mount-target`
+- `make desktop-install`
 - `make stage3-install`
 - `make prepare-chroot`
 - `make configure-portage`
@@ -431,6 +465,7 @@ Expected behavior:
 - `make verify-stage3`: verify checksum and signature policy from `docs/stage3-signature-policy.md` before any extraction target can run.
 - `make stage3-install`: use `STAGE3_MIRROR` and `STAGE3_CACHE_DIR`, verify official metadata and SHA512/signatures, then extract only into mounted `/mnt/gentoo`.
 - `make mount-target`: mount explicitly provided partitions to explicitly provided target paths after mount-state checks; for Btrfs it must mount root with `subvol=@` and the approved subvolumes from `docs/btrfs-layout-policy.md`.
+- `make desktop-install`: connect only to an already installed Gentoo target through `DESKTOP_TARGET_HOST`, install the selected post-install desktop package set, write managed session files for `DESKTOP_USER`, and refuse live ISO, disk, bootloader, stage3, mount, or chroot behavior.
 - `make prepare-chroot`: require mounted `/mnt/gentoo` with extracted stage3 markers, mount or verify pseudo-filesystems only under `/mnt/gentoo`, prepare target DNS, validate DNS with a read-only chroot lookup, and print before/after mount state.
 - `make configure-portage`: manage conservative target `make.conf`, install official Gentoo repo configuration, run official Gentoo repo sync, select the matching OpenRC/systemd profile from variant variables, keep GURU disabled, report pending config updates, and skip broad `@world`.
 - `make configure-system`: configure target hostname, timezone, UTF-8 locale, and OpenRC/systemd console keymap files under `/mnt/gentoo`; generate the locale and refresh target env only when locale files change.
@@ -573,6 +608,8 @@ Rules:
 - `make vm-clean`
 - `make vm-test-matrix-plan`
 - `make final-checks`
+- `make desktop-plan DESKTOP_TARGET_HOST=<installed-host> DESKTOP_TARGET_USER=<ssh-user> DESKTOP_USER=<installed-user>`
+- `make desktop-install DESKTOP_TARGET_HOST=<installed-host> DESKTOP_TARGET_USER=<ssh-user> DESKTOP_USER=<installed-user>`
 - `make record-manual-step MANUAL_STEP_SUMMARY="Reviewed target state" MANUAL_STEP_REASON="Automation paused for manual inspection"`
 
 ## 12. Examples of Bad Targets
@@ -589,6 +626,8 @@ Rules:
 - `make qemu-boot` that invokes `qemu-system-x86_64` directly instead of aliasing the active libvirt workflow.
 - `make vm-clean` that deletes every `.qcow2` or `.fd` file under an artifact directory instead of only generated files for the configured domain.
 - Separate long `make install-openrc` and `make install-systemd` recipes that duplicate the same Ansible command chain instead of passing variant variables into a shared flow.
+- `make desktop-install` that connects to `ANSIBLE_LIVE_HOST` and installs X11 packages into the live ISO.
+- `make desktop-i3-install` that assumes a default desktop user.
 
 ## 13. Failure Modes
 - The operator bypasses the Makefile and runs raw commands from documentation.
@@ -648,6 +687,7 @@ When Makefile behavior changes, documentation must change in the same commit or 
 - If live ISO Ansible preflight targets change, update `docs/ansible-live-preflight.md`, `docs/libvirt-manual-install-test.md`, `skills/ansible-gentoo-installer.md`, and the active OpenSpec tasks.
 - If local live ISO Ansible fallback targets change, update `docs/live-iso-local-ansible.md`, `docs/ansible-live-preflight.md`, `skills/ansible-gentoo-installer.md`, and the active OpenSpec tasks. Keep network Ansible documented as the primary product path.
 - If read-only Ansible disk detection or install-plan targets change, update `docs/ansible-install-plan.md`, `skills/ansible-gentoo-installer.md`, `skills/gentoo-disk-planning.md`, and the active OpenSpec tasks.
+- If post-install desktop targets change, update `docs/desktop-profiles.md`, the profile-specific desktop doc, `docs/ansible-architecture.md`, `skills/ansible-gentoo-installer.md`, and active OpenSpec tasks. Document installed-target SSH variables, package scope, user session files, validation checks, failure modes, and the live ISO exclusion.
 - If read-only partition-plan targets change, update `docs/ansible-partition-plan.md`, disk-planning skills, safety docs, and active OpenSpec tasks.
 - If `make ansible-check` behavior changes, update Ansible docs, `.ansible-lint` expectations, `skills/ansible-gentoo-installer.md`, and active OpenSpec tasks.
 - If `FILESYSTEM` behavior changes, update target help, variable defaults, install-plan docs, disk-planning docs, and safety notes in the same change.

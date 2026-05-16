@@ -20,6 +20,7 @@ Use this skill:
 - When adding or changing the read-only live ISO Ansible preflight used before installer automation.
 - When deciding whether behavior belongs in reusable Ansible roles or only in the VM validation harnesses.
 - When adding or changing read-only disk detection or install-plan behavior.
+- When adding optional post-install Ansible profiles that run against an already installed Gentoo system over SSH.
 
 Do not use this skill to bypass OpenSpec or safety review for destructive automation.
 
@@ -65,6 +66,8 @@ ansible/
     install-openrc.yml
     install-systemd.yml
     install-basic-console.yml
+    post-install-desktop.yml
+    validate-desktop.yml
   roles/
     common/
       preflight/
@@ -87,12 +90,17 @@ ansible/
       users/
       ssh/
       final_checks/
+    post_install/
+      desktop_common/
+      desktop_i3_x11/
     init/
       openrc/
       systemd/
 ```
 
 The layout must keep shared behavior in common roles and init-specific behavior isolated under explicit OpenRC and systemd roles or task files. Alternative layouts are allowed only when an approved OpenSpec design preserves common implementation and init-specific isolation.
+
+Optional post-install roles live under `roles/post_install/`. They run after the installed system has booted from disk and is reachable over SSH. They must not modify the basic-console install sequence or run against the official live ISO.
 
 ## 5. Inventory Model
 Inventory is remote/network-first:
@@ -159,6 +167,11 @@ Expected variables:
 - `efi_partition`: set only after approved plan.
 - `root_partition`: set only after approved plan.
 - `confirm_wipe_disk`: required for destructive tasks. It may be populated from Makefile `I_UNDERSTAND_THIS_WIPES_DISK=yes`.
+- `desktop_profile`: post-install desktop profile, currently `i3-x11`.
+- `desktop_user`: existing installed user that receives session files.
+- `desktop_install_recommends`: `yes` or `no` package recommendation policy.
+- `desktop_display_manager`: currently `none` only.
+- `desktop_session_start`: currently `startx` only.
 
 Rules:
 
@@ -180,6 +193,7 @@ Rules:
 - Do not store plaintext passwords, API keys, or login tokens in variables.
 - Do not pass password hashes or SSH key contents directly as Makefile variables or inventory values; pass only approved local file paths and redact contents with `no_log`.
 - Variables that select disks or partitions must be operator-provided or generated from an approved plan.
+- Post-install desktop variables must not select a live ISO target. Wrapper variables use `DESKTOP_TARGET_HOST`, `DESKTOP_TARGET_PORT`, `DESKTOP_TARGET_USER`, and `DESKTOP_USER` because the workflow targets the installed system after reboot.
 
 ## 7. Role Model
 Roles must have narrow responsibilities and a reuse-first boundary.
@@ -209,6 +223,8 @@ Shared roles:
 - `common/users`: require explicit `admin_user`, create or update the target admin account under `/mnt/gentoo`, manage admin group membership, configure sudo through `wheel` by default, support explicit `admin_sudo_nopasswd` for disposable test convenience or operator policy, apply optional password hashes from gitignored controller-local files with `no_log`, install optional authorized keys, enforce installed SSH root-login restrictions when SSH is enabled, and record only non-secret evidence.
 - `common/ssh`: translate `ENABLE_SSH` into optional package/service inputs without storing secrets, enabling root password login, or assuming SSH is enabled by default.
 - `common/final_checks`: require explicit `admin_user`, run read-only reboot readiness validation for target mounts, chroot mounts, fstab, Btrfs subvolumes, kernel/initramfs, GRUB/EFI files, services, users, target identity, Portage baseline, SSH policy, and secret-safe report inputs.
+- `post_install/desktop_common`: validate installed-target boundaries, reject live ISO roots, require an existing desktop user, verify root/passwordless sudo elevation, normalize desktop variables, and report shared desktop plan output.
+- `post_install/desktop_i3_x11`: manage i3/X11 package policy, `startx` session templates, package installed-state checks, i3/startx command validation, and display-manager-disabled validation.
 
 Init-specific roles:
 
@@ -224,6 +240,8 @@ Expected playbooks:
 - `install-basic-console.yml`: shared console installation flow.
 - `install-openrc.yml`: thin OpenRC entrypoint that loads OpenRC variables and calls the shared flow.
 - `install-systemd.yml`: thin systemd entrypoint that loads systemd variables and calls the shared flow.
+- `post-install-desktop.yml`: shared post-install desktop entrypoint. It targets an installed Gentoo system over SSH and must call `post_install/desktop_common` before profile-specific roles.
+- `validate-desktop.yml`: read-only validation entrypoint for installed desktop profile state.
 
 Rules:
 
@@ -235,6 +253,7 @@ Rules:
 - Destructive work must be isolated in clearly named playbooks and tags.
 - Shell and command tasks must be minimized and guarded.
 - Do not duplicate OpenRC and systemd playbook logic when a shared playbook can be parameterized safely.
+- Desktop playbooks must not import base installer roles such as partitioning, filesystem, stage3, chroot, bootloader, users, or final checks. They may validate the installed boundary and manage post-install desktop packages/config only.
 
 ## Ansible quality standards
 Future Ansible implementation must be written so it can be reviewed, linted, and rerun safely.
@@ -415,6 +434,9 @@ These targets define the expected control-plane contract for future Ansible inst
 - `make partition-plan INSTALL_DISK=...`
 - `make install-plan PROFILE=openrc`
 - `make install-plan PROFILE=systemd`
+- `make desktop-plan DESKTOP_TARGET_HOST=... DESKTOP_TARGET_USER=... DESKTOP_USER=...`
+- `make desktop-install DESKTOP_TARGET_HOST=... DESKTOP_TARGET_USER=... DESKTOP_USER=...`
+- `make desktop-validate DESKTOP_TARGET_HOST=... DESKTOP_TARGET_USER=... DESKTOP_USER=...`
 - `make install-openrc`
 - `make install-systemd`
 - `make final-checks`
@@ -435,6 +457,9 @@ Target expectations:
 - `make partition-plan INSTALL_DISK=...`: require an explicit disk and produce a read-only GPT partition plan without partitioning.
 - `make install-plan PROFILE=openrc`: gather facts and create an operator-readable OpenRC install plan.
 - `make install-plan PROFILE=systemd`: gather facts and create an operator-readable systemd install plan.
+- `make desktop-plan`: connect to an installed Gentoo target, reject live ISO roots, check selected desktop package availability and session plan, and avoid target mutation.
+- `make desktop-install`: install the selected post-install desktop profile on an installed Gentoo target only; it may install packages and user session files but must not run base installer roles.
+- `make desktop-validate`: validate the installed desktop profile state without mutating the target.
 - `make partition`: destructive target that applies only the approved GPT ESP/root layout after shared disk safety gates and explicit wipe confirmation.
 - `make final-checks`: run read-only validation before manual reboot; require `ADMIN_USER` so the installed admin account and sudo policy can be checked.
 - `make install`: execute the shared destructive basic-console install flow for the selected `PROFILE`.
@@ -523,6 +548,7 @@ When phase 2 Ansible behavior changes, documentation must change in the same imp
 - If configuration schema or validation behavior changes, update `config/install-schema.yml`, `docs/install-configuration.md`, this skill, `skills/makefile-control-plane.md`, and the active OpenSpec tasks together.
 - If execution assumptions change, document controller/target behavior. Reusable installer docs must remain remote/network-first; local VM/libvirt docs must remain clearly labeled as test harness docs.
 - If Makefile targets such as `make ansible-check`, `make ansible-dry-run PROFILE=...`, `make install-plan PROFILE=...`, `make install-openrc`, `make install-systemd`, or `make final-checks` change, update this skill and `skills/makefile-control-plane.md`.
+- If post-install desktop roles, playbooks, wrappers, package policy, or targets change, update `docs/desktop-profiles.md`, the profile-specific desktop document, `docs/ansible-architecture.md`, `skills/makefile-control-plane.md`, and active OpenSpec tasks together.
 - If destructive Ansible tasks change, update `agents/safety-review-agent.md`, disk safety skills, and OpenSpec `tasks.md` before marking implementation complete.
 - If variables such as `install_disk`, `confirm_wipe_disk`, or the Makefile confirmation variable `I_UNDERSTAND_THIS_WIPES_DISK` change, update variable documentation, safety gates, examples, failure modes, and recovery advice together.
 - If manual intervention handling changes, update `docs/manual-escape-hatch-policy.md`, `docs/install-state-and-resume-checkpoints.md`, `docs/install-audit-bundle.md`, this skill, `skills/makefile-control-plane.md`, and active OpenSpec tasks together.

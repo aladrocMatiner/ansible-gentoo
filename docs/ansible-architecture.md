@@ -59,6 +59,7 @@ Shared behavior includes:
 - logging and error taxonomy
 - cleanup/reset safety
 - manual intervention recording
+- post-install desktop profile target validation and SSH wrapping
 
 Do not duplicate OpenRC and systemd logic unless the behavior genuinely differs. If duplication is necessary, the implementing OpenSpec change must explain why shared roles, variables, handlers, templates, or includes cannot express the behavior.
 
@@ -120,6 +121,8 @@ ansible/
     install-openrc.yml
     install-systemd.yml
     install-basic-console.yml
+    post-install-desktop.yml
+    validate-desktop.yml
   roles/
     common/
       preflight/
@@ -155,6 +158,9 @@ ansible/
       users/
       ssh/
       final_checks/
+    post_install/
+      desktop_common/
+      desktop_i3_x11/
     init/
       openrc/
       systemd/
@@ -198,6 +204,8 @@ Shared roles live under `roles/common/` or an equivalent shared structure.
 - `users`: admin user creation, sudo policy including explicit passwordless mode, optional password hash application, optional authorized_keys installation, and non-secret access evidence.
 - `ssh`: optional installed SSH package/service policy and init-specific enablement dispatch.
 - `final_checks`: read-only reboot readiness validation for mounts, fstab, kernel/initramfs, GRUB/EFI files, users, services, target baseline, Portage status, SSH policy, and secret-safe report inputs.
+- `post_install/desktop_common`: installed-target SSH boundary, user selection, elevation checks, live-ISO rejection, shared desktop variables, and reusable plan output for optional post-install desktop profiles.
+- `post_install/desktop_i3_x11`: i3/X11 package policy, `startx` session templates, package installed-state checks, and i3-specific validation. It must not perform base installer, disk, bootloader, stage3, or live ISO work.
 
 Currently implemented shared roles and workflows:
 
@@ -221,6 +229,8 @@ Currently implemented shared roles and workflows:
 - `common/users`: creates or updates the target admin user, configures sudo through `wheel` by default, supports explicit passwordless sudo mode for disposable tests or operator policy, applies optional password hashes from gitignored controller-local files with `no_log`, installs optional admin authorized keys, enforces installed SSH root-login restrictions when SSH is enabled, and records non-secret evidence.
 - `common/bootloader`: requires explicit `install_disk` and `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`, shows EFI entries before GRUB actions, installs `sys-boot/grub` and `sys-boot/efibootmgr`, runs guarded UEFI `grub-install`, generates `grub.cfg`, validates the approved root command line, and records bootloader evidence.
 - `common/final_checks`: runs read-only reboot readiness checks, requires `ADMIN_USER`, validates fstab, kernel/initramfs, GRUB/EFI files, Btrfs subvolumes, services, users, target identity, Portage baseline, SSH policy, and writes a secret-safe readiness report.
+- `post_install/desktop_common`: validates that optional desktop workflows target an already installed amd64 Gentoo system over SSH, require an existing `DESKTOP_USER`, reject live ISO roots, and require root or passwordless sudo for package and user-session file changes.
+- `post_install/desktop_i3_x11`: implements the optional `i3-x11` post-install profile with Xorg/xinit/i3 package checks, managed `.xinitrc`, managed i3 config, and display-manager-disabled validation.
 - `ansible/playbooks/install-basic-console.yml`: shared destructive orchestration sequence that wires the implemented roles together in Handbook order and passes one `install_run_id` to per-phase evidence logs.
 - `ansible/playbooks/install-openrc.yml` and `ansible/playbooks/install-systemd.yml`: thin entrypoints that select only the init variant and import the shared install flow.
 - `init/openrc`: enables target services with `rc-update` only.
@@ -318,6 +328,9 @@ make install-bootloader PROFILE=openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda I_
 make final-checks PROFILE=openrc FILESYSTEM=btrfs ADMIN_USER=gentoo
 make install-openrc FILESYSTEM=btrfs INSTALL_DISK=/dev/vda ADMIN_USER=gentoo I_UNDERSTAND_THIS_WIPES_DISK=yes I_UNDERSTAND_BOOTLOADER_CHANGES=yes
 make install-systemd FILESYSTEM=btrfs INSTALL_DISK=/dev/vda ADMIN_USER=gentoo I_UNDERSTAND_THIS_WIPES_DISK=yes I_UNDERSTAND_BOOTLOADER_CHANGES=yes
+make desktop-plan DESKTOP_TARGET_HOST=192.0.2.10 DESKTOP_TARGET_USER=gentoo DESKTOP_USER=gentoo
+make desktop-install DESKTOP_TARGET_HOST=192.0.2.10 DESKTOP_TARGET_USER=gentoo DESKTOP_USER=gentoo
+make desktop-validate DESKTOP_TARGET_HOST=192.0.2.10 DESKTOP_TARGET_USER=gentoo DESKTOP_USER=gentoo
 ```
 
 The `/dev/vda` and `/dev/sda` examples are VM-only examples for the libvirt and Proxmox harnesses. For real network targets, use the explicit disk path reported by `make detect-disks ANSIBLE_LIVE_HOST=...`.
@@ -325,6 +338,8 @@ The `/dev/vda` and `/dev/sda` examples are VM-only examples for the libvirt and 
 Targets should pass `PROFILE=openrc` or `PROFILE=systemd` into a shared Ansible flow where practical. Avoid duplicated OpenRC and systemd command chains when a shared command can be parameterized safely.
 
 Targets should pass network target variables into Ansible through the documented wrapper layer. VM/libvirt and Proxmox discovery are conveniences for validation and must not be required by the reusable installer.
+
+Post-install desktop targets use `DESKTOP_TARGET_HOST`, not `ANSIBLE_LIVE_HOST`, because they connect to the installed system after reboot rather than the official live ISO. They must keep host-key checking policy suitable for persistent installed systems and must not rely on live ISO host-key relaxation.
 
 Only targets present in the current `Makefile` should be documented as runnable in user-facing quick-start instructions.
 

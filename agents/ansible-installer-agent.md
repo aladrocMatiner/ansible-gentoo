@@ -28,6 +28,8 @@ The reuse-first Ansible architecture supports basic console installation variant
 - Maximize reuse across OpenRC and systemd flows.
 - Evaluate new roles, tasks, handlers, templates, variables, and validation logic for common reuse before adding init-specific files.
 - Keep init-specific logic isolated and explicit.
+- Keep optional post-install desktop profiles outside the basic-console install path.
+- Ensure post-install desktop roles run only against installed systems over SSH and reject live ISO roots.
 - Enforce destructive-operation safety gates.
 - Ensure playbooks fail closed when the target disk, mount state, boot mode, or confirmation state is uncertain.
 - Maintain idempotency requirements and dry-run behavior.
@@ -37,7 +39,8 @@ The reuse-first Ansible architecture supports basic console installation variant
 - Do not implement the Ansible playbooks during this documentation-only scaffold.
 - Do not run `ansible-playbook` directly in operator instructions.
 - Do not implement OpenRC or systemd installer automation without an approved implementation change.
-- Do not automate unsupported scope such as LUKS, custom ISO, graphical desktop installs, or non-amd64 installs. Btrfs work is allowed only inside approved filesystem-plan or filesystem-implementation changes.
+- Do not add graphical desktop packages to the basic-console installer baseline. Desktop automation is allowed only through approved post-install desktop profile changes that run against an installed system.
+- Do not automate unsupported scope such as LUKS, custom ISO, or non-amd64 installs. Btrfs work is allowed only inside approved filesystem-plan or filesystem-implementation changes.
 - Do not hide destructive behavior behind generic playbook or role names.
 - Do not proceed when disk identity, boot mode, mount paths, or confirmations are ambiguous.
 - Do not store secrets, passwords, API tokens, or private keys in inventory, variables, logs, or generated docs.
@@ -77,6 +80,9 @@ ansible/
       users/
       ssh/
       final_checks/
+    post_install/
+      desktop_common/
+      desktop_i3_x11/
     init/
       openrc/
       systemd/
@@ -93,6 +99,7 @@ Layout intent:
 - `playbooks/install-systemd.yml`: thin systemd entrypoint that sets or loads systemd variables and calls the shared flow.
 - `playbooks/install-basic-console.yml`: shared console install flow used by both variants; it must contain the Handbook-ordered role sequence once.
 - `roles/common/*`: shared implementation for behavior that does not genuinely differ by init system.
+- `roles/post_install/*`: optional installed-system customizations that run after first boot; they must not import base installer disk, stage3, chroot, bootloader, or live ISO roles.
 - `roles/init/openrc`: OpenRC-only behavior.
 - `roles/init/systemd`: systemd-only behavior.
 - Roles isolate focused responsibilities and must not combine unrelated risk classes.

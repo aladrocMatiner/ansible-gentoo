@@ -1,0 +1,22 @@
+---
+desktop_supported_profiles:
+  - i3-x11
+
+desktop_i3_core_packages:
+  - sys-apps/dbus
+  - x11-base/xorg-server
+  - x11-apps/xinit
+  - x11-wm/i3
+
+desktop_i3_recommended_packages:
+  - x11-misc/dmenu
+  - x11-misc/i3status
+  - x11-terms/xterm
+
+desktop_i3_validation_commands:
+  - name: i3
+    command: i3
+  - name: startx
+    command: startx
+
+desktop_i3_session_command: exec dbus-run-session -- i3
