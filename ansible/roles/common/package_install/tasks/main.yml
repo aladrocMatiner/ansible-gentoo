@@ -190,8 +190,8 @@
     name: init/openrc
     tasks_from: services
   vars:
-    init_service_list: "{{ package_install_requested_services }}"
-    init_target_root: "{{ package_install_target_root }}"
+    openrc_service_list: "{{ package_install_requested_services }}"
+    openrc_target_root: "{{ package_install_target_root }}"
   when: profile == 'openrc'
 
 - name: Enable systemd services
@@ -199,8 +199,8 @@
     name: init/systemd
     tasks_from: services
   vars:
-    init_service_list: "{{ package_install_requested_services }}"
-    init_target_root: "{{ package_install_target_root }}"
+    systemd_service_list: "{{ package_install_requested_services }}"
+    systemd_target_root: "{{ package_install_target_root }}"
   when: profile == 'systemd'
 
 - name: Define package installation audit run id

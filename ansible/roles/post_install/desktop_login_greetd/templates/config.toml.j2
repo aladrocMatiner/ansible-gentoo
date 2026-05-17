@@ -1,0 +1,9 @@
+# Managed by gentoo-ai-installer.
+# This config intentionally requires interactive authentication.
+
+[terminal]
+vt = 1
+
+[default_session]
+command = "tuigreet --time --remember --remember-user-session --user-menu --sessions /usr/share/wayland-sessions --xsessions /usr/share/xsessions --cmd {{ desktop_login_dispatcher_path }} {{ desktop_login_common_default_session }}"
+user = "greetd"

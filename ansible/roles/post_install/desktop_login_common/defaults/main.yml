@@ -1,0 +1,58 @@
+---
+desktop_login_supported_managers:
+  - none
+  - greetd
+
+desktop_login_supported_sessions:
+  - i3-x11
+  - sway-wayland
+  - hyprland-wayland
+  - niri-wayland
+  - mango-wayland
+
+desktop_login_dispatcher_path: /usr/local/bin/gentoo-ai-desktop-session
+
+desktop_login_session_definitions:
+  i3-x11:
+    label: i3
+    type: x11
+    desktop_names: i3
+    filename: gentoo-ai-i3-x11.desktop
+    command: /usr/local/bin/gentoo-ai-desktop-session i3-x11
+    validation_commands:
+      - i3
+      - startx
+  sway-wayland:
+    label: Sway
+    type: wayland
+    desktop_names: sway
+    filename: gentoo-ai-sway-wayland.desktop
+    command: /usr/local/bin/gentoo-ai-desktop-session sway-wayland
+    validation_commands:
+      - sway
+  hyprland-wayland:
+    label: Hyprland
+    type: wayland
+    desktop_names: Hyprland
+    filename: gentoo-ai-hyprland-wayland.desktop
+    command: /usr/local/bin/gentoo-ai-desktop-session hyprland-wayland
+    validation_commands:
+      - Hyprland
+  niri-wayland:
+    label: Niri
+    type: wayland
+    desktop_names: niri
+    filename: gentoo-ai-niri-wayland.desktop
+    command: /usr/local/bin/gentoo-ai-desktop-session niri-wayland
+    validation_commands:
+      - niri-session
+      - niri
+  mango-wayland:
+    label: Mango
+    type: wayland
+    desktop_names: mango
+    filename: gentoo-ai-mango-wayland.desktop
+    command: /usr/local/bin/gentoo-ai-desktop-session mango-wayland
+    validation_commands:
+      - mangowc
+      - mango

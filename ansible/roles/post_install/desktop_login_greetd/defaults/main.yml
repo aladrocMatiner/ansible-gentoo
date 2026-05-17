@@ -1,0 +1,12 @@
+---
+desktop_login_greetd_packages:
+  - gui-libs/greetd
+  - gui-apps/tuigreet
+
+desktop_login_greetd_validation_commands:
+  - greetd
+  - tuigreet
+
+desktop_login_greetd_config_path: /etc/greetd/config.toml
+desktop_login_greetd_service_name: greetd
+desktop_login_greetd_systemd_service_name: greetd.service

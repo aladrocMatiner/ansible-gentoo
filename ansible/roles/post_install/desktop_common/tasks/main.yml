@@ -4,10 +4,10 @@
     desktop_common_action: "{{ desktop_action | default('install') }}"
     desktop_common_profile: "{{ desktop_profile | default('i3-x11') }}"
     desktop_common_user: "{{ desktop_user | default('') }}"
-    desktop_common_install_recommends: "{{ desktop_install_recommends | default('yes') }}"
-    desktop_common_enable_portal: "{{ desktop_enable_portal | default('yes') }}"
-    desktop_common_enable_xwayland: "{{ desktop_enable_xwayland | default('yes') }}"
-    desktop_common_experimental_ok: "{{ desktop_experimental_ok | default('no') }}"
+    desktop_common_install_recommends: "{{ desktop_install_recommends | default(true) | bool }}"
+    desktop_common_enable_portal: "{{ desktop_enable_portal | default(true) | bool }}"
+    desktop_common_enable_xwayland: "{{ desktop_enable_xwayland | default(true) | bool }}"
+    desktop_common_experimental_ok: "{{ desktop_experimental_ok | default(false) | bool }}"
     desktop_common_package_source: "{{ desktop_package_source | default('gentoo') }}"
     desktop_common_display_manager: "{{ desktop_display_manager | default('none') }}"
     desktop_common_session_start: "{{ desktop_session_start | default('startx') }}"
@@ -19,12 +19,12 @@
       - desktop_common_action in ['plan', 'install', 'validate']
       - desktop_common_profile in desktop_supported_profiles
       - desktop_common_user is match('^[a-z_][a-z0-9_-]{0,31}\\$?$')
-      - desktop_common_install_recommends in ['yes', 'no']
-      - desktop_common_enable_portal in ['yes', 'no']
-      - desktop_common_enable_xwayland in ['yes', 'no']
-      - desktop_common_experimental_ok in ['yes', 'no']
+      - desktop_common_install_recommends is boolean
+      - desktop_common_enable_portal is boolean
+      - desktop_common_enable_xwayland is boolean
+      - desktop_common_experimental_ok is boolean
       - desktop_common_package_source == 'gentoo'
-      - desktop_common_display_manager == 'none'
+      - desktop_common_display_manager in ['none', 'greetd']
       - desktop_common_session_start in ['startx', 'manual']
       - desktop_common_privilege_tool == 'sudo'
     fail_msg: "DESKTOP_FAILED: desktop profile, user, session, or privilege inputs are invalid."
@@ -191,6 +191,115 @@
         )
       }}
 
+- name: Define desktop Portage USE policy
+  ansible.builtin.set_fact:
+    desktop_common_package_use_entries:
+      - "dev-cpp/cairomm X"
+      - "dev-cpp/gtkmm X wayland"
+      - "dev-libs/glib introspection"
+      - "media-libs/freetype harfbuzz"
+      - "media-libs/libglvnd X"
+      - "media-libs/mesa X wayland"
+      - "x11-libs/cairo X"
+      - "x11-libs/gtk+ X wayland"
+      - "x11-libs/libxkbcommon X wayland"
+      - "x11-libs/pango X introspection"
+    desktop_common_package_use_content: |
+      # Managed by gentoo-ai-installer desktop profiles.
+      # Required for post-install X11 and Wayland desktop package dependency resolution.
+      dev-cpp/cairomm X
+      dev-cpp/gtkmm X wayland
+      dev-libs/glib introspection
+      media-libs/freetype harfbuzz
+      media-libs/libglvnd X
+      media-libs/mesa X wayland
+      x11-libs/cairo X
+      x11-libs/gtk+ X wayland
+      x11-libs/libxkbcommon X wayland
+      x11-libs/pango X introspection
+
+- name: Check package.use path shape
+  ansible.builtin.stat:
+    path: /etc/portage/package.use
+  register: desktop_common_package_use_stat
+  when: desktop_common_action in ['plan', 'install']
+
+- name: Validate package.use path shape
+  ansible.builtin.assert:
+    that:
+      - not desktop_common_package_use_stat.stat.exists or desktop_common_package_use_stat.stat.isdir or desktop_common_package_use_stat.stat.isreg
+    fail_msg: "DESKTOP_FAILED: /etc/portage/package.use must be a directory, regular file, or absent."
+    success_msg: "Desktop package.use path shape is valid."
+  when: desktop_common_action in ['plan', 'install']
+
+- name: Define desktop package.use target
+  ansible.builtin.set_fact:
+    desktop_common_package_use_target: >-
+      {{
+        '/etc/portage/package.use/zz-gentoo-ai-installer-desktop'
+        if (not desktop_common_package_use_stat.stat.exists or desktop_common_package_use_stat.stat.isdir)
+        else '/etc/portage/package.use'
+      }}
+  when: desktop_common_action in ['plan', 'install']
+
+- name: Report desktop package.use plan
+  ansible.builtin.debug:
+    msg:
+      package_use_target: "{{ desktop_common_package_use_target }}"
+      package_use_entries: "{{ desktop_common_package_use_entries }}"
+      autounmask_allowed: false
+      keyword_changes_allowed: false
+  when: desktop_common_action in ['plan', 'install']
+
+- name: Ensure package.use directory exists for desktop policy
+  ansible.builtin.file:
+    path: /etc/portage/package.use
+    state: directory
+    mode: "0755"
+  become: true
+  when:
+    - desktop_common_action == 'install'
+    - not ansible_check_mode
+    - not desktop_common_package_use_stat.stat.exists
+
+- name: Install desktop package.use policy in package.use directory
+  ansible.builtin.copy:
+    content: "{{ desktop_common_package_use_content }}"
+    dest: "{{ desktop_common_package_use_target }}"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  when:
+    - desktop_common_action == 'install'
+    - not ansible_check_mode
+    - desktop_common_package_use_target != '/etc/portage/package.use'
+
+- name: Remove legacy desktop package.use policy file
+  ansible.builtin.file:
+    path: /etc/portage/package.use/gentoo-ai-installer-desktop
+    state: absent
+  become: true
+  when:
+    - desktop_common_action == 'install'
+    - not ansible_check_mode
+    - desktop_common_package_use_target != '/etc/portage/package.use'
+
+- name: Install desktop package.use policy in package.use file
+  ansible.builtin.blockinfile:
+    path: /etc/portage/package.use
+    marker: "# {mark} gentoo-ai-installer desktop profile USE flags"
+    block: "{{ desktop_common_package_use_content | trim }}"
+    create: true
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  when:
+    - desktop_common_action == 'install'
+    - not ansible_check_mode
+    - desktop_common_package_use_target == '/etc/portage/package.use'
+
 - name: Report desktop common plan
   ansible.builtin.debug:
     msg:
@@ -204,6 +313,7 @@
       enable_xwayland: "{{ desktop_common_enable_xwayland }}"
       experimental_ok: "{{ desktop_common_experimental_ok }}"
       package_source: "{{ desktop_common_package_source }}"
+      package_use_target: "{{ desktop_common_package_use_target | default('not checked') }}"
       target_root: "{{ desktop_common_root_mount.stdout }}"
       live_iso_rejected: true
       destructive_install_commands_allowed: false

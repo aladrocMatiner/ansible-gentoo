@@ -1,0 +1,362 @@
+---
+- name: Validate greetd desktop login inputs
+  ansible.builtin.assert:
+    that:
+      - desktop_login_common_manager == 'greetd'
+      - desktop_common_package_source == 'gentoo'
+      - desktop_login_greetd_packages | length > 0
+      - desktop_login_common_default_session | length > 0
+    fail_msg: "DESKTOP_LOGIN_FAILED: greetd login manager inputs are invalid."
+    success_msg: "greetd login manager inputs are valid."
+
+- name: Check greetd package availability
+  ansible.builtin.command:
+    argv:
+      - emerge
+      - --pretend
+      - --nodeps
+      - --noreplace
+      - "{{ item }}"
+  loop: "{{ desktop_login_greetd_packages }}"
+  register: desktop_login_greetd_package_availability
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: desktop_login_common_action in ['plan', 'install']
+
+- name: Store unavailable greetd packages
+  ansible.builtin.set_fact:
+    desktop_login_greetd_unavailable_packages: "{{ desktop_login_greetd_package_availability.results | default([]) | selectattr('rc', 'ne', 0) | map(attribute='item') | list }}"
+  when: desktop_login_common_action in ['plan', 'install']
+
+- name: Require greetd packages to exist in configured Gentoo repository
+  ansible.builtin.assert:
+    that:
+      - desktop_login_greetd_unavailable_packages | default([]) | length == 0
+    fail_msg: "DESKTOP_LOGIN_FAILED: requested greetd packages are unavailable from DESKTOP_PACKAGE_SOURCE=gentoo: {{ desktop_login_greetd_unavailable_packages | default([]) | join(', ') }}. The role will not add overlays, unmask packages, clone source, install binaries, or bypass Portage package policy."
+    success_msg: "Requested greetd packages are available from Gentoo package source."
+  when: desktop_login_common_action in ['plan', 'install']
+
+- name: Check installed greetd packages
+  ansible.builtin.command:
+    argv:
+      - portageq
+      - has_version
+      - /
+      - "{{ item }}"
+  loop: "{{ desktop_login_greetd_packages }}"
+  register: desktop_login_greetd_package_state
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Store missing greetd packages
+  ansible.builtin.set_fact:
+    desktop_login_greetd_missing_packages: "{{ desktop_login_greetd_package_state.results | selectattr('rc', 'ne', 0) | map(attribute='item') | list }}"
+
+- name: Report greetd package plan
+  ansible.builtin.debug:
+    msg:
+      action: "{{ desktop_login_common_action }}"
+      manager: greetd
+      packages: "{{ desktop_login_greetd_packages }}"
+      missing_packages: "{{ desktop_login_greetd_missing_packages }}"
+      unavailable_packages: "{{ desktop_login_greetd_unavailable_packages | default([]) }}"
+      config_path: "{{ desktop_login_greetd_config_path }}"
+      service: "{{ desktop_login_greetd_service_name }}"
+      greeter: tuigreet
+      autologin_enabled: false
+      source_or_overlay_actions_allowed: false
+
+- name: Install greetd packages
+  ansible.builtin.command:
+    argv: "{{ ['emerge', '--verbose', '--noreplace', '--changed-use'] + desktop_login_greetd_packages }}"
+  become: true
+  register: desktop_login_greetd_emerge
+  changed_when: desktop_login_greetd_missing_packages | length > 0
+  failed_when: desktop_login_greetd_emerge.rc != 0
+  retries: 2
+  delay: 30
+  until: desktop_login_greetd_emerge.rc == 0
+  when:
+    - desktop_login_common_action == 'install'
+    - not ansible_check_mode
+    - desktop_login_greetd_missing_packages | length > 0
+
+- name: Ensure greetd config directory exists
+  ansible.builtin.file:
+    path: /etc/greetd
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  when:
+    - desktop_login_common_action == 'install'
+    - not ansible_check_mode
+
+- name: Install greetd config
+  ansible.builtin.template:
+    src: config.toml.j2
+    dest: "{{ desktop_login_greetd_config_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  when:
+    - desktop_login_common_action == 'install'
+    - not ansible_check_mode
+
+- name: Recheck installed greetd packages
+  ansible.builtin.command:
+    argv:
+      - portageq
+      - has_version
+      - /
+      - "{{ item }}"
+  loop: "{{ desktop_login_greetd_packages }}"
+  register: desktop_login_greetd_package_state_after
+  changed_when: false
+  failed_when: desktop_login_greetd_package_state_after.rc != 0
+  check_mode: false
+  when: desktop_login_common_action in ['install', 'validate']
+
+- name: Check greetd validation commands
+  ansible.builtin.command:
+    argv:
+      - /bin/sh
+      - -c
+      - "command -v {{ item | quote }}"
+  loop: "{{ desktop_login_greetd_validation_commands }}"
+  register: desktop_login_greetd_commands
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: desktop_login_common_action in ['install', 'validate']
+
+- name: Check greetd config file
+  ansible.builtin.stat:
+    path: "{{ desktop_login_greetd_config_path }}"
+  register: desktop_login_greetd_config
+  when: desktop_login_common_action in ['install', 'validate']
+
+- name: Read greetd config file
+  ansible.builtin.slurp:
+    src: "{{ desktop_login_greetd_config_path }}"
+  register: desktop_login_greetd_config_content
+  when:
+    - desktop_login_common_action in ['install', 'validate']
+    - desktop_login_greetd_config.stat.exists | default(false)
+
+- name: Read OpenRC greetd service enablement before changes
+  ansible.builtin.command:
+    argv:
+      - rc-update
+      - show
+      - default
+  register: desktop_login_greetd_openrc_state_before
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when:
+    - desktop_login_common_action == 'install'
+    - desktop_login_common_enable_service
+    - ansible_service_mgr | default('') != 'systemd'
+
+- name: Enable greetd with OpenRC
+  ansible.builtin.command:
+    argv:
+      - rc-update
+      - add
+      - "{{ desktop_login_greetd_service_name }}"
+      - default
+  become: true
+  register: desktop_login_greetd_openrc_enable
+  changed_when: desktop_login_greetd_openrc_enable.rc == 0
+  failed_when: desktop_login_greetd_openrc_enable.rc != 0
+  when:
+    - desktop_login_common_action == 'install'
+    - desktop_login_common_enable_service
+    - ansible_service_mgr | default('') != 'systemd'
+    - not ansible_check_mode
+    - desktop_login_greetd_openrc_state_before.stdout | default('') is not search('(^|\\n)\\s*greetd\\s')
+
+- name: Read systemd greetd service enablement before changes
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-enabled
+      - "{{ desktop_login_greetd_systemd_service_name }}"
+  register: desktop_login_greetd_systemd_state_before
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when:
+    - desktop_login_common_action == 'install'
+    - desktop_login_common_enable_service
+    - ansible_service_mgr | default('') == 'systemd'
+
+- name: Enable greetd with systemd
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - enable
+      - "{{ desktop_login_greetd_systemd_service_name }}"
+  become: true
+  register: desktop_login_greetd_systemd_enable
+  changed_when: desktop_login_greetd_systemd_enable.rc == 0
+  failed_when: desktop_login_greetd_systemd_enable.rc != 0
+  when:
+    - desktop_login_common_action == 'install'
+    - desktop_login_common_enable_service
+    - ansible_service_mgr | default('') == 'systemd'
+    - not ansible_check_mode
+    - desktop_login_greetd_systemd_state_before.stdout | default('') | trim != 'enabled'
+
+- name: Check OpenRC greetd service enablement
+  ansible.builtin.command:
+    argv:
+      - rc-update
+      - show
+      - default
+  register: desktop_login_greetd_openrc_state
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when:
+    - desktop_login_common_action in ['install', 'validate']
+    - desktop_login_common_enable_service
+    - ansible_service_mgr | default('') != 'systemd'
+
+- name: Read OpenRC greetd runtime state
+  ansible.builtin.command:
+    argv:
+      - rc-service
+      - "{{ desktop_login_greetd_service_name }}"
+      - status
+  register: desktop_login_greetd_openrc_runtime_before
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when:
+    - desktop_login_common_action == 'install'
+    - desktop_login_common_enable_service
+    - ansible_service_mgr | default('') != 'systemd'
+
+- name: Start greetd with OpenRC
+  ansible.builtin.command:
+    argv:
+      - rc-service
+      - "{{ desktop_login_greetd_service_name }}"
+      - start
+  become: true
+  register: desktop_login_greetd_openrc_start
+  changed_when: desktop_login_greetd_openrc_start.rc == 0
+  failed_when: desktop_login_greetd_openrc_start.rc != 0
+  when:
+    - desktop_login_common_action == 'install'
+    - desktop_login_common_enable_service
+    - ansible_service_mgr | default('') != 'systemd'
+    - not ansible_check_mode
+    - desktop_login_greetd_openrc_runtime_before.rc | default(1) != 0
+
+- name: Check systemd greetd service enablement
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-enabled
+      - "{{ desktop_login_greetd_systemd_service_name }}"
+  register: desktop_login_greetd_systemd_state
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when:
+    - desktop_login_common_action in ['install', 'validate']
+    - desktop_login_common_enable_service
+    - ansible_service_mgr | default('') == 'systemd'
+
+- name: Start greetd with systemd
+  ansible.builtin.systemd_service:
+    name: "{{ desktop_login_greetd_systemd_service_name }}"
+    state: started
+  become: true
+  when:
+    - desktop_login_common_action == 'install'
+    - desktop_login_common_enable_service
+    - ansible_service_mgr | default('') == 'systemd'
+    - not ansible_check_mode
+
+- name: Check OpenRC greetd runtime state
+  ansible.builtin.command:
+    argv:
+      - rc-service
+      - "{{ desktop_login_greetd_service_name }}"
+      - status
+  register: desktop_login_greetd_openrc_runtime
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when:
+    - desktop_login_common_action in ['install', 'validate']
+    - desktop_login_common_enable_service
+    - ansible_service_mgr | default('') != 'systemd'
+
+- name: Check systemd greetd runtime state
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - "{{ desktop_login_greetd_systemd_service_name }}"
+  register: desktop_login_greetd_systemd_runtime
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when:
+    - desktop_login_common_action in ['install', 'validate']
+    - desktop_login_common_enable_service
+    - ansible_service_mgr | default('') == 'systemd'
+
+- name: Validate greetd login manager state
+  ansible.builtin.assert:
+    that:
+      - desktop_login_greetd_package_state_after.results | default([]) | selectattr('rc', 'ne', 0) | list | length == 0
+      - desktop_login_greetd_commands.results | default([]) | selectattr('rc', 'ne', 0) | list | length == 0
+      - desktop_login_greetd_config.stat.exists | default(false)
+      - (desktop_login_greetd_config_content.content | default('') | b64decode) is search('tuigreet')
+      - (desktop_login_greetd_config_content.content | default('') | b64decode) is search(desktop_login_common_default_session)
+      - (desktop_login_greetd_config_content.content | default('') | b64decode) is not search('(^|\\n)\\s*autologin\\s*=')
+      - >-
+        (
+          not desktop_login_common_enable_service
+        )
+        or
+        (
+          ansible_service_mgr | default('') == 'systemd'
+          and desktop_login_greetd_systemd_state.stdout | default('') | trim == 'enabled'
+          and desktop_login_greetd_systemd_runtime.stdout | default('') | trim == 'active'
+        )
+        or
+        (
+          ansible_service_mgr | default('') != 'systemd'
+          and desktop_login_greetd_openrc_state.stdout | default('') is search('(^|\\n)\\s*greetd\\s')
+          and desktop_login_greetd_openrc_runtime.rc | default(1) == 0
+        )
+    fail_msg: "DESKTOP_LOGIN_FAILED: greetd packages, config, commands, service state, or autologin policy do not match the requested login manager."
+    success_msg: "greetd desktop login manager validates successfully."
+  when: desktop_login_common_action in ['install', 'validate']
+
+- name: Report greetd desktop login result
+  ansible.builtin.debug:
+    msg:
+      status: "{{ 'planned' if desktop_login_common_action == 'plan' else 'validated' }}"
+      manager: greetd
+      packages: "{{ desktop_login_greetd_packages }}"
+      missing_before: "{{ desktop_login_greetd_missing_packages }}"
+      config_path: "{{ desktop_login_greetd_config_path }}"
+      service_enabled_requested: "{{ desktop_login_common_enable_service }}"
+      service_started: "{{ (desktop_login_greetd_systemd_runtime.stdout | default('') | trim == 'active') if ansible_service_mgr | default('') == 'systemd' else (desktop_login_greetd_openrc_runtime.rc | default(1) == 0) }}"
+      init_system: "{{ 'systemd' if ansible_service_mgr | default('') == 'systemd' else 'openrc' }}"
+      default_session: "{{ desktop_login_common_default_session }}"
+      selected_sessions: "{{ desktop_login_common_selected_sessions }}"
+      autologin_enabled: false
+      destructive_install_commands_run: false

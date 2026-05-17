@@ -71,6 +71,16 @@ make desktop-validate DESKTOP_PROFILE=sway-wayland DESKTOP_TARGET_HOST=<host> DE
 
 Experimental profiles require `DESKTOP_EXPERIMENTAL_OK=yes` for install. See `docs/desktop-profiles.md` and the profile-specific docs.
 
+To add a post-install login screen for already installed desktop profiles, use the separate desktop login manager workflow. The implemented manager is `greetd` with `tuigreet`; it remains opt-in and requires confirmation before enabling it for boot and starting the service:
+
+```sh
+make desktop-login-plan DESKTOP_DISPLAY_MANAGER=greetd DESKTOP_TARGET_HOST=<host> DESKTOP_TARGET_USER=<ssh-user> DESKTOP_USER=<installed-user>
+make desktop-login-install DESKTOP_DISPLAY_MANAGER=greetd DESKTOP_TARGET_HOST=<host> DESKTOP_TARGET_USER=<ssh-user> DESKTOP_USER=<installed-user> I_UNDERSTAND_DESKTOP_LOGIN_MANAGER_CHANGES=yes
+make desktop-login-validate DESKTOP_DISPLAY_MANAGER=greetd DESKTOP_TARGET_HOST=<host> DESKTOP_TARGET_USER=<ssh-user> DESKTOP_USER=<installed-user>
+```
+
+See `docs/desktop-login-manager.md`.
+
 Use `make vm-test-matrix-plan` to plan OpenRC/systemd, ext4/Btrfs, and standard/hardened/musl libvirt validation entries without creating disks or running destructive installs; see `docs/libvirt-install-test-matrix.md`.
 
 Use `make vm-e2e-plan PROFILE=openrc FILESYSTEM=ext4 STAGE3_FLAVOR=standard INSTALL_DISK=/dev/vda ADMIN_USER=<admin-user> ENABLE_SSH=yes ADMIN_AUTHORIZED_KEYS_FILE=<public-key-file>` before running disposable full-VM validation with `make vm-e2e-install`; see `docs/libvirt-end-to-end-install-validation.md`.

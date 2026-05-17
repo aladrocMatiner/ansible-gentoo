@@ -67,8 +67,8 @@ load_desktop_inputs() {
     *) die_code CONFIG_INVALID "DESKTOP_PACKAGE_SOURCE must be gentoo; overlays, source builds, and binary downloads require a later OpenSpec change" ;;
   esac
   case "$desktop_display_manager" in
-    none) ;;
-    *) die_code CONFIG_INVALID "DESKTOP_DISPLAY_MANAGER must be none for the current desktop implementation" ;;
+    none|greetd) ;;
+    *) die_code CONFIG_INVALID "DESKTOP_DISPLAY_MANAGER must be none or greetd; got: $desktop_display_manager" ;;
   esac
   case "$desktop_session_start" in
     startx|manual) ;;
@@ -87,6 +87,54 @@ load_desktop_inputs() {
     sudo) ;;
     *) die_code CONFIG_INVALID "DESKTOP_PRIVILEGE_TOOL must be sudo for the current implementation" ;;
   esac
+}
+
+load_desktop_login_inputs() {
+  desktop_login_action=${1:-install}
+  load_desktop_inputs validate
+
+  desktop_login_manager=${DESKTOP_LOGIN_MANAGER:-$desktop_display_manager}
+  desktop_login_sessions=${DESKTOP_LOGIN_SESSIONS:-installed}
+  desktop_login_default_session=${DESKTOP_LOGIN_DEFAULT_SESSION:-}
+  desktop_login_enable_service=${DESKTOP_LOGIN_ENABLE_SERVICE:-yes}
+  desktop_login_confirmation=${I_UNDERSTAND_DESKTOP_LOGIN_MANAGER_CHANGES:-}
+
+  case "$desktop_login_action" in
+    plan|install|validate) ;;
+    *) die_code CONFIG_INVALID "desktop login action must be plan, install, or validate: $desktop_login_action" ;;
+  esac
+  case "$desktop_login_manager" in
+    none|greetd) ;;
+    *) die_code CONFIG_INVALID "DESKTOP_LOGIN_MANAGER must be none or greetd; got: $desktop_login_manager" ;;
+  esac
+  if [[ "$desktop_login_manager" != "$desktop_display_manager" ]]; then
+    die_code CONFIG_INVALID "DESKTOP_LOGIN_MANAGER must match DESKTOP_DISPLAY_MANAGER for this implementation"
+  fi
+  case "$desktop_login_enable_service" in
+    yes|no) ;;
+    *) die_code CONFIG_INVALID "DESKTOP_LOGIN_ENABLE_SERVICE must be yes or no" ;;
+  esac
+  if [[ "$desktop_login_sessions" != installed ]]; then
+    local session
+    IFS=',' read -r -a login_session_values <<<"$desktop_login_sessions"
+    for session in "${login_session_values[@]}"; do
+      session=${session//[[:space:]]/}
+      case "$session" in
+        i3-x11|sway-wayland|hyprland-wayland|niri-wayland|mango-wayland) ;;
+        "") die_code CONFIG_INVALID "DESKTOP_LOGIN_SESSIONS contains an empty session entry" ;;
+        *) die_code CONFIG_INVALID "DESKTOP_LOGIN_SESSIONS contains unsupported session: $session" ;;
+      esac
+    done
+  fi
+  if [[ -n "$desktop_login_default_session" ]]; then
+    case "$desktop_login_default_session" in
+      i3-x11|sway-wayland|hyprland-wayland|niri-wayland|mango-wayland) ;;
+      *) die_code CONFIG_INVALID "DESKTOP_LOGIN_DEFAULT_SESSION is unsupported: $desktop_login_default_session" ;;
+    esac
+  fi
+  if [[ "$desktop_login_action" == install && "$desktop_login_manager" != none && "$desktop_login_enable_service" == yes && "$desktop_login_confirmation" != yes ]]; then
+    die_code CONFIG_INVALID "I_UNDERSTAND_DESKTOP_LOGIN_MANAGER_CHANGES=yes is required to enable a post-install login manager"
+  fi
 }
 
 desktop_ssh_common_args() {
@@ -132,6 +180,16 @@ desktop_extra_vars_args() {
   printf '%s\0%s\0' -e "project_root=$(pwd -P)"
 }
 
+desktop_login_extra_vars_args() {
+  desktop_extra_vars_args
+  printf '%s\0%s\0' -e "desktop_login_action=${desktop_login_action}"
+  printf '%s\0%s\0' -e "desktop_login_manager=${desktop_login_manager}"
+  printf '%s\0%s\0' -e "desktop_login_sessions=${desktop_login_sessions}"
+  printf '%s\0%s\0' -e "desktop_login_default_session=${desktop_login_default_session}"
+  printf '%s\0%s\0' -e "desktop_login_enable_service=${desktop_login_enable_service}"
+  printf '%s\0%s\0' -e "desktop_login_confirmation=${desktop_login_confirmation}"
+}
+
 print_desktop_summary() {
   local action=$1
 
@@ -150,4 +208,16 @@ print_desktop_summary() {
   printf 'DESKTOP_SESSION_START=%s\n' "$desktop_session_start"
   printf '%s\n' 'This workflow targets an already installed Gentoo system over SSH.'
   printf '%s\n' 'It must not run against the official live ISO installer environment.'
+}
+
+print_desktop_login_summary() {
+  local action=$1
+
+  print_desktop_summary "$action"
+  printf 'DESKTOP_LOGIN_MANAGER=%s\n' "$desktop_login_manager"
+  printf 'DESKTOP_LOGIN_SESSIONS=%s\n' "$desktop_login_sessions"
+  printf 'DESKTOP_LOGIN_DEFAULT_SESSION=%s\n' "${desktop_login_default_session:-<first selected session>}"
+  printf 'DESKTOP_LOGIN_ENABLE_SERVICE=%s\n' "$desktop_login_enable_service"
+  printf '%s\n' 'This workflow manages only post-install login manager packages, session entries, and service enablement.'
+  printf '%s\n' 'It must not touch disks, stage3, chroot, bootloader, EFI, passwords, SSH authorization, or live ISO state.'
 }

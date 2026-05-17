@@ -37,8 +37,13 @@ DESKTOP_ENABLE_XWAYLAND ?= yes
 DESKTOP_EXPERIMENTAL_OK ?= no
 DESKTOP_PACKAGE_SOURCE ?= gentoo
 DESKTOP_DISPLAY_MANAGER ?= none
+DESKTOP_LOGIN_MANAGER ?= $(DESKTOP_DISPLAY_MANAGER)
+DESKTOP_LOGIN_SESSIONS ?= installed
+DESKTOP_LOGIN_DEFAULT_SESSION ?=
+DESKTOP_LOGIN_ENABLE_SERVICE ?= yes
 DESKTOP_SESSION_START ?=
 DESKTOP_PRIVILEGE_TOOL ?= sudo
+I_UNDERSTAND_DESKTOP_LOGIN_MANAGER_CHANGES ?=
 BOOT_MODE ?= uefi
 HOSTNAME = gentoo
 TIMEZONE ?= UTC
@@ -149,8 +154,13 @@ export DESKTOP_ENABLE_XWAYLAND
 export DESKTOP_EXPERIMENTAL_OK
 export DESKTOP_PACKAGE_SOURCE
 export DESKTOP_DISPLAY_MANAGER
+export DESKTOP_LOGIN_MANAGER
+export DESKTOP_LOGIN_SESSIONS
+export DESKTOP_LOGIN_DEFAULT_SESSION
+export DESKTOP_LOGIN_ENABLE_SERVICE
 export DESKTOP_SESSION_START
 export DESKTOP_PRIVILEGE_TOOL
+export I_UNDERSTAND_DESKTOP_LOGIN_MANAGER_CHANGES
 export BOOT_MODE
 export HOSTNAME
 export TIMEZONE
@@ -229,7 +239,7 @@ export PROXMOX_E2E_MATRIX_LOG_DIR
 	vm-list-cases vm-check vm-disk vm-define vm-start vm-start-installed vm-validate-first-boot vm-e2e-plan vm-e2e-install vm-e2e-matrix vm-test-matrix vm-test-matrix-plan vm-console vm-viewer vm-ip vm-bootstrap-ssh vm-ssh vm-rsync vm-ansible-ping vm-shutdown vm-destroy vm-clean \
 	proxmox-check proxmox-list-cases proxmox-test-matrix-plan proxmox-vm-create proxmox-vm-create-all proxmox-vm-start proxmox-vm-start-installed proxmox-vm-start-installed-all proxmox-ensure-installed-access proxmox-ensure-installed-access-all proxmox-verify-installed-access proxmox-verify-installed-access-all proxmox-vm-ip proxmox-bootstrap-ssh proxmox-ansible-ping proxmox-e2e-install proxmox-e2e-matrix proxmox-vm-shutdown proxmox-vm-clean \
 	ansible-check config-check host-check real-hardware-check release-check secret-check handbook-trace ansible-live-ping ansible-live-preflight local-live-preflight local-detect-disks local-install-plan local-partition-plan detect-disks install-plan partition-plan mount-plan filesystem-plan destructive-preview partition-preview format-preview mount-preview bootloader-preview users-preview destructive-safety-check partition format mount-target stage3-install prepare-chroot configure-portage configure-system generate-fstab install-kernel install-system-packages install-base-packages configure-users install-bootloader final-checks install install-openrc install-systemd install-state install-resume-plan install-resume record-manual-step install-run-clean install-audit install-report cleanup-plan clean-state clean-logs clean-audit clean-stage3-cache reset-test-run \
-	desktop-plan desktop-install desktop-validate desktop-i3-install desktop-sway-install desktop-hyprland-install desktop-niri-install desktop-mango-install \
+	desktop-plan desktop-install desktop-validate desktop-login-plan desktop-login-install desktop-login-validate desktop-i3-install desktop-sway-install desktop-hyprland-install desktop-niri-install desktop-mango-install \
 	qemu-check qemu-disk qemu-boot qemu-clean
 
 help:
@@ -333,6 +343,9 @@ help:
 		'  make desktop-plan   Plan optional post-install desktop profile on installed target over SSH' \
 		'  make desktop-install Install optional post-install desktop profile on installed target over SSH' \
 		'  make desktop-validate Validate optional post-install desktop profile state over SSH' \
+		'  make desktop-login-plan Plan optional post-install login/session selector on installed target over SSH' \
+		'  make desktop-login-install Install optional post-install login/session selector on installed target over SSH' \
+		'  make desktop-login-validate Validate optional post-install login/session selector state over SSH' \
 		'  make desktop-i3-install Convenience alias for DESKTOP_PROFILE=i3-x11 desktop-install' \
 		'  make desktop-sway-install Convenience alias for DESKTOP_PROFILE=sway-wayland desktop-install' \
 		'  make desktop-hyprland-install Convenience alias for DESKTOP_PROFILE=hyprland-wayland desktop-install' \
@@ -388,6 +401,11 @@ help:
 		'  DESKTOP_EXPERIMENTAL_OK=$(DESKTOP_EXPERIMENTAL_OK)' \
 		'  DESKTOP_PACKAGE_SOURCE=$(DESKTOP_PACKAGE_SOURCE)' \
 		'  DESKTOP_DISPLAY_MANAGER=$(DESKTOP_DISPLAY_MANAGER)' \
+		'  DESKTOP_LOGIN_MANAGER=$(DESKTOP_LOGIN_MANAGER) (none|greetd; defaults to DESKTOP_DISPLAY_MANAGER)' \
+		'  DESKTOP_LOGIN_SESSIONS=$(DESKTOP_LOGIN_SESSIONS) (installed or comma-separated allowlist)' \
+		'  DESKTOP_LOGIN_DEFAULT_SESSION=$(if $(DESKTOP_LOGIN_DEFAULT_SESSION),$(DESKTOP_LOGIN_DEFAULT_SESSION),<first selected session>)' \
+		'  DESKTOP_LOGIN_ENABLE_SERVICE=$(DESKTOP_LOGIN_ENABLE_SERVICE)' \
+		'  I_UNDERSTAND_DESKTOP_LOGIN_MANAGER_CHANGES must be yes for make desktop-login-install when enabling a login manager' \
 		'  DESKTOP_SESSION_START=$(if $(DESKTOP_SESSION_START),$(DESKTOP_SESSION_START),<profile default: i3 startx, Wayland manual>)' \
 		'  DESKTOP_PRIVILEGE_TOOL=$(DESKTOP_PRIVILEGE_TOOL)' \
 		'  BOOT_MODE=$(BOOT_MODE)' \
@@ -519,6 +537,15 @@ desktop-install:
 
 desktop-validate:
 	@scripts/ansible-desktop-validate.sh
+
+desktop-login-plan:
+	@scripts/ansible-desktop-login-plan.sh
+
+desktop-login-install:
+	@scripts/ansible-desktop-login-install.sh
+
+desktop-login-validate:
+	@scripts/ansible-desktop-login-validate.sh
 
 desktop-i3-install:
 	@DESKTOP_PROFILE=i3-x11 scripts/ansible-desktop-install.sh

@@ -30,6 +30,8 @@ The reuse-first Ansible architecture supports basic console installation variant
 - Keep init-specific logic isolated and explicit.
 - Keep optional post-install desktop profiles outside the basic-console install path.
 - Ensure post-install desktop roles run only against installed systems over SSH and reject live ISO roots.
+- Keep optional post-install desktop login manager roles outside the basic-console install path.
+- Ensure desktop login manager roles reuse shared installed-target validation and isolate OpenRC/systemd service enablement.
 - Enforce destructive-operation safety gates.
 - Ensure playbooks fail closed when the target disk, mount state, boot mode, or confirmation state is uncertain.
 - Maintain idempotency requirements and dry-run behavior.
@@ -88,6 +90,8 @@ ansible/
       desktop_hyprland_wayland/
       desktop_niri_wayland/
       desktop_mango_wayland/
+      desktop_login_common/
+      desktop_login_greetd/
     init/
       openrc/
       systemd/
@@ -106,6 +110,8 @@ Layout intent:
 - `roles/common/*`: shared implementation for behavior that does not genuinely differ by init system.
 - `roles/post_install/*`: optional installed-system customizations that run after first boot; they must not import base installer disk, stage3, chroot, bootloader, or live ISO roles.
 - `roles/post_install/desktop_wayland_common`: shared Wayland package/source-policy/session validation for Sway, Hyprland, Niri, and Mango. Experimental profiles must not duplicate this logic or bypass its Gentoo-only package source checks.
+- `roles/post_install/desktop_login_common`: shared optional login manager session, dispatcher, target validation, and confirmation behavior for installed systems.
+- `roles/post_install/desktop_login_greetd`: `greetd`/`tuigreet` package, config, and service behavior only.
 - `roles/init/openrc`: OpenRC-only behavior.
 - `roles/init/systemd`: systemd-only behavior.
 - Roles isolate focused responsibilities and must not combine unrelated risk classes.
@@ -135,6 +141,8 @@ Shared roles:
 - `common/users`: require explicit `admin_user`, create or update the target admin account, manage admin group membership, configure sudo with explicit passwordless mode only when requested, apply optional password hashes from gitignored controller-local files with `no_log`, install optional authorized keys, enforce installed SSH root-login restrictions when SSH is enabled, and record only non-secret evidence.
 - `common/ssh`: translate `ENABLE_SSH` into optional package/service inputs without storing secrets or enabling unsafe root SSH defaults.
 - `common/final_checks`: require explicit `admin_user`, validate fstab, bootloader, kernel, users, services, mounts, target baseline, Portage status, SSH policy, secret-check status, and reboot readiness without mutating the target or rebooting.
+- `post_install/desktop_login_common`: generate allowlisted login manager session entries, validate selected sessions, install the shared dispatcher, and enforce login manager confirmation rules without importing base installer roles.
+- `post_install/desktop_login_greetd`: manage only `greetd`/`tuigreet` packages, `/etc/greetd/config.toml`, no-autologin checks, and init-specific service enablement.
 
 Init-specific roles:
 

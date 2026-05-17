@@ -1,0 +1,15 @@
+---
+- name: Validate post-install desktop login manager
+  hosts: gentoo_desktop
+  gather_facts: true
+  vars:
+    desktop_login_action: validate
+  vars_files:
+    - ../group_vars/desktop_i3_x11.yml
+  roles:
+    - role: post_install/desktop_common
+      vars:
+        desktop_action: validate
+    - role: post_install/desktop_login_common
+    - role: post_install/desktop_login_greetd
+      when: desktop_login_common_manager == 'greetd'

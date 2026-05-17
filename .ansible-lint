@@ -2,6 +2,15 @@
 profile: basic
 offline: true
 use_default_rules: true
+skip_list:
+  # The project deliberately keeps reusable roles grouped under common/,
+  # init/, and post_install/ to match the documented reuse-first
+  # architecture. ansible-lint treats these nested role names as paths.
+  - role-name[path]
+  # Existing implemented roles contain long assertion/debug strings that are
+  # safer to keep intact than to wrap mechanically. New code should still keep
+  # lines readable where practical.
+  - yaml[line-length]
 exclude_paths:
   - .cache/
   - logs/
@@ -9,4 +18,3 @@ exclude_paths:
   - gentoo.iso/
   - openspec/changes/
   - docs/
-

@@ -4,7 +4,7 @@
     that:
       - desktop_common_profile == desktop_wayland_profile_name
       - desktop_common_session_start == 'manual'
-      - desktop_common_display_manager == 'none'
+      - desktop_common_display_manager in ['none', 'greetd']
       - desktop_common_package_source == 'gentoo'
       - desktop_wayland_core_packages is defined
       - desktop_wayland_validation_commands is defined
@@ -18,7 +18,7 @@
 - name: Require experimental acknowledgement for experimental Wayland install
   ansible.builtin.assert:
     that:
-      - desktop_common_experimental_ok == 'yes'
+      - desktop_common_experimental_ok
     fail_msg: "DESKTOP_FAILED: DESKTOP_EXPERIMENTAL_OK=yes is required before installing experimental profile {{ desktop_wayland_profile_name }}."
     success_msg: "Experimental desktop acknowledgement is present."
   when:
@@ -31,18 +31,19 @@
       {{
         (
           desktop_wayland_core_packages
-          + (desktop_wayland_recommended_packages | default([]) if desktop_common_install_recommends == 'yes' else [])
-          + (desktop_wayland_portal_packages | default([]) if desktop_common_enable_portal == 'yes' else [])
-          + (desktop_wayland_xwayland_packages | default([]) if desktop_common_enable_xwayland == 'yes' else [])
+          + (desktop_wayland_recommended_packages | default([]) if desktop_common_install_recommends else [])
+          + (desktop_wayland_portal_packages | default([]) if desktop_common_enable_portal else [])
+          + (desktop_wayland_xwayland_packages | default([]) if desktop_common_enable_xwayland else [])
         ) | unique | list
       }}
 
 - name: Check Wayland package availability
   ansible.builtin.command:
     argv:
-      - portageq
-      - match
-      - /
+      - emerge
+      - --pretend
+      - --nodeps
+      - --noreplace
       - "{{ item }}"
   loop: "{{ desktop_wayland_requested_packages }}"
   register: desktop_wayland_package_availability
@@ -95,7 +96,7 @@
       unavailable_packages: "{{ desktop_wayland_unavailable_packages | default([]) }}"
       session_file: "{{ desktop_wayland_session_file }}"
       config_file: "{{ desktop_wayland_config_dest }}"
-      display_manager: none
+      display_manager: "{{ desktop_common_display_manager }}"
       source_or_overlay_actions_allowed: false
 
 - name: Install Wayland desktop packages
@@ -226,6 +227,6 @@
       session_file: "{{ desktop_wayland_session_file }}"
       config_file: "{{ desktop_wayland_config_dest }}"
       start_method: manual
-      display_manager: none
+      display_manager: "{{ desktop_common_display_manager }}"
       source_or_overlay_actions_run: false
       destructive_install_commands_run: false

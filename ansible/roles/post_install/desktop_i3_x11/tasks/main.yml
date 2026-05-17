@@ -4,7 +4,7 @@
     that:
       - desktop_common_profile == 'i3-x11'
       - desktop_common_session_start == 'startx'
-      - desktop_common_display_manager == 'none'
+      - desktop_common_display_manager in ['none', 'greetd']
       - desktop_i3_core_packages is defined
       - desktop_i3_recommended_packages is defined
     fail_msg: "DESKTOP_FAILED: i3 X11 profile inputs are invalid."
@@ -16,16 +16,17 @@
       {{
         (
           desktop_i3_core_packages
-          + (desktop_i3_recommended_packages if desktop_common_install_recommends == 'yes' else [])
+          + (desktop_i3_recommended_packages if desktop_common_install_recommends else [])
         ) | unique | list
       }}
 
 - name: Check i3 package availability
   ansible.builtin.command:
     argv:
-      - portageq
-      - match
-      - /
+      - emerge
+      - --pretend
+      - --nodeps
+      - --noreplace
       - "{{ item }}"
   loop: "{{ desktop_i3_requested_packages }}"
   register: desktop_i3_package_availability
@@ -72,7 +73,7 @@
       missing_packages: "{{ desktop_i3_missing_packages }}"
       session_file: "{{ desktop_common_user_home }}/.xinitrc"
       i3_config: "{{ desktop_common_user_home }}/.config/i3/config"
-      display_manager: none
+      display_manager: "{{ desktop_common_display_manager }}"
 
 - name: Install i3 desktop packages
   ansible.builtin.command:
@@ -192,5 +193,5 @@
       xinitrc: "{{ desktop_common_user_home }}/.xinitrc"
       i3_config: "{{ desktop_common_user_home }}/.config/i3/config"
       start_method: startx
-      display_manager: none
+      display_manager: "{{ desktop_common_display_manager }}"
       destructive_install_commands_run: false

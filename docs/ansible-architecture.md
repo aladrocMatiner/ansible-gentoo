@@ -60,6 +60,7 @@ Shared behavior includes:
 - cleanup/reset safety
 - manual intervention recording
 - post-install desktop profile target validation and SSH wrapping
+- post-install desktop login manager target validation, session generation, package policy, and service confirmation checks
 
 Do not duplicate OpenRC and systemd logic unless the behavior genuinely differs. If duplication is necessary, the implementing OpenSpec change must explain why shared roles, variables, handlers, templates, or includes cannot express the behavior.
 
@@ -98,6 +99,12 @@ Quality gate:
 - `make ansible-check` runs `ansible-lint` when it is installed.
 - Missing `ansible-lint` is reported clearly until a future release or CI change makes it mandatory.
 - Lint exceptions must be local and justified in the OpenSpec change or implementation summary.
+
+Current lint baseline:
+
+- `.ansible-lint` skips `role-name[path]` because the project deliberately groups roles under `common/`, `init/`, and `post_install/` to preserve the documented reuse-first architecture.
+- `.ansible-lint` skips `yaml[line-length]` for existing long assertion, report, and diagnostic strings. New Ansible code should still keep lines readable where practical.
+- Other lint failures should be treated as actionable unless an OpenSpec change explicitly records a narrower exception.
 
 Host-key policy:
 
@@ -166,6 +173,8 @@ ansible/
       desktop_hyprland_wayland/
       desktop_niri_wayland/
       desktop_mango_wayland/
+      desktop_login_common/
+      desktop_login_greetd/
     init/
       openrc/
       systemd/
@@ -211,11 +220,13 @@ Shared roles live under `roles/common/` or an equivalent shared structure.
 - `final_checks`: read-only reboot readiness validation for mounts, fstab, kernel/initramfs, GRUB/EFI files, users, services, target baseline, Portage status, SSH policy, and secret-safe report inputs.
 - `post_install/desktop_common`: installed-target SSH boundary, user selection, elevation checks, live-ISO rejection, shared desktop variables, and reusable plan output for optional post-install desktop profiles.
 - `post_install/desktop_i3_x11`: i3/X11 package policy, `startx` session templates, package installed-state checks, and i3-specific validation. It must not perform base installer, disk, bootloader, stage3, or live ISO work.
-- `post_install/desktop_wayland_common`: shared Wayland package availability checks, package installation, session launcher creation, config templating, command validation, display-manager-disabled validation, and fail-closed Gentoo-package-source policy.
+- `post_install/desktop_wayland_common`: shared Wayland package availability checks, package installation, session launcher creation, config templating, command validation, display-manager policy validation, and fail-closed Gentoo-package-source policy.
 - `post_install/desktop_sway_wayland`: Sway-specific package lists, config template, and conservative Wayland validation inputs.
 - `post_install/desktop_hyprland_wayland`: Hyprland-specific package lists, config template, and experimental acknowledgement inputs.
 - `post_install/desktop_niri_wayland`: Niri-specific package lists, Xwayland compatibility inputs, config template, and experimental acknowledgement inputs.
 - `post_install/desktop_mango_wayland`: Mango-specific package availability boundary, config template, validation command alternatives, and experimental acknowledgement inputs.
+- `post_install/desktop_login_common`: shared installed-target validation reuse, login manager variable normalization, session allowlist, session entry generation, central dispatcher, confirmation checks, and read-only validation for optional post-install login screens.
+- `post_install/desktop_login_greetd`: `greetd` and `tuigreet` package checks, `/etc/greetd/config.toml`, init-specific service enablement/start dispatch, and no-autologin validation.
 
 Currently implemented shared roles and workflows:
 
@@ -240,12 +251,14 @@ Currently implemented shared roles and workflows:
 - `common/bootloader`: requires explicit `install_disk` and `I_UNDERSTAND_BOOTLOADER_CHANGES=yes`, shows EFI entries before GRUB actions, installs `sys-boot/grub` and `sys-boot/efibootmgr`, runs guarded UEFI `grub-install`, generates `grub.cfg`, validates the approved root command line, and records bootloader evidence.
 - `common/final_checks`: runs read-only reboot readiness checks, requires `ADMIN_USER`, validates fstab, kernel/initramfs, GRUB/EFI files, Btrfs subvolumes, services, users, target identity, Portage baseline, SSH policy, and writes a secret-safe readiness report.
 - `post_install/desktop_common`: validates that optional desktop workflows target an already installed amd64 Gentoo system over SSH, require an existing `DESKTOP_USER`, reject live ISO roots, and require root or passwordless sudo for package and user-session file changes.
-- `post_install/desktop_i3_x11`: implements the optional `i3-x11` post-install profile with Xorg/xinit/i3 package checks, managed `.xinitrc`, managed i3 config, and display-manager-disabled validation.
-- `post_install/desktop_wayland_common`: implements shared Wayland post-install package checks, Gentoo-only package source enforcement, optional portal/Xwayland package inclusion, managed session launcher output, and display-manager-disabled validation.
+- `post_install/desktop_i3_x11`: implements the optional `i3-x11` post-install profile with Xorg/xinit/i3 package checks, managed `.xinitrc`, managed i3 config, and display-manager policy validation.
+- `post_install/desktop_wayland_common`: implements shared Wayland post-install package checks, Gentoo-only package source enforcement, optional portal/Xwayland package inclusion, managed session launcher output, and display-manager policy validation.
 - `post_install/desktop_sway_wayland`: implements `sway-wayland` as the conservative Wayland profile.
 - `post_install/desktop_hyprland_wayland`: implements `hyprland-wayland` as an advanced experimental profile requiring `DESKTOP_EXPERIMENTAL_OK=yes` for install.
 - `post_install/desktop_niri_wayland`: implements `niri-wayland` as an innovative experimental profile requiring `DESKTOP_EXPERIMENTAL_OK=yes` for install.
 - `post_install/desktop_mango_wayland`: implements `mango-wayland` as an experimental package-availability profile requiring `DESKTOP_EXPERIMENTAL_OK=yes` for install.
+- `post_install/desktop_login_common`: implements the shared optional login manager layer for installed targets, including session auto-detection, allowlisted session entries, and the `/usr/local/bin/gentoo-ai-desktop-session` dispatcher.
+- `post_install/desktop_login_greetd`: implements `DESKTOP_DISPLAY_MANAGER=greetd` with `gui-libs/greetd`, `gui-apps/tuigreet`, `/etc/greetd/config.toml`, and OpenRC/systemd service enablement/start only after explicit confirmation.
 - `ansible/playbooks/install-basic-console.yml`: shared destructive orchestration sequence that wires the implemented roles together in Handbook order and passes one `install_run_id` to per-phase evidence logs.
 - `ansible/playbooks/install-openrc.yml` and `ansible/playbooks/install-systemd.yml`: thin entrypoints that select only the init variant and import the shared install flow.
 - `init/openrc`: enables target services with `rc-update` only.
@@ -292,6 +305,11 @@ Shared variables have one meaning across both flows:
 - `ansible_live_host`
 - `ansible_live_port`
 - `ansible_live_user`
+- `desktop_display_manager`
+- `desktop_login_manager`
+- `desktop_login_sessions`
+- `desktop_login_default_session`
+- `desktop_login_enable_service`
 
 Rules:
 
@@ -305,6 +323,10 @@ Rules:
 - VM guest disk examples such as `/dev/vda` or `/dev/sda` are allowed only when explicitly passed as `install_disk` inside disposable VM harnesses.
 - `ansible_live_host` selects an explicit network target and must not default to a VM address.
 - When `ansible_live_host` is omitted, Makefile wrappers may discover the configured local libvirt VM for test workflows only.
+- `desktop_display_manager` defaults to `none`; `greetd` is supported only through post-install desktop login manager targets.
+- `desktop_login_manager` must match `desktop_display_manager` in the current implementation.
+- `desktop_login_sessions` is `installed` or an explicit comma-separated allowlist of supported desktop profiles.
+- `desktop_login_enable_service` requires `I_UNDERSTAND_DESKTOP_LOGIN_MANAGER_CHANGES=yes` before service enablement.
 
 ## Controller and Target Model
 The controller is the machine where the operator runs Makefile targets and Ansible. The target is a network-reachable machine booted into the official Gentoo live ISO.
@@ -348,6 +370,9 @@ make desktop-install DESKTOP_TARGET_HOST=192.0.2.10 DESKTOP_TARGET_USER=gentoo D
 make desktop-validate DESKTOP_TARGET_HOST=192.0.2.10 DESKTOP_TARGET_USER=gentoo DESKTOP_USER=gentoo
 make desktop-install DESKTOP_PROFILE=sway-wayland DESKTOP_TARGET_HOST=192.0.2.10 DESKTOP_TARGET_USER=gentoo DESKTOP_USER=gentoo
 make desktop-install DESKTOP_PROFILE=hyprland-wayland DESKTOP_TARGET_HOST=192.0.2.10 DESKTOP_TARGET_USER=gentoo DESKTOP_USER=gentoo DESKTOP_EXPERIMENTAL_OK=yes
+make desktop-login-plan DESKTOP_DISPLAY_MANAGER=greetd DESKTOP_TARGET_HOST=192.0.2.10 DESKTOP_TARGET_USER=gentoo DESKTOP_USER=gentoo
+make desktop-login-install DESKTOP_DISPLAY_MANAGER=greetd DESKTOP_TARGET_HOST=192.0.2.10 DESKTOP_TARGET_USER=gentoo DESKTOP_USER=gentoo I_UNDERSTAND_DESKTOP_LOGIN_MANAGER_CHANGES=yes
+make desktop-login-validate DESKTOP_DISPLAY_MANAGER=greetd DESKTOP_TARGET_HOST=192.0.2.10 DESKTOP_TARGET_USER=gentoo DESKTOP_USER=gentoo
 ```
 
 The `/dev/vda` and `/dev/sda` examples are VM-only examples for the libvirt and Proxmox harnesses. For real network targets, use the explicit disk path reported by `make detect-disks ANSIBLE_LIVE_HOST=...`.
@@ -357,6 +382,8 @@ Targets should pass `PROFILE=openrc` or `PROFILE=systemd` into a shared Ansible 
 Targets should pass network target variables into Ansible through the documented wrapper layer. VM/libvirt and Proxmox discovery are conveniences for validation and must not be required by the reusable installer.
 
 Post-install desktop targets use `DESKTOP_TARGET_HOST`, not `ANSIBLE_LIVE_HOST`, because they connect to the installed system after reboot rather than the official live ISO. They must keep host-key checking policy suitable for persistent installed systems and must not rely on live ISO host-key relaxation. Experimental Wayland profile installation requires `DESKTOP_EXPERIMENTAL_OK=yes` and must keep `DESKTOP_PACKAGE_SOURCE=gentoo`.
+
+Post-install login manager targets use the same installed-target SSH model. `make desktop-login-install` may install `greetd` packages, write managed session files, enable the login manager service for boot, and start it only with `I_UNDERSTAND_DESKTOP_LOGIN_MANAGER_CHANGES=yes`. It must not import base installer roles or touch disk, stage3, chroot, bootloader, EFI, password, or SSH authorization state.
 
 Only targets present in the current `Makefile` should be documented as runnable in user-facing quick-start instructions.
 
@@ -459,6 +486,7 @@ Acceptable patterns:
 - One shared `stage3` role with `stage3_variant` selecting OpenRC or systemd assets and `stage3_flavor` selecting standard, hardened, or musl assets.
 - One shared `package_install` role using variant package lists.
 - One shared `ssh` role dispatching service enablement to init-specific tasks.
+- One shared `desktop_login_common` role generating session entries and dispatcher logic while `desktop_login_greetd` handles only `greetd` package/config specifics.
 - One shared `disk_safety` role used before partitioning, formatting, mounting, and bootloader work.
 - Thin `install-openrc.yml` and `install-systemd.yml` playbooks that load variables and call `install-basic-console.yml`.
 
@@ -472,6 +500,7 @@ Unacceptable patterns:
 - systemd tasks calling `rc-update` or `rc-service`.
 - Init-specific roles that choose or mutate disks directly.
 - Repeating full shared procedures in both OpenRC and systemd documentation sections.
+- Adding display-manager setup separately to every desktop profile instead of using the shared desktop login manager roles.
 
 ## Review Checklist
 Before approving future Ansible implementation:

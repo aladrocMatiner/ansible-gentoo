@@ -166,6 +166,11 @@ Post-install desktop target variables:
 - `DESKTOP_EXPERIMENTAL_OK`
 - `DESKTOP_PACKAGE_SOURCE`
 - `DESKTOP_DISPLAY_MANAGER`
+- `DESKTOP_LOGIN_MANAGER`
+- `DESKTOP_LOGIN_SESSIONS`
+- `DESKTOP_LOGIN_DEFAULT_SESSION`
+- `DESKTOP_LOGIN_ENABLE_SERVICE`
+- `I_UNDERSTAND_DESKTOP_LOGIN_MANAGER_CHANGES`
 - `DESKTOP_SESSION_START`
 - `DESKTOP_PRIVILEGE_TOOL`
 
@@ -256,6 +261,11 @@ Recommended post-install desktop defaults:
 - `DESKTOP_EXPERIMENTAL_OK=no`; required as `yes` for Hyprland, Niri, and Mango install targets.
 - `DESKTOP_PACKAGE_SOURCE=gentoo`; overlays, source builds, binary downloads, and keyword changes require later OpenSpec work.
 - `DESKTOP_DISPLAY_MANAGER=none`
+- `DESKTOP_LOGIN_MANAGER=DESKTOP_DISPLAY_MANAGER`; supported values are `none` and `greetd`.
+- `DESKTOP_LOGIN_SESSIONS=installed`; explicit values are comma-separated allowlisted desktop profile names.
+- `DESKTOP_LOGIN_DEFAULT_SESSION` empty by default, meaning the first selected session.
+- `DESKTOP_LOGIN_ENABLE_SERVICE=yes`
+- `I_UNDERSTAND_DESKTOP_LOGIN_MANAGER_CHANGES` has no default; it must be `yes` before enabling a login manager service.
 - `DESKTOP_SESSION_START` is profile-derived when unset: `startx` for `i3-x11`, `manual` for Wayland profiles.
 - `DESKTOP_PRIVILEGE_TOOL=sudo`
 
@@ -307,7 +317,9 @@ Rules:
 - Local Ansible targets must not disable host-key checking globally, because they do not use SSH to the live ISO.
 - Post-install desktop targets must use `DESKTOP_TARGET_HOST` and must not reuse `ANSIBLE_LIVE_HOST`; desktop profiles run against the installed system after reboot, not the live ISO.
 - `make desktop-plan` and `make desktop-validate` are read-only with respect to target state.
+- `make desktop-login-plan` and `make desktop-login-validate` are read-only with respect to target state.
 - `make desktop-install` may install packages and write user session files, but it must not partition, format, mount target roots, extract stage3, chroot, install GRUB, or modify EFI entries.
+- `make desktop-login-install` may install `greetd` packages, write `/etc/greetd/config.toml`, write system session entries, write the managed session dispatcher, enable `greetd` for boot, and start it only after `I_UNDERSTAND_DESKTOP_LOGIN_MANAGER_CHANGES=yes`. It must not configure autologin, passwords, SSH authorization, disks, bootloader, EFI, stage3, chroot, or live ISO state.
 - `DESKTOP_USER` must not default to an operator username or VM-specific username.
 - Desktop targets must keep installed-system host-key policy separate from temporary live ISO host-key relaxation.
 - Experimental profile install targets must require `DESKTOP_EXPERIMENTAL_OK=yes` and must fail closed when package availability checks fail.
@@ -367,6 +379,8 @@ Required safe targets:
 - `make install-plan PROFILE=systemd`
 - `make desktop-plan`
 - `make desktop-validate`
+- `make desktop-login-plan`
+- `make desktop-login-validate`
 - `make vm-list-cases`
 - `make vm-check`
 - `make vm-e2e-plan`
@@ -394,6 +408,8 @@ Expected behavior:
 - `make install-plan`: summarize intended install flow without making changes; default `PROFILE=openrc`, `FILESYSTEM=ext4`, and `STAGE3_FLAVOR=standard`, but never default `INSTALL_DISK`.
 - `make desktop-plan`: connect to an installed Gentoo target over SSH, validate desktop profile inputs and installed-target boundaries, and report selected profile package/session changes without mutating the target.
 - `make desktop-validate`: connect to an installed Gentoo target over SSH and verify package, command, user-session, and display-manager state without mutating the target.
+- `make desktop-login-plan`: connect to an installed Gentoo target over SSH, validate login manager inputs, report selected sessions and managed paths, and avoid target mutation.
+- `make desktop-login-validate`: validate `greetd`, `tuigreet`, generated session entries, dispatcher, service state, and no-autologin policy without mutating the target.
 - `make partition-plan`: require explicit `INSTALL_DISK` and summarize the exact GPT partition layout without writing.
 - `make mount-plan`: require explicit `INSTALL_DISK` and summarize the future root and EFI mount layout without running `mount`, `umount`, or `mkdir`.
 - `make filesystem-plan`: require explicit `INSTALL_DISK` and summarize the future EFI/root filesystem creation plan without running `mkfs.*`, `wipefs`, `mount`, `umount`, or `mkdir`.
@@ -441,6 +457,7 @@ Semi-dangerous targets:
 - `make download-stage3`
 - `make mount-target`
 - `make desktop-install`
+- `make desktop-login-install`
 - `make stage3-install`
 - `make prepare-chroot`
 - `make configure-portage`
@@ -476,6 +493,7 @@ Expected behavior:
 - `make stage3-install`: use `STAGE3_MIRROR` and `STAGE3_CACHE_DIR`, verify official metadata and SHA512/signatures, then extract only into mounted `/mnt/gentoo`.
 - `make mount-target`: mount explicitly provided partitions to explicitly provided target paths after mount-state checks; for Btrfs it must mount root with `subvol=@` and the approved subvolumes from `docs/btrfs-layout-policy.md`.
 - `make desktop-install`: connect only to an already installed Gentoo target through `DESKTOP_TARGET_HOST`, install the selected post-install desktop package set, write managed session files for `DESKTOP_USER`, and refuse live ISO, disk, bootloader, stage3, mount, or chroot behavior.
+- `make desktop-login-install`: connect only to an already installed Gentoo target through `DESKTOP_TARGET_HOST`, install the selected post-install login manager, write documented system session files, enable `greetd` for boot, and start it only with `I_UNDERSTAND_DESKTOP_LOGIN_MANAGER_CHANGES=yes`.
 - `make desktop-sway-install`: convenience target for `DESKTOP_PROFILE=sway-wayland`.
 - `make desktop-hyprland-install`: convenience target for `DESKTOP_PROFILE=hyprland-wayland`; requires `DESKTOP_EXPERIMENTAL_OK=yes`.
 - `make desktop-niri-install`: convenience target for `DESKTOP_PROFILE=niri-wayland`; requires `DESKTOP_EXPERIMENTAL_OK=yes`.
@@ -702,6 +720,7 @@ When Makefile behavior changes, documentation must change in the same commit or 
 - If local live ISO Ansible fallback targets change, update `docs/live-iso-local-ansible.md`, `docs/ansible-live-preflight.md`, `skills/ansible-gentoo-installer.md`, and the active OpenSpec tasks. Keep network Ansible documented as the primary product path.
 - If read-only Ansible disk detection or install-plan targets change, update `docs/ansible-install-plan.md`, `skills/ansible-gentoo-installer.md`, `skills/gentoo-disk-planning.md`, and the active OpenSpec tasks.
 - If post-install desktop targets change, update `docs/desktop-profiles.md`, the profile-specific desktop doc, `docs/ansible-architecture.md`, `skills/ansible-gentoo-installer.md`, and active OpenSpec tasks. Document installed-target SSH variables, package scope, user session files, validation checks, failure modes, and the live ISO exclusion.
+- If post-install desktop login manager targets change, update `docs/desktop-login-manager.md`, `docs/desktop-profiles.md`, `docs/ansible-architecture.md`, `skills/ansible-gentoo-installer.md`, and active OpenSpec tasks. Document `DESKTOP_DISPLAY_MANAGER`, `DESKTOP_LOGIN_*`, confirmation variables, managed paths, service enablement, session names, failure modes, and recovery.
 - If read-only partition-plan targets change, update `docs/ansible-partition-plan.md`, disk-planning skills, safety docs, and active OpenSpec tasks.
 - If `make ansible-check` behavior changes, update Ansible docs, `.ansible-lint` expectations, `skills/ansible-gentoo-installer.md`, and active OpenSpec tasks.
 - If `FILESYSTEM` behavior changes, update target help, variable defaults, install-plan docs, disk-planning docs, and safety notes in the same change.

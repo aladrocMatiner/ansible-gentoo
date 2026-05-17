@@ -22,6 +22,7 @@ The project can destroy data if disk operations are wrong. Safety review is mand
 - Verify libvirt end-to-end install validation uses only the project-owned VM and retains normal destructive and bootloader confirmations.
 - Verify Proxmox validation targets operate only on project-owned generated VMIDs/names, retain destructive and bootloader confirmations for E2E install, and do not add Proxmox-specific installer roles.
 - Verify optional post-install desktop profiles run only against installed systems over SSH and do not import live ISO, disk, stage3, chroot, bootloader, or installer user roles.
+- Verify optional post-install desktop login manager workflows require installed-target SSH, reject live ISO roots, avoid autologin, and require explicit confirmation before enabling or starting services.
 - Verify release readiness checks include secret scanning and tracked artifact checks before broader handoff.
 - Produce a structured review decision: `APPROVED`, `APPROVED WITH CHANGES`, or `REJECTED`.
 
@@ -155,6 +156,7 @@ When this agent changes or reviews safety-sensitive behavior, it must enforce do
 - If VM/libvirt safety behavior changes, verify VM documentation states that disks are qcow2 files under `./var/libvirt/` or the configured project-local `VM_DIR`, that host block devices are forbidden, that `VM_TEST_IMAGE_NAME` is only a conservative local test label and not an ISO path or secret, that start/SSH/rsync/Ansible workflows require project-owned domains matching the configured official ISO, generated artifacts, and case metadata, that cleanup is limited to the selected case artifacts, and that cleanup requires `I_UNDERSTAND_CLEANUP_DELETE=DELETE`.
 - If Proxmox safety behavior changes, verify Proxmox documentation states the Proxmox host/node, ISO volume, storage, bridge, VLAN, VMID/IP mapping, generated VM names, expected guest disk, cleanup confirmation, project-owned VM marker, and that reusable Ansible roles must not depend on Proxmox-only details.
 - If post-install desktop safety behavior changes, verify `docs/desktop-profiles.md`, the profile-specific desktop doc, `docs/ansible-architecture.md`, and relevant skills state the installed-target SSH boundary, live ISO rejection, package scope, user-session file paths, and forbidden disk/bootloader/stage3/chroot operations.
+- If post-install desktop login manager safety behavior changes, verify `docs/desktop-login-manager.md`, `docs/desktop-profiles.md`, `docs/ansible-architecture.md`, and relevant skills state the confirmation variable, managed paths, no-autologin policy, OpenRC/systemd service separation, and forbidden disk/bootloader/stage3/chroot/password/SSH-authorization operations.
 - A safety review must check that safety-sensitive implementation changes include documentation updates and OpenSpec documentation tasks when behavior changes.
 - The agent must reject or require changes for any dangerous behavior change that lacks matching documentation.
 - Before finishing, check `README.md`, `docs/`, `skills/`, `agents/`, and active OpenSpec tasks for stale safety rules, stale command examples, or missing recovery guidance.
@@ -183,6 +185,7 @@ The Makefile is the public control plane. Safety review must verify:
 - VM/libvirt targets must not invoke `sudo` by default.
 - VM cleanup targets must delete only generated artifacts for the configured project-owned domain and must not delete ISO files, libvirt networks, pools, volumes, unrelated domains, or secrets.
 - Post-install desktop targets must require `DESKTOP_TARGET_HOST`, `DESKTOP_TARGET_USER`, and `DESKTOP_USER`; must not use `ANSIBLE_LIVE_HOST`; and must reject targets that look like the official live ISO root.
+- Post-install desktop login manager install targets must require `I_UNDERSTAND_DESKTOP_LOGIN_MANAGER_CHANGES=yes` before enabling a service and must keep plan/validate targets read-only.
 - Experimental post-install desktop installs such as Hyprland, Niri, and Mango must require `DESKTOP_EXPERIMENTAL_OK=yes`, must keep `DESKTOP_PACKAGE_SOURCE=gentoo`, and must not add overlays, unmask packages, clone source repositories, source-build compositors, or install prebuilt binaries.
 - Proxmox cleanup targets must require `I_UNDERSTAND_CLEANUP_DELETE=DELETE`, verify the project ownership marker and generated VM name before mutation, and must not delete unrelated VMIDs, templates, ISOs, pools, or storage volumes outside the selected project-owned VM.
 - `make real-hardware-check` must be read-only, require explicit `INSTALL_DISK`, prefer stable disk identity paths, require backup/UEFI/network/power/recovery-media/destructive-preview acknowledgements, and state that it does not satisfy destructive confirmations.
@@ -223,6 +226,7 @@ For Ansible playbooks, roles, and tasks:
 - Global `ansible.cfg` must not disable host key checking; temporary live ISO SSH exceptions must remain scoped to the VM/live ISO wrappers.
 - Reusable Ansible roles must not depend on libvirt, VM IP discovery, qcow2 paths, or `/dev/vda`; those assumptions are allowed only in local test harness documentation and must not weaken safety gates.
 - Post-install desktop roles must validate installed-target markers before package work, must not import or include base installer roles, and must keep package/session-file changes separate from disk, bootloader, stage3, chroot, and privileged-user changes.
+- Post-install desktop login manager roles must validate installed-target markers, avoid autologin, avoid password and SSH authorization changes, isolate OpenRC/systemd service enablement, and reuse shared session/dispatcher logic rather than duplicating it per desktop profile.
 - Shared Wayland profile roles must reuse the common Wayland package/source-policy checks rather than reimplementing experimental gates inconsistently.
 - `make ansible-check` must be run or prepared for Ansible changes, and review output must state whether syntax checks and ansible-lint ran.
 

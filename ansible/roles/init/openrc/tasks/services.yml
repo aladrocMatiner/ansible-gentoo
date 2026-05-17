@@ -4,10 +4,10 @@
     that:
       - profile == 'openrc'
       - init_system == 'openrc'
-      - init_target_root | default('/mnt/gentoo') == '/mnt/gentoo'
-      - init_service_list is defined
-      - init_service_list | map(attribute='name') | reject('match', '^[A-Za-z0-9_.@:-]+$') | list | length == 0
-      - init_service_list | map(attribute='runlevel') | reject('match', '^[A-Za-z0-9_.@:-]+$') | list | length == 0
+      - openrc_target_root | default('/mnt/gentoo') == '/mnt/gentoo'
+      - openrc_service_list is defined
+      - openrc_service_list | map(attribute='name') | reject('match', '^[A-Za-z0-9_.@:-]+$') | list | length == 0
+      - openrc_service_list | map(attribute='runlevel') | reject('match', '^[A-Za-z0-9_.@:-]+$') | list | length == 0
     fail_msg: "OPENRC_SERVICE_FAILED: OpenRC service inputs are invalid."
     success_msg: "OpenRC service inputs are valid."
 
@@ -15,11 +15,11 @@
   ansible.builtin.command:
     argv:
       - chroot
-      - "{{ init_target_root }}"
+      - "{{ openrc_target_root }}"
       - /sbin/rc-update
       - show
       - "{{ item.runlevel | default('default') }}"
-  loop: "{{ init_service_list }}"
+  loop: "{{ openrc_service_list }}"
   register: openrc_service_state
   changed_when: false
   failed_when: openrc_service_state.rc != 0
@@ -29,7 +29,7 @@
   ansible.builtin.command:
     argv:
       - chroot
-      - "{{ init_target_root }}"
+      - "{{ openrc_target_root }}"
       - /sbin/rc-update
       - add
       - "{{ item.item.name }}"
@@ -46,11 +46,11 @@
   ansible.builtin.command:
     argv:
       - chroot
-      - "{{ init_target_root }}"
+      - "{{ openrc_target_root }}"
       - /sbin/rc-update
       - show
       - "{{ item.runlevel | default('default') }}"
-  loop: "{{ init_service_list }}"
+  loop: "{{ openrc_service_list }}"
   register: openrc_service_state_after
   changed_when: false
   failed_when: openrc_service_state_after.rc != 0
@@ -69,5 +69,5 @@
     init_services_changed: "{{ openrc_service_add.results | default([]) | selectattr('changed') | list | length > 0 }}"
     init_service_report:
       init_system: openrc
-      services: "{{ init_service_list }}"
+      services: "{{ openrc_service_list }}"
       changed: "{{ openrc_service_add.results | default([]) | selectattr('changed') | list | length > 0 }}"

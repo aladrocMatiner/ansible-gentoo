@@ -4,9 +4,9 @@
     that:
       - profile == 'systemd'
       - init_system == 'systemd'
-      - init_target_root | default('/mnt/gentoo') == '/mnt/gentoo'
-      - init_service_list is defined
-      - init_service_list | map(attribute='name') | reject('match', '^[A-Za-z0-9_.@:-]+$') | list | length == 0
+      - systemd_target_root | default('/mnt/gentoo') == '/mnt/gentoo'
+      - systemd_service_list is defined
+      - systemd_service_list | map(attribute='name') | reject('match', '^[A-Za-z0-9_.@:-]+$') | list | length == 0
     fail_msg: "SYSTEMD_SERVICE_FAILED: systemd service inputs are invalid."
     success_msg: "systemd service inputs are valid."
 
@@ -14,11 +14,11 @@
   ansible.builtin.command:
     argv:
       - chroot
-      - "{{ init_target_root }}"
+      - "{{ systemd_target_root }}"
       - /usr/bin/systemctl
       - is-enabled
       - "{{ item.name }}"
-  loop: "{{ init_service_list }}"
+  loop: "{{ systemd_service_list }}"
   register: systemd_service_state
   changed_when: false
   failed_when: false
@@ -28,7 +28,7 @@
   ansible.builtin.command:
     argv:
       - chroot
-      - "{{ init_target_root }}"
+      - "{{ systemd_target_root }}"
       - /usr/bin/systemctl
       - enable
       - "{{ item.item.name }}"
@@ -44,11 +44,11 @@
   ansible.builtin.command:
     argv:
       - chroot
-      - "{{ init_target_root }}"
+      - "{{ systemd_target_root }}"
       - /usr/bin/systemctl
       - is-enabled
       - "{{ item.name }}"
-  loop: "{{ init_service_list }}"
+  loop: "{{ systemd_service_list }}"
   register: systemd_service_state_after
   changed_when: false
   failed_when: false
@@ -67,5 +67,5 @@
     init_services_changed: "{{ systemd_service_enable.results | default([]) | selectattr('changed') | list | length > 0 }}"
     init_service_report:
       init_system: systemd
-      services: "{{ init_service_list }}"
+      services: "{{ systemd_service_list }}"
       changed: "{{ systemd_service_enable.results | default([]) | selectattr('changed') | list | length > 0 }}"

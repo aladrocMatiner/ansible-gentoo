@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+session=${1:-}
+
+case "$session" in
+  i3-x11)
+    command -v i3 >/dev/null 2>&1 || {
+      printf '%s\n' "gentoo-ai-desktop-session: i3 is not installed" >&2
+      exit 127
+    }
+    exec dbus-run-session -- i3
+    ;;
+  sway-wayland)
+    command -v sway >/dev/null 2>&1 || {
+      printf '%s\n' "gentoo-ai-desktop-session: sway is not installed" >&2
+      exit 127
+    }
+    exec dbus-run-session -- sway
+    ;;
+  hyprland-wayland)
+    command -v Hyprland >/dev/null 2>&1 || {
+      printf '%s\n' "gentoo-ai-desktop-session: Hyprland is not installed" >&2
+      exit 127
+    }
+    exec dbus-run-session -- Hyprland
+    ;;
+  niri-wayland)
+    if command -v niri-session >/dev/null 2>&1; then
+      exec dbus-run-session -- niri-session
+    fi
+    command -v niri >/dev/null 2>&1 || {
+      printf '%s\n' "gentoo-ai-desktop-session: niri is not installed" >&2
+      exit 127
+    }
+    exec dbus-run-session -- niri
+    ;;
+  mango-wayland)
+    if command -v mangowc >/dev/null 2>&1; then
+      exec dbus-run-session -- mangowc
+    fi
+    command -v mango >/dev/null 2>&1 || {
+      printf '%s\n' "gentoo-ai-desktop-session: mango is not installed" >&2
+      exit 127
+    }
+    exec dbus-run-session -- mango
+    ;;
+  *)
+    printf '%s\n' "gentoo-ai-desktop-session: unsupported session: $session" >&2
+    exit 64
+    ;;
+esac

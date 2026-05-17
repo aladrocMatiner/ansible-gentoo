@@ -179,7 +179,11 @@ Expected variables:
 - `desktop_enable_xwayland`: `yes` or `no` Xwayland compatibility package policy where the profile defines Xwayland packages.
 - `desktop_experimental_ok`: `yes` is required before installing experimental Wayland profiles.
 - `desktop_package_source`: currently `gentoo`; overlays, source builds, binary downloads, and keyword changes need later OpenSpec approval.
-- `desktop_display_manager`: currently `none` only.
+- `desktop_display_manager`: `none` by default; `greetd` is implemented only through the optional post-install desktop login manager workflow.
+- `desktop_login_manager`: must match `desktop_display_manager` for the current implementation.
+- `desktop_login_sessions`: `installed` to auto-detect installed sessions, or a comma-separated allowlist of supported desktop profiles.
+- `desktop_login_default_session`: optional default session for the login manager greeter.
+- `desktop_login_enable_service`: `yes` or `no`; service enablement requires explicit confirmation.
 - `desktop_session_start`: `startx` for i3, `manual` for Wayland profiles.
 
 Rules:
@@ -233,12 +237,14 @@ Shared roles:
 - `common/ssh`: translate `ENABLE_SSH` into optional package/service inputs without storing secrets, enabling root password login, or assuming SSH is enabled by default.
 - `common/final_checks`: require explicit `admin_user`, run read-only reboot readiness validation for target mounts, chroot mounts, fstab, Btrfs subvolumes, kernel/initramfs, GRUB/EFI files, services, users, target identity, Portage baseline, SSH policy, and secret-safe report inputs.
 - `post_install/desktop_common`: validate installed-target boundaries, reject live ISO roots, require an existing desktop user, verify root/passwordless sudo elevation, normalize desktop variables, and report shared desktop plan output.
-- `post_install/desktop_i3_x11`: manage i3/X11 package policy, `startx` session templates, package installed-state checks, i3/startx command validation, and display-manager-disabled validation.
-- `post_install/desktop_wayland_common`: manage shared Wayland package availability checks, `emerge --noreplace` package installation, Gentoo-only package source enforcement, managed session launcher creation, config templating, command validation, and display-manager-disabled validation.
+- `post_install/desktop_i3_x11`: manage i3/X11 package policy, `startx` session templates, package installed-state checks, i3/startx command validation, and display-manager policy validation.
+- `post_install/desktop_wayland_common`: manage shared Wayland package availability checks, `emerge --noreplace` package installation, Gentoo-only package source enforcement, managed session launcher creation, config templating, command validation, and display-manager policy validation.
 - `post_install/desktop_sway_wayland`: define Sway as the conservative Wayland profile and pass package/config inputs to the shared Wayland role.
 - `post_install/desktop_hyprland_wayland`: define Hyprland as an advanced experimental Wayland profile requiring `desktop_experimental_ok=yes` for install.
 - `post_install/desktop_niri_wayland`: define Niri as an innovative experimental Wayland profile, including optional Xwayland compatibility package inputs.
 - `post_install/desktop_mango_wayland`: define Mango/MangoWC as an experimental package-availability profile that fails closed if Gentoo packages are unavailable.
+- `post_install/desktop_login_common`: manage optional post-install login manager shared behavior, including installed-target validation reuse, session allowlists, session-entry generation, dispatcher installation, read-only validation, and service confirmation checks.
+- `post_install/desktop_login_greetd`: manage `greetd` and `tuigreet` package checks, `/etc/greetd/config.toml`, no-autologin validation, and init-specific service enablement/start for the optional login screen.
 
 Init-specific roles:
 
@@ -256,6 +262,8 @@ Expected playbooks:
 - `install-systemd.yml`: thin systemd entrypoint that loads systemd variables and calls the shared flow.
 - `post-install-desktop.yml`: shared post-install desktop entrypoint. It targets an installed Gentoo system over SSH and must call `post_install/desktop_common` before profile-specific roles.
 - `validate-desktop.yml`: read-only validation entrypoint for installed desktop profile state.
+- `post-install-desktop-login.yml`: optional post-install login manager entrypoint. It targets an installed Gentoo system over SSH, reuses installed-target validation, and then calls shared login manager roles.
+- `validate-desktop-login.yml`: read-only validation entrypoint for managed login manager service, config, dispatcher, and session-entry state.
 
 Rules:
 
@@ -268,6 +276,7 @@ Rules:
 - Shell and command tasks must be minimized and guarded.
 - Do not duplicate OpenRC and systemd playbook logic when a shared playbook can be parameterized safely.
 - Desktop playbooks must not import base installer roles such as partitioning, filesystem, stage3, chroot, bootloader, users, or final checks. They may validate the installed boundary and manage post-install desktop packages/config only.
+- Desktop login manager playbooks may additionally install `greetd` packages, write system session entries, write `/etc/greetd/config.toml`, and enable `greetd` after explicit confirmation. They must not configure autologin, passwords, SSH authorization, disks, bootloaders, EFI entries, live ISO state, or chroot state.
 
 ## Ansible quality standards
 Future Ansible implementation must be written so it can be reviewed, linted, and rerun safely.
@@ -304,6 +313,8 @@ Quality gates:
 - `make ansible-check` must run `ansible-lint` when it is installed.
 - If `ansible-lint` is unavailable, the result must say lint was skipped; future release or CI changes may make lint mandatory.
 - Lint exceptions must be local, justified, and documented in the OpenSpec change or implementation summary.
+- The project lint baseline may skip repository-wide structural rules only when they are documented in `.ansible-lint` and `docs/ansible-architecture.md`.
+- Current accepted baseline exceptions are nested role names for the reuse-first role layout and inherited long YAML diagnostic lines; do not add broader exceptions to hide new role, idempotency, command, or secret-handling issues.
 - Global `ansible.cfg` must not disable host key checking. Host-to-live-ISO wrappers may disable host key checking only for temporary VM SSH sessions.
 
 ## 9. Safety Gates
@@ -451,6 +462,9 @@ These targets define the expected control-plane contract for future Ansible inst
 - `make desktop-plan DESKTOP_TARGET_HOST=... DESKTOP_TARGET_USER=... DESKTOP_USER=...`
 - `make desktop-install DESKTOP_TARGET_HOST=... DESKTOP_TARGET_USER=... DESKTOP_USER=...`
 - `make desktop-validate DESKTOP_TARGET_HOST=... DESKTOP_TARGET_USER=... DESKTOP_USER=...`
+- `make desktop-login-plan DESKTOP_DISPLAY_MANAGER=greetd DESKTOP_TARGET_HOST=... DESKTOP_TARGET_USER=... DESKTOP_USER=...`
+- `make desktop-login-install DESKTOP_DISPLAY_MANAGER=greetd DESKTOP_TARGET_HOST=... DESKTOP_TARGET_USER=... DESKTOP_USER=... I_UNDERSTAND_DESKTOP_LOGIN_MANAGER_CHANGES=yes`
+- `make desktop-login-validate DESKTOP_DISPLAY_MANAGER=greetd DESKTOP_TARGET_HOST=... DESKTOP_TARGET_USER=... DESKTOP_USER=...`
 - `make desktop-sway-install DESKTOP_TARGET_HOST=... DESKTOP_TARGET_USER=... DESKTOP_USER=...`
 - `make desktop-hyprland-install DESKTOP_TARGET_HOST=... DESKTOP_TARGET_USER=... DESKTOP_USER=... DESKTOP_EXPERIMENTAL_OK=yes`
 - `make desktop-niri-install DESKTOP_TARGET_HOST=... DESKTOP_TARGET_USER=... DESKTOP_USER=... DESKTOP_EXPERIMENTAL_OK=yes`
@@ -478,6 +492,9 @@ Target expectations:
 - `make desktop-plan`: connect to an installed Gentoo target, reject live ISO roots, check selected desktop package availability and session plan, and avoid target mutation.
 - `make desktop-install`: install the selected post-install desktop profile on an installed Gentoo target only; it may install packages and user session files but must not run base installer roles.
 - `make desktop-validate`: validate the installed desktop profile state without mutating the target.
+- `make desktop-login-plan`: report optional login manager packages, session entries, dispatcher, managed paths, and service confirmation requirements without mutating the target.
+- `make desktop-login-install`: install the selected post-install login manager on an installed Gentoo target; it may install `greetd` packages, write managed session files, enable the service for boot, and start it only with explicit confirmation.
+- `make desktop-login-validate`: validate login manager packages, config, service state, session entries, dispatcher, init-specific service separation, and no-autologin policy without mutating the target.
 - `make partition`: destructive target that applies only the approved GPT ESP/root layout after shared disk safety gates and explicit wipe confirmation.
 - `make final-checks`: run read-only validation before manual reboot; require `ADMIN_USER` so the installed admin account and sudo policy can be checked.
 - `make install`: execute the shared destructive basic-console install flow for the selected `PROFILE`.
@@ -567,6 +584,7 @@ When phase 2 Ansible behavior changes, documentation must change in the same imp
 - If execution assumptions change, document controller/target behavior. Reusable installer docs must remain remote/network-first; local VM/libvirt docs must remain clearly labeled as test harness docs.
 - If Makefile targets such as `make ansible-check`, `make ansible-dry-run PROFILE=...`, `make install-plan PROFILE=...`, `make install-openrc`, `make install-systemd`, or `make final-checks` change, update this skill and `skills/makefile-control-plane.md`.
 - If post-install desktop roles, playbooks, wrappers, package policy, or targets change, update `docs/desktop-profiles.md`, the profile-specific desktop document, `docs/ansible-architecture.md`, `skills/makefile-control-plane.md`, and active OpenSpec tasks together.
+- If the desktop login manager workflow changes, update `docs/desktop-login-manager.md`, `docs/desktop-profiles.md`, `docs/ansible-architecture.md`, `skills/makefile-control-plane.md`, and active OpenSpec tasks. Document managed paths, login manager package atoms, session names, confirmation variables, init-specific service behavior, no-autologin policy, failure modes, and recovery.
 - If destructive Ansible tasks change, update `agents/safety-review-agent.md`, disk safety skills, and OpenSpec `tasks.md` before marking implementation complete.
 - If variables such as `install_disk`, `confirm_wipe_disk`, or the Makefile confirmation variable `I_UNDERSTAND_THIS_WIPES_DISK` change, update variable documentation, safety gates, examples, failure modes, and recovery advice together.
 - If manual intervention handling changes, update `docs/manual-escape-hatch-policy.md`, `docs/install-state-and-resume-checkpoints.md`, `docs/install-audit-bundle.md`, this skill, `skills/makefile-control-plane.md`, and active OpenSpec tasks together.
